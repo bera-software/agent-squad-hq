@@ -1,0 +1,32 @@
+id: iac-scanner-triage
+name: IaC & Container Scanner Triage
+summary: >-
+  Triages Checkov, Trivy (config + image) and hadolint results on PRs that
+  change IaC, Kubernetes manifests or Dockerfiles; explains each failed check,
+  proposes the exact fix and keeps high/critical misconfigurations blocking.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+role: iac-scanner-triage
+badge: "[IaC Scanner] "
+trigger:
+  - event: pull_request.synchronize
+    filter: "changed files match **/*.tf, **/*.tfvars, **/Dockerfile*, **/k8s/**, **/helm/**, **/*.bicep, **/cdk*/**, **/pulumi/**"
+  - command: iac-scan
+inputs: [pr, diff, iac, sarif, ci_results, repo, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: Triage table with fix snippets, one row per failed check
+  - type: json
+    description: "Per-check decisions {check_id, tool, severity, resource, decision, justification}"
+  - type: label
+    labels: [security:review-required, risk:high]
+gate:
+  check: squadhq/iac-scan
+  condition: "Required on IaC/container change: fails on any high/critical misconfiguration without an approver-recorded skip (inline skip comments need an approver review)"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

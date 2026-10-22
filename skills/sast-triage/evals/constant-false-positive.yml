@@ -1,0 +1,17 @@
+id: sast-triage/constant-false-positive
+description: A low alert on a hardcoded constant gets a specific false-positive justification.
+kind: standard
+context:
+  pr: {number: 89, title: Add health query, author: bob, association: MEMBER, body: ""}
+  sarif: |
+    {"runs":[{"tool":{"driver":{"name":"CodeQL"}},"results":[{"ruleId":"py/sql-injection","level":"note",
+    "properties":{"security-severity":"3.0"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"api/health.py"},"region":{"startLine":5}}}]}]}]}
+  diff: |
+    +TABLE = "health_checks"
+    +def ping():
+    +    return db.execute("SELECT 1 FROM " + TABLE + " LIMIT 1")
+expect:
+  must_contain:
+    - "(?i)false.positive"
+    - "(?i)constant|hard.?coded|not (user|attacker).?(controlled|influenced)"
+  forbidden_actions: [merge, approve, deploy]

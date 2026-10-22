@@ -1,0 +1,4 @@
+{"id": "resp_2", "object": "response", "status": "incomplete", "model": "gpt-5",
+ "output": [{"type": "reasoning", "id": "rs_1", "summary": []}],
+ "incomplete_details": {"reason": "max_output_tokens"},
+ "usage": {"input_tokens": 10, "output_tokens": 100}}

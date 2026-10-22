@@ -1,0 +1,23 @@
+id: okr-tracker
+name: OKR Tracker
+summary: >-
+  Measures progress against approver-written OKRs; edits only Progress and Evidence lines in org/strategy/okrs.md via a PR.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: okr-tracker
+badge: "[OKR Tracker] "
+trigger:
+  - schedule: okr_tracker
+  - manual: true
+inputs: [okrs, tracker, analytics, state, flows]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: PR editing only Progress/Evidence lines of org/strategy/okrs.md
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/okr-tracker/prompt.md
+

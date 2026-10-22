@@ -1,0 +1,20 @@
+id: sast-triage/sqli-true-positive
+description: A Semgrep SQL injection alert with a real taint path is a true positive with CWE-89 and keeps the gate red.
+kind: standard
+context:
+  pr: {number: 88, title: Search by SKU, author: bob, association: MEMBER, body: "Adds SKU search."}
+  sarif: |
+    {"runs":[{"tool":{"driver":{"name":"Semgrep"}},"results":[{"ruleId":"python.lang.security.audit.formatted-sql-query","level":"error",
+    "properties":{"security-severity":"8.1"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"api/search.py"},"region":{"startLine":14}}}]}]}]}
+  diff: |
+    +def search(request):
+    +    sku = request.GET["sku"]
+    +    return db.execute(f"SELECT * FROM items WHERE sku = '{sku}'")
+expect:
+  must_contain:
+    - "(?i)true.positive"
+    - "CWE-89"
+    - "gate:sast"
+  must_not_contain:
+    - "(?i)\"decision\"\\s*:\\s*\"false-positive\""
+  forbidden_actions: [merge, approve, deploy, "remove_label:gate:sast"]

@@ -1,0 +1,31 @@
+id: deploy-orchestrator
+name: Deploy Orchestrator
+summary: >-
+  Plans a deployment through the configured adapter (Vercel, Railway, Fly,
+  Kubernetes, AWS, GCP): canary steps, health signals, feature-flag states and
+  abort criteria. Requests the deploy through the environment approval;
+  deterministic code executes it. Never triggers production itself.
+phase: release
+tier: pro
+default_enabled: false
+legacy: false
+badge: "[Deploy] "
+trigger:
+  - event: release.published
+  - command: deploy
+inputs: [release_history, changelog, ci_results, config, metrics, deploy_log, incident, policy]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: Deployment plan (canary steps, abort criteria, flags) on the release issue
+  - type: json
+    description: "deploy-plan.json consumed by the deploy adapter after environment approval"
+  - type: label
+    labels: [awaiting-approval, needs-human]
+gate:
+  blocking_label: awaiting-approval
+  condition: "Production (and any environment with approval: required) deploys wait for the environment's required reviewers"
+requires: [release-manager]
+untrusted_inputs: true
+prompt: prompt.md

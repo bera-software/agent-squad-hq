@@ -1,0 +1,25 @@
+id: legal
+name: Legal
+summary: >-
+  Weekly legal and compliance scan (privacy policy vs practice, consent, terms, claims, new regulation) for configured jurisdictions. Not a lawyer; every finding needs human confirmation.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: legal
+badge: "[Legal] "
+trigger:
+  - schedule: legal_weekly
+  - manual: true
+inputs: [web, tracker, state, flows, config]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: issue
+    description: "\"Legal weekly — <date>\" report plus tickets for high/medium findings"
+  - type: label
+    labels: [report, dept:legal, escalation, severity:high, needs-lawyer]
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/legal/prompt.md
+

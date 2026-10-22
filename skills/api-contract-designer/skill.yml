@@ -1,0 +1,36 @@
+id: api-contract-designer
+name: API Contract designer
+summary: >-
+  For a new or changed endpoint, drafts or updates the OpenAPI/AsyncAPI
+  contract, runs an oasdiff breaking-change check against the base branch and
+  reports the diff with a versioning recommendation.
+phase: design
+tier: core
+default_enabled: true
+legacy: false
+badge: "[API Contract] "
+trigger:
+  - event: pull_request.opened
+    filter: "paths: **/openapi*.{yml,yaml,json}, **/asyncapi*.{yml,yaml,json}, api/**, routes/**, **/*controller*, **/*handler*"
+  - event: pull_request.synchronize
+    filter: "same paths as pull_request.opened"
+  - command: api-contract
+inputs: [pr, diff, openapi, adr, repo, ci_results]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: comment
+    description: Contract diff summary with breaking/non-breaking verdict
+  - type: artifact
+    path: "{spec_path}"
+    description: Spec updated on the PR branch when the code changed but the spec did not
+  - type: check
+    description: "squadhq/api-contract fails while unacknowledged breaking changes remain"
+  - type: label
+    labels: [risk:high]
+gate:
+  check: squadhq/api-contract
+  condition: "Breaking changes (oasdiff breaking, ERR level) without a version bump or an approver's 'breaking-change-accepted' comment fail the check"
+requires: [reviewer]
+untrusted_inputs: true
+prompt: prompt.md

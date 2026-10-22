@@ -1,0 +1,27 @@
+id: mutation-flaky-analyst
+name: Mutation and Flaky-Test Analyst
+summary: >-
+  Weekly report on test-suite health: mutation score from the configured
+  mutation tool, the flakiest tests from CI retry history, and up to five
+  targeted tickets to quarantine, fix or strengthen tests.
+phase: verify
+tier: pro
+default_enabled: false
+legacy: false
+badge: "[Test Health] "
+trigger:
+  - schedule: weekly_test_health
+  - command: test-health
+inputs: [ci_results, repo, commits, tracker]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Weekly report issue 'Test health — <date>' labelled report"
+  - type: issue
+    description: Up to 5 tickets (fix flaky test, kill surviving mutants) labelled debt
+  - type: label
+    labels: [report, debt]
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

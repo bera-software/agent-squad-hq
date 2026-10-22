@@ -1,0 +1,275 @@
+name: Squad HQ — setup hub
+description: >
+  Mint a least-privilege GitHub App token, check the hub out, install the
+  squadhq package and export the SQUADHQ_* settings for later steps. In
+  token-broker mode (SQUADHQ_TOKEN_BROKER on the job env) the ops token comes
+  from the broker (squadhq-token, ADR-0011) and the job needs id-token: write.
+author: Agent Squad HQ
+
+# Composite actions cannot read `vars` or `secrets`; callers pass them in.
+inputs:
+  app-client-id:
+    description: GitHub App client id (vars.SQUADHQ_APP_CLIENT_ID). Not needed when `token` is set.
+    required: false
+    default: ""
+  app-private-key:
+    description: GitHub App private key (secrets.SQUADHQ_APP_PRIVATE_KEY). Not needed when `token` is set.
+    required: false
+    default: ""
+  token:
+    description: An already-minted token. When set, no token is minted.
+    required: false
+    default: ""
+  hub-repo:
+    description: owner/name of the hub. Default vars.SQUADHQ_HUB_REPO, else <owner>/agent-squad-hq.
+    required: false
+    default: ""
+  hub-ref:
+    description: Git ref of the hub to check out. Default main.
+    required: false
+    default: ""
+  hub-path:
+    description: Where the hub lives in the workspace. Hub-repo workflows pass "." (the hub is the checkout).
+    required: false
+    default: .squadhq
+  bot-login:
+    description: Login of the automation identity. Default squadhq-ops[bot].
+    required: false
+    default: ""
+  repositories:
+    description: >
+      Repositories the token covers (owner/name or name, comma or newline separated).
+      Empty: this repository plus the hub. "@projects": the hub plus every repository
+      registered in config/projects.json (needs the hub checked out first).
+    required: false
+    default: ""
+  permission-contents:
+    description: contents permission for the token.
+    required: false
+    default: read
+  permission-issues:
+    description: issues permission for the token.
+    required: false
+    default: ""
+  permission-pull-requests:
+    description: pull-requests permission for the token.
+    required: false
+    default: ""
+  permission-actions:
+    description: actions permission for the token.
+    required: false
+    default: ""
+  permission-checks:
+    description: checks permission for the token.
+    required: false
+    default: ""
+  permission-statuses:
+    description: statuses permission for the token.
+    required: false
+    default: ""
+  permission-workflows:
+    description: workflows permission — only stub-sync and onboarding, which write the agents.yml stub.
+    required: false
+    default: ""
+  permission-actions-variables:
+    description: >
+      actions_variables permission — only for jobs whose bookkeeping reads or sets the
+      one-shot MODEL_OVERRIDE_<JOB> variable (resolve_model, failure_handler).
+      Not a declared input of create-github-app-token; it forwards every permission-* input.
+    required: false
+    default: ""
+  permission-organization-projects:
+    description: organization-projects permission (Projects v2 boards).
+    required: false
+    default: ""
+  git-credentials:
+    description: "true: let plain `git push` in later steps authenticate with this token."
+    required: false
+    default: "false"
+  python-version:
+    description: Python used for the squadhq package.
+    required: false
+    default: "3.12"
+  token-broker:
+    description: Token broker URL. Default env SQUADHQ_TOKEN_BROKER (vars.SQUADHQ_TOKEN_BROKER). Empty = App-key mode.
+    required: false
+    default: ""
+
+outputs:
+  token:
+    description: The scoped token (masked).
+    value: ${{ steps.mint.outputs.token || steps.mint-broker.outputs.token || inputs.token }}
+  hub-repo:
+    description: owner/name of the hub.
+    value: ${{ steps.cfg.outputs.hub-repo }}
+  hub-ref:
+    description: Hub ref that was checked out.
+    value: ${{ steps.cfg.outputs.hub-ref }}
+  hub-path:
+    description: Absolute path of the hub checkout (SQUADHQ_HOME).
+    value: ${{ steps.env.outputs.home }}
+  bot-login:
+    description: Login of the automation identity.
+    value: ${{ steps.cfg.outputs.bot-login }}
+
+runs:
+  using: composite
+  steps:
+    - id: cfg
+      name: Resolve hub settings
+      shell: bash
+      env:
+        IN_HUB_REPO: ${{ inputs.hub-repo }}
+        IN_HUB_REF: ${{ inputs.hub-ref }}
+        IN_HUB_PATH: ${{ inputs.hub-path }}
+        IN_BOT: ${{ inputs.bot-login }}
+        IN_REPOS: ${{ inputs.repositories }}
+        IN_BROKER: ${{ inputs.token-broker }}
+        OWNER: ${{ github.repository_owner }}
+        THIS_REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        hub_repo="${IN_HUB_REPO:-${SQUADHQ_HUB_REPO:-$OWNER/agent-squad-hq}}"
+        case "$hub_repo" in */*) ;; *) hub_repo="$OWNER/$hub_repo" ;; esac
+        if ! [[ "$hub_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          echo "::error::invalid hub repo '$hub_repo'"; exit 1
+        fi
+        hub_ref="${IN_HUB_REF:-main}"
+        if ! [[ "$hub_ref" =~ ^[A-Za-z0-9_./-]+$ ]]; then
+          echo "::error::invalid hub ref '$hub_ref'"; exit 1
+        fi
+        hub_path="${IN_HUB_PATH:-.squadhq}"
+        bot="${IN_BOT:-squadhq-ops[bot]}"
+        present=false
+        [ -f "$hub_path/pyproject.toml" ] && present=true
+
+        if [ -z "$IN_REPOS" ]; then
+          repos="$THIS_REPO"
+          [ "$hub_repo" != "$THIS_REPO" ] && repos="$repos,$hub_repo"
+        elif [ "$IN_REPOS" = "@projects" ]; then
+          if [ "$present" != true ]; then
+            echo "::error::repositories=@projects needs the hub checked out at $hub_path first"; exit 1
+          fi
+          repos=$(python3 - "$hub_path/config/projects.json" "$hub_repo" <<'PY'
+        import json, sys
+        names = [sys.argv[2]]
+        try:
+            for p in json.load(open(sys.argv[1])).get("projects", []):
+                r = p.get("repo", "")
+                if r and r not in names:
+                    names.append(r)
+        except FileNotFoundError:
+            pass
+        print(",".join(names))
+        PY
+          )
+        else
+          repos=$(printf '%s' "$IN_REPOS" | tr '\n' ',' | tr -s ', ' ',' | tr ',' '\n' | awk 'NF && !seen[$0]++' | paste -sd, -)
+        fi
+        {
+          echo "hub-repo=$hub_repo"
+          echo "hub-ref=$hub_ref"
+          echo "hub-path=$hub_path"
+          echo "bot-login=$bot"
+          echo "present=$present"
+          echo "repositories=$repos"
+          echo "broker=${IN_BROKER:-${SQUADHQ_TOKEN_BROKER:-}}"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: mint
+      if: inputs.token == '' && steps.cfg.outputs.broker == ''
+      name: Mint scoped App token
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ steps.cfg.outputs.repositories }}
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-issues: ${{ inputs.permission-issues }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        permission-actions: ${{ inputs.permission-actions }}
+        permission-checks: ${{ inputs.permission-checks }}
+        permission-statuses: ${{ inputs.permission-statuses }}
+        permission-workflows: ${{ inputs.permission-workflows }}
+        permission-actions-variables: ${{ inputs.permission-actions-variables }}
+        permission-organization-projects: ${{ inputs.permission-organization-projects }}
+
+    - id: mint-broker
+      if: inputs.token == '' && steps.cfg.outputs.broker != ''
+      name: Mint the ops token at the token broker (OIDC)
+      shell: bash
+      env:
+        SQUADHQ_TOKEN_BROKER: ${{ steps.cfg.outputs.broker }}
+        TOKEN_IDENTITY: ops
+        TOKEN_REPOSITORIES: ${{ steps.cfg.outputs.repositories }}
+        TOKEN_PURPOSE: ${{ github.job }}
+        TOKEN_PERMISSIONS: >-
+          contents=${{ inputs.permission-contents }},issues=${{ inputs.permission-issues }},
+          pull-requests=${{ inputs.permission-pull-requests }},actions=${{ inputs.permission-actions }},
+          checks=${{ inputs.permission-checks }},statuses=${{ inputs.permission-statuses }},
+          workflows=${{ inputs.permission-workflows }},actions-variables=${{ inputs.permission-actions-variables }},
+          organization-projects=${{ inputs.permission-organization-projects }}
+      # Same client as the squadhq-token action (a composite cannot nest a
+      # local action by a path that holds for every caller).
+      run: python3 -I "$GITHUB_ACTION_PATH/../squadhq-token/broker.py" token
+
+    - if: steps.cfg.outputs.present != 'true'
+      name: Check out the hub
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ steps.cfg.outputs.hub-repo }}
+        ref: ${{ steps.cfg.outputs.hub-ref }}
+        path: ${{ steps.cfg.outputs.hub-path }}
+        token: ${{ steps.mint.outputs.token || steps.mint-broker.outputs.token || inputs.token }}
+        persist-credentials: false
+
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - id: env
+      name: Install squadhq and export settings
+      shell: bash
+      env:
+        HUB_PATH: ${{ steps.cfg.outputs.hub-path }}
+        HUB_REPO_RESOLVED: ${{ steps.cfg.outputs.hub-repo }}
+        HUB_REF_RESOLVED: ${{ steps.cfg.outputs.hub-ref }}
+        BOT: ${{ steps.cfg.outputs.bot-login }}
+      run: |
+        set -euo pipefail
+        home=$(cd "$HUB_PATH" && pwd)
+        # A hashed lock, when the hub ships one, pins every transitive dependency.
+        lock="$home/requirements/actions.lock"
+        if [ -f "$lock" ]; then
+          python -P -m pip install --disable-pip-version-check --quiet --require-hashes -r "$lock"
+          python -P -m pip install --disable-pip-version-check --quiet --no-deps "$home"
+        else
+          python -P -m pip install --disable-pip-version-check --quiet "$home"
+        fi
+        {
+          echo "SQUADHQ_HOME=$home"
+          echo "SQUADHQ_HUB_REPO=$HUB_REPO_RESOLVED"
+          echo "SQUADHQ_HUB_REF=$HUB_REF_RESOLVED"
+          echo "SQUADHQ_ORG=${HUB_REPO_RESOLVED%%/*}"
+          echo "SQUADHQ_BOT_LOGIN=$BOT"
+          # Legacy names still read by some modules.
+          echo "HUB_REPO=$HUB_REPO_RESOLVED"
+          echo "HQ_REPO=$HUB_REPO_RESOLVED"
+        } >> "$GITHUB_ENV"
+        echo "home=$home" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.git-credentials == 'true'
+      name: Let git push authenticate with the token
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.mint.outputs.token || steps.mint-broker.outputs.token || inputs.token }}
+        BOT: ${{ steps.cfg.outputs.bot-login }}
+      run: |
+        set -euo pipefail
+        # The helper reads GH_TOKEN at push time, so only steps that are given
+        # the token can push. Nothing is written to .git/config.
+        gh auth setup-git
+        git config --global user.name "$BOT"
+        uid=$(gh api "/users/$BOT" --jq .id 2>/dev/null || true)
+        git config --global user.email "${uid:+$uid+}$BOT@users.noreply.github.com"

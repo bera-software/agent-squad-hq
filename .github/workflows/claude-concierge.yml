@@ -1,0 +1,77 @@
+name: Concierge
+# Talk to the hub in plain language: "@squad ..." (or "@claude ...") in a
+# comment on a hub issue, from a trusted author. Bot comments never trigger it.
+on:
+  # Gated below on a trusted author association; no PR code is checked out.
+  issue_comment:  # zizmor: ignore[dangerous-triggers]
+    types: [created]
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  PYTHONSAFEPATH: "1"
+
+jobs:
+  concierge:
+    if: >-
+      github.event.comment.user.type != 'Bot' &&
+      (contains(github.event.comment.body, vars.SQUADHQ_TRIGGER || '@squad') || contains(github.event.comment.body, '@claude')) &&
+      contains(format(',{0},', vars.SQUADHQ_TRUSTED_ASSOCIATIONS || 'OWNER,MEMBER,COLLABORATOR'), format(',{0},', github.event.comment.author_association))
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    uses: ./.github/workflows/agent-run.yml
+    with:
+      key: concierge
+      instance: concierge-${{ github.event.issue.number }}
+      role: concierge
+      label-guard-role: concierge
+      tool-profile: comment
+      extra-tools: Bash(gh issue create *),Bash(gh issue edit *),Bash(gh issue close *),Bash(gh pr edit *),Bash(gh label list *)
+      # Issues and labels across registered projects, never code.
+      agent-repositories: "@projects"
+      permission-contents: read
+      permission-issues: write
+      permission-pull-requests: write
+      number: ${{ github.event.issue.number }}
+      requester: ${{ github.event.comment.user.login }}
+      timeout-minutes: 30
+      prompt: |
+        Follow .squadhq/prompts/_shared/subagents.md.
+        You are the approver's operator for this agent squad. A trusted human commented on hub issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+        IDENTITY: every comment you post starts with "[Concierge] ". Pass bodies inline (never --body-file).
+        Read the issue and its thread, config/projects.json (registered project repos) and org/CLAUDE-org.md, then carry out the instruction in the latest comment from @${{ github.event.comment.user.login }}.
+        You MAY: create issues in a REGISTERED repo (title, context from this thread, acceptance criteria); add/remove labels; comment on issues and PRs; close issues you are asked to close. You may NEVER merge, push code, deploy, edit workflows or act in unregistered repos.
+        ROUTING: engineering work always goes to the relevant PROJECT repo, never to this hub. Create a PLAIN issue (no dispatch labels — never apply agent:implement or needs-design) whose body ends with exactly these three lines, so Product Owner intake can verify who asked:
+        Originated-by: Concierge
+        Requested-by: @${{ github.event.comment.user.login }}
+        Requested-by-association: ${{ github.event.comment.author_association }}
+        Finish by replying on THIS issue with what you did and links, or with ONE precise clarifying question. Never include the trigger phrase in your reply.
+        If a gh command is denied, report the denial verbatim and stop that action; never retry elsewhere.
+    secrets:
+      SQUADHQ_APP_PRIVATE_KEY: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+      SQUADHQ_AGENT_APP_PRIVATE_KEY: ${{ secrets.SQUADHQ_AGENT_APP_PRIVATE_KEY }}
+      SQUADHQ_HANDOFF_KEY: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY_1: ${{ secrets.ANTHROPIC_API_KEY_1 }}
+      ANTHROPIC_API_KEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
+      ANTHROPIC_API_KEY_3: ${{ secrets.ANTHROPIC_API_KEY_3 }}
+      ANTHROPIC_API_KEY_4: ${{ secrets.ANTHROPIC_API_KEY_4 }}
+      ANTHROPIC_API_KEY_5: ${{ secrets.ANTHROPIC_API_KEY_5 }}
+      CLAUDE_CODE_OAUTH_TOKEN_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_1 }}
+      CLAUDE_CODE_OAUTH_TOKEN_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+      CLAUDE_CODE_OAUTH_TOKEN_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_3 }}
+      CLAUDE_CODE_OAUTH_TOKEN_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_4 }}
+      CLAUDE_CODE_OAUTH_TOKEN_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_5 }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      SQUADHQ_WEBHOOK_URL: ${{ secrets.SQUADHQ_WEBHOOK_URL }}
+      SQUADHQ_WEBHOOK_SECRET: ${{ secrets.SQUADHQ_WEBHOOK_SECRET }}

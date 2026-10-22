@@ -1,0 +1,39 @@
+id: privacy-dpia
+name: Privacy Officer / DPIA
+summary: >-
+  When a change adds or alters personal data (schema, new processor, tracking),
+  drafts a GDPR Art. 35-structured DPIA record at docs/privacy/dpia-<n>.md with a
+  data map, and blocks the change until a human privacy owner signs it off.
+  Not legal advice.
+phase: business
+tier: enterprise
+default_enabled: false
+legacy: false
+role: privacy-officer
+badge: "[Privacy] "
+trigger:
+  - event: pull_request.synchronize
+    filter: "PII-classified schema/migration paths or new third-party processor changed"
+  - label: needs-dpia
+  - command: dpia
+inputs: [issue, pr, diff, schema, migrations, docs, threat_model, config]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/privacy/dpia-{issue}.md"
+  - type: artifact
+    path: "docs/privacy/data-map.md"
+  - type: pr
+    description: "DPIA PR on branch privacy/dpia-{issue}, body carries Gate-for: #{issue}"
+  - type: comment
+    description: Summary on the source PR/issue with the residual risk rating
+  - type: label
+    labels: [needs-dpia, needs-lawyer]
+gate:
+  blocking_label: needs-dpia
+  check: squadhq/dpia
+  condition: "PRs that change PII-classified schema or add a processor stay blocked until docs/privacy/dpia-<n>.md is merged by a privacy owner"
+requires: [threat-modeler]
+untrusted_inputs: true
+prompt: prompt.md

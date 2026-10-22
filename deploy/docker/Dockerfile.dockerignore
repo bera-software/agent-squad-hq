@@ -1,0 +1,27 @@
+# BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile.
+**/.git
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/htmlcov
+**/.env
+**/.env.*
+!deploy/.env.example
+**/*.db
+**/*.db-wal
+**/*.db-shm
+tests
+evals/*
+!evals/golden
+!evals/thresholds.yml
+docs
+state
+apps
+**/node_modules
+deploy/helm
+deploy/terraform
+deploy/install.sh

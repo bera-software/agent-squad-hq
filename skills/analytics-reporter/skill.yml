@@ -1,0 +1,26 @@
+id: analytics-reporter
+name: Analytics Reporter
+summary: >-
+  Weekly product metrics report from PostHog, GA4 or Mixpanel exports compared
+  against the current OKRs: trend, anomalies, data-quality caveats. Aggregates
+  only, no personal data in the output.
+phase: business
+tier: pro
+default_enabled: false
+legacy: false
+role: analytics-reporter
+badge: "[Analytics] "
+trigger:
+  - schedule: analytics_weekly
+  - command: analytics
+inputs: [analytics, okrs, release_history, tracker, config]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "\"Analytics weekly — <date>\" report issue labelled report + dept:growth"
+  - type: label
+    labels: [report, dept:growth, escalation]
+requires: [okr-tracker]
+untrusted_inputs: true
+prompt: prompt.md

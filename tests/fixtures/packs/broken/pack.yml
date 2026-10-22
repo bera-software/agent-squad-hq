@@ -1,0 +1,7 @@
+id: not-broken
+colour: red
+paths: []
+ci:
+  setup: {kind: cobol}
+  coverage: {format: xml, min_overall: 200}
+tools: ["rm -rf /"]

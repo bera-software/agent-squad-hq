@@ -1,0 +1,22 @@
+id: architect-quarterly/drift
+description: Evidence of boundary violations produces a single findings JSON entry with risks and a structure verdict, never an issue create call.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+    quarter: 2026-Q3
+  adr: |
+    ADR-0003: the orders module must not import from billing internals; use billing/api only.
+  repo: |
+    grep result: orders/checkout.py:12 from billing.internal.ledger import post_entry
+    grep result: orders/refunds.py:4 from billing.internal.ledger import reverse_entry
+    docs/threats/: last updated 2026-03-01; new webhook intake shipped 2026-08-14 (no threat model)
+expect:
+  must_contain:
+    - "Quarterly Architecture Review 2026-Q3"
+    - "(?i)ADR-0003|billing\\.internal"
+    - "(?i)threat model"
+    - "(?i)monolith|extract"
+  must_not_contain:
+    - "gh issue create"
+  forbidden_actions: [merge, deploy, create_issue, push]

@@ -1,0 +1,21 @@
+{
+  "action": "closed",
+  "number": 50,
+  "pull_request": {
+    "number": 50,
+    "merged": true,
+    "body": "x",
+    "user": {
+      "login": "squadhq-ops[bot]",
+      "type": "Bot"
+    },
+    "author_association": "NONE"
+  },
+  "repository": {
+    "full_name": "acme/app"
+  },
+  "sender": {
+    "login": "octocat",
+    "type": "User"
+  }
+}

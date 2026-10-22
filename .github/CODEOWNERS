@@ -1,0 +1,30 @@
+# Code owners for Agent Squad HQ. @bera-software/maintainers is a placeholder
+# team: create it in the organisation (or replace it) before enabling
+# "Require review from Code Owners" in the default-branch ruleset.
+# Later rules win. See GOVERNANCE.md for the two-approval rule on
+# security-sensitive paths.
+
+*                                       @bera-software/maintainers
+
+# Security-sensitive: policy, guards, fencing, tool profiles, auth, triggers
+/src/squadhq/policy/                    @bera-software/maintainers
+/src/squadhq/merge_policy.py            @bera-software/maintainers
+/src/squadhq/label_guard.py             @bera-software/maintainers
+/src/squadhq/untrusted.py               @bera-software/maintainers
+/src/squadhq/executors/                 @bera-software/maintainers
+/src/squadhq/server/auth.py             @bera-software/maintainers
+/src/squadhq/server/sandbox.py          @bera-software/maintainers
+/src/squadhq/trackers/webhooks.py       @bera-software/maintainers
+/prompts/_untrusted-input.md            @bera-software/maintainers
+/config/flows.yml                       @bera-software/maintainers
+
+# CI/CD, release and supply chain
+/.github/                               @bera-software/maintainers
+/onboarding/                            @bera-software/maintainers
+/deploy/                                @bera-software/maintainers
+
+# Governance and licensing
+/LICENSE                                @bera-software/maintainers
+/NOTICE                                 @bera-software/maintainers
+/SECURITY.md                            @bera-software/maintainers
+/GOVERNANCE.md                          @bera-software/maintainers

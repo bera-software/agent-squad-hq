@@ -1,0 +1,27 @@
+id: security-requirements
+name: Security Requirements
+summary: >-
+  Picks the OWASP ASVS level (L1/L2/L3) for a ticket from the data and
+  capabilities it touches, and writes the security NFRs and abuse cases that
+  every size M+ spec must carry.
+phase: plan
+tier: core
+default_enabled: true
+badge: "[Security Requirements] "
+trigger:
+  - event: issues.labeled
+    filter: "label == triaged:ready and ticket size >= M, or the proposal's Security & privacy line is not 'none'"
+  - command: security-requirements
+inputs: [issue, issue_comments, spec, repo, adr, policy, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: "ASVS level with rationale, security NFR table and abuse cases, ready to paste into docs/specs/<n>.md"
+  - type: label
+    labels: [needs-threat-model, needs-human]
+gate:
+  check: squadhq/spec-complete
+  condition: "Size >= M needs an NFR section with an ASVS level before agent:implement"
+untrusted_inputs: true
+prompt: prompt.md

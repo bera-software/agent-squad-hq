@@ -1,0 +1,34 @@
+id: sast-triage
+name: SAST Triage
+summary: >-
+  Triages CodeQL/Semgrep SARIF on a PR: confirms true positives with a fix
+  suggestion, proposes false-positive dismissals with written justification,
+  and never clears a high/critical alert on its own. Feeds the gate:sast check.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+role: sast-triage
+badge: "[SAST Triage] "
+trigger:
+  - event: check_run.completed
+    filter: "check name in [CodeQL, Semgrep] with conclusion in [failure, neutral, action_required]"
+  - label: gate:sast
+  - command: sast-triage
+inputs: [pr, diff, sarif, repo, ci_results, threat_model, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: Triage table on the PR, one row per alert
+  - type: json
+    description: "Per-alert decisions {alert_id, rule, decision, justification} consumed by the gate code"
+  - type: label
+    labels: [gate:sast, security:review-required]
+gate:
+  check: squadhq/sast
+  blocking_label: gate:sast
+  condition: "Fails while any high/critical SAST alert is open and not dismissed by an approver; medium/low need a triage decision"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

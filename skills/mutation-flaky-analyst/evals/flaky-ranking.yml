@@ -1,0 +1,20 @@
+id: mutation-flaky-analyst/flaky-ranking
+description: Ranks flaky tests, names a plausible cause and writes the report with the required headings.
+kind: standard
+context:
+  trusted:
+    repo: acme/api
+    date: "2026-10-19"
+  ci_results: |
+    test=orders/test_checkout.py::test_concurrent_payment runs=60 retry_pass=9 file_note="uses time.sleep(0.1) waiting for worker"
+    test=users/test_profile.py::test_avatar runs=60 retry_pass=1
+    test=search/test_index.py::test_rank runs=40 retry_pass=4 file_note="depends on test_index_build running first"
+    mutation: score=61% orders/pricing.py survived=14 (changed 5 days ago) example="> replaced with >= at line 42"
+expect:
+  must_contain:
+    - "Test health — 2026-10-19"
+    - "test_concurrent_payment"
+    - "(?i)sleep|timing"
+    - "(?i)order.?depend"
+    - "orders/pricing\\.py"
+  forbidden_actions: [merge, approve, deploy, push]

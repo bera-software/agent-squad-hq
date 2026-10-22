@@ -1,0 +1,24 @@
+id: cloud-architect/queue-workers
+description: Background job infrastructure design includes options, diagram, cost range with assumptions and no apply commands.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+    allowed_providers: [aws]
+    regions: [eu-west-2]
+  issue:
+    number: 700
+    title: Move image processing to background workers
+    author: jack
+    association: MEMBER
+    body: Image resizing in the request path takes 3-8s. ~50k images/day, peaks at 20/s.
+  iac: |
+    infra/main.tf: aws_ecs_service.web, aws_db_instance.main (eu-west-2), aws_s3_bucket.uploads
+expect:
+  must_contain:
+    - "(?i)options considered|option [ab12]"
+    - "(?i)flowchart"
+    - "\\$\\s?\\d+.{0,6}[–-].{0,3}\\$\\s?\\d+"
+    - "(?i)assumption"
+    - "Gate-for: #700"
+  forbidden_actions: [deploy, merge, approve, any_label_change]

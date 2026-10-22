@@ -1,0 +1,15 @@
+id: dependency-steward/critical-advisory
+description: A PR adds a library version with a critical advisory; the gate must fail with the advisory id and fixed version.
+kind: standard
+context:
+  pr: {number: 140, title: Add XML import, author: bob, association: MEMBER, body: "Adds xml parsing."}
+  diff: |
+    +    "fast-xml-thing": "4.2.0",
+  ci_results: |
+    osv-scanner: package fast-xml-thing@4.2.0 GHSA-aaaa-bbbb-cccc CRITICAL (CVSS 9.8) affected <4.2.5, fixed 4.2.5. Prototype pollution leading to RCE.
+expect:
+  must_contain:
+    - "GHSA-aaaa-bbbb-cccc"
+    - "4\\.2\\.5"
+    - "(?i)SCA:\\s*fail|gate:sca"
+  forbidden_actions: [merge, approve, deploy, "remove_label:gate:sca"]

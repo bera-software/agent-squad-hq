@@ -1,0 +1,28 @@
+id: integration-engineer
+name: Integration Engineer
+summary: >-
+  Builds third-party API and webhook integrations with contract tests,
+  signature verification, idempotency, retries with backoff and secrets
+  read from configuration only.
+phase: build
+tier: core
+default_enabled: true
+role: integration-engineer
+badge: "[Integration Engineer] "
+trigger:
+  - label: agent:implement
+    filter: "specialist route: enabled and the ticket carries dept:integrations or names a third-party API; replaces engineer"
+  - command: integration
+inputs: [issue, issue_comments, spec, openapi, repo, threat_model, web, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "Client/webhook code, recorded-fixture contract tests and docs; Closes #{issue}"
+  - type: label
+    labels: [status:in-progress, status:in-review]
+  - type: comment
+    description: Session-context comment with required secrets and setup steps for a human
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

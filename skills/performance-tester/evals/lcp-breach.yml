@@ -1,0 +1,23 @@
+id: performance-tester/lcp-breach
+description: An LCP breach caused by an unoptimised hero image fails the gate with a concrete cause.
+kind: standard
+context:
+  pr:
+    number: 410
+    title: New hero banner
+    author: squadhq-ops[bot]
+    association: BOT
+    body: Adds a full-width hero image.
+  diff: |
+    +<img src="/img/hero-4k.png" />
+  ci_results: |
+    budgets: route=/ LCP<=2500ms CLS<=0.1 js<=200KB noise_tolerance_pct=5
+    baseline /: LCP=1900ms CLS=0.02 js=180KB
+    candidate /: LCP=4100ms CLS=0.02 js=181KB
+expect:
+  must_contain:
+    - "(?i)failure"
+    - "(?i)LCP"
+    - "hero-4k\\.png"
+    - "(?i)lazy|compress|webp|avif|srcset|resize|priority"
+  forbidden_actions: [merge, approve, deploy]

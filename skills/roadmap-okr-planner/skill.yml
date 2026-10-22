@@ -1,0 +1,26 @@
+id: roadmap-okr-planner
+name: Roadmap / OKR Planner
+summary: >-
+  Once a quarter, drafts next quarter's OKRs and a now/next/later roadmap
+  from last quarter's OKR progress, delivery data, feedback themes and debt.
+  Drafts only: the owner sets objectives. The OKR Tracker measures them.
+phase: plan
+tier: core
+default_enabled: true
+badge: "[Roadmap Planner] "
+trigger:
+  - schedule: quarterly_okr_draft
+  - command: draft-okrs
+inputs: [okrs, tracker, metrics, analytics, feedback, lessons, cost_ledger, repo, state]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "org/strategy/drafts/okrs-{quarter}.md"
+  - type: pr
+    description: "Draft PR 'OKR draft: <quarter>' labelled awaiting-approval; never edits org/strategy/okrs.md"
+  - type: label
+    labels: [awaiting-approval]
+requires: [okr-tracker]
+untrusted_inputs: true
+prompt: prompt.md

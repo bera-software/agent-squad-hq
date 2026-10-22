@@ -1,0 +1,10 @@
+# golangci-lint defaults seeded by Agent Squad HQ (pack go). Used by the hub's
+# "lint" gate when the project has no golangci-lint config and squadhq.yml
+# sets quality.lint: default. Config format v2 (golangci-lint v2.14.0, run by
+# the gate as `go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...`).
+version: "2"
+linters:
+  default: standard
+formatters:
+  enable:
+    - gofmt

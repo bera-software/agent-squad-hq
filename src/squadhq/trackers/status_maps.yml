@@ -1,0 +1,84 @@
+# Flow-state labels <-> tracker-native workflow states.
+#
+# `states` maps a native status/state/list name (matched case-insensitively)
+# to the flow labels it implies (config/flows.yml label_states.issue).
+# `label_to_state` is the reverse used when the flow engine adds a state
+# label: the adapter moves the ticket to that native state.
+# `open` is where a ticket goes when its state label is removed; `done` is
+# where close_ticket(reason="completed") sends it, `not_planned` for
+# close_ticket(reason="not_planned").
+#
+# GitHub and GitLab carry flow labels natively, so their maps are empty.
+# Override per deployment by passing `overrides=` (same shape) or through
+# squadhq.yml's tracker settings.
+
+github:
+  states: {}
+  label_to_state: {}
+
+gitlab:
+  states: {}
+  label_to_state: {}
+
+jira:
+  open: "To Do"
+  done: "Done"
+  not_planned: "Won't Do"
+  states:
+    "Backlog": []
+    "To Do": []
+    "Open": []
+    "Selected for Development": ["triaged:ready"]
+    "Ready": ["triaged:ready"]
+    "In Progress": ["status:in-progress"]
+    "In Review": ["status:in-review"]
+    "Code Review": ["status:in-review"]
+    "Blocked": ["needs-human"]
+    "Done": []
+    "Won't Do": []
+  label_to_state:
+    "triaged:ready": "Selected for Development"
+    "status:in-progress": "In Progress"
+    "status:in-review": "In Review"
+    "needs-human": "Blocked"
+
+linear:
+  open: "Todo"
+  done: "Done"
+  not_planned: "Canceled"
+  states:
+    "Triage": ["proposal:pending"]
+    "Backlog": []
+    "Todo": ["triaged:ready"]
+    "In Progress": ["status:in-progress"]
+    "In Review": ["status:in-review"]
+    "Blocked": ["needs-human"]
+    "Done": []
+    "Canceled": []
+    "Duplicate": []
+  label_to_state:
+    "proposal:pending": "Triage"
+    "triaged:ready": "Todo"
+    "status:in-progress": "In Progress"
+    "status:in-review": "In Review"
+    "needs-human": "Blocked"
+
+trello:
+  open: "To Do"
+  done: "Done"
+  not_planned: "Done"
+  states:
+    "Backlog": []
+    "To Do": []
+    "Ready": ["triaged:ready"]
+    "Doing": ["status:in-progress"]
+    "In Progress": ["status:in-progress"]
+    "Review": ["status:in-review"]
+    "In Review": ["status:in-review"]
+    "Blocked": ["needs-human"]
+    "Done": []
+  label_to_state:
+    "triaged:ready": "Ready"
+    "status:in-progress": "In Progress"
+    "status:in-review": "In Review"
+    "needs-human": "Blocked"

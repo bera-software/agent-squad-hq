@@ -1,0 +1,29 @@
+id: mention
+name: Mention responder
+summary: >-
+  Answers an approver's "@squad" mention on an issue or PR: explains, fixes
+  code on the PR branch, rebases or resolves conflicts. Never merges.
+phase: build
+tier: core
+default_enabled: true
+legacy: true
+role: mention
+badge: "[Engineer] "
+trigger:
+  - event: issue_comment.created
+    filter: "body contains the trigger phrase (@squad) and the author is an approver"
+  - event: pull_request_review_comment.created
+    filter: "body contains the trigger phrase (@squad) and the author is an approver"
+inputs: [issue, issue_comments, pr, pr_comments, diff, repo, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: comment
+    description: "One reply badged [Engineer] (code changed) or [Assistant] (answer only)"
+  - type: pr
+    description: Commits pushed to the existing PR branch when the mention asks for changes
+  - type: label
+    labels: [needs-human]
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

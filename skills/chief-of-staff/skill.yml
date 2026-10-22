@@ -1,0 +1,27 @@
+id: chief-of-staff
+name: Chief of Staff
+summary: >-
+  Keeps every project board coherent: WIP limits, stalled work, debt share, resurfacing and escalations, every 30-60 minutes.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: chief-of-staff
+badge: "[Chief of Staff] "
+trigger:
+  - schedule: chief_of_staff
+  - manual: true
+inputs: [tracker, state, flows, config]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: Hygiene and unblock comments on stalled issues/PRs
+  - type: label
+    labels: [P0, P1, P2, P3, needs-human, escalation]
+  - type: issue
+    description: Hub escalation issue for cross-project work
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/chief-of-staff/prompt.md
+

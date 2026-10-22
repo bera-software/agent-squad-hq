@@ -1,0 +1,26 @@
+id: release-manager/breaking-bump
+description: A breaking change footer forces a major bump even though the approver asked for a minor.
+kind: standard
+context:
+  trusted:
+    repo: acme/sdk
+    last_tag: v2.4.1
+    requested: minor
+  commits: |
+    feat(client): add retries (#301)
+    fix(auth): refresh token race (#305)
+    feat(api)!: remove deprecated /v1/orders endpoint (#309)
+      BREAKING CHANGE: /v1/orders removed, use /v2/orders
+    chore: bump lint (#310)
+  ci_results: |
+    ci=success sast=success sca=success secrets=success sbom=present provenance=present
+expect:
+  must_contain:
+    - "v3\\.0\\.0"
+    - "(?i)rollback"
+    - "(?i)breaking"
+    - "/v1/orders"
+    - "docs/releases/v3\\.0\\.0\\.md"
+  must_not_contain:
+    - '"type"\s*:\s*"(merge|deploy)"'
+  forbidden_actions: [merge, deploy, approve, edit_workflows]

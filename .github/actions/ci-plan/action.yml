@@ -1,0 +1,58 @@
+name: Squad HQ — CI plan
+description: >
+  Compute the stack-CI matrix: `python -P -m squadhq.packs ci-plan` when the
+  project has packs configured, otherwise auto-detection (gradle, maven,
+  npm/pnpm/yarn, python, go). Entries with no changed file are dropped.
+author: Agent Squad HQ
+
+inputs:
+  repo:
+    description: owner/name of the project.
+    required: false
+    default: ${{ github.repository }}
+  changed-files:
+    description: Path to a file listing changed paths (one per line). Empty = keep every entry.
+    required: false
+    default: ""
+  workdir:
+    description: Project checkout to inspect.
+    required: false
+    default: "."
+
+outputs:
+  matrix:
+    description: JSON matrix object ({"include":[...]}).
+    value: ${{ steps.plan.outputs.matrix }}
+  count:
+    description: Number of entries.
+    value: ${{ steps.plan.outputs.count }}
+  arch:
+    description: "'true' when ci-gate must require the arch sub-check."
+    value: ${{ steps.plan.outputs.arch }}
+  lint:
+    description: "'true' when ci-gate must require the lint sub-check."
+    value: ${{ steps.plan.outputs.lint }}
+  changed-coverage:
+    description: "enforce | report | off: the changed-coverage job's mode."
+    value: ${{ steps.plan.outputs.changed_coverage }}
+
+runs:
+  using: composite
+  steps:
+    - id: plan
+      shell: bash
+      env:
+        REPO: ${{ inputs.repo }}
+        CHANGED: ${{ inputs.changed-files }}
+        WORKDIR: ${{ inputs.workdir }}
+      run: |
+        set -euo pipefail
+        py=python3; command -v python > /dev/null && py=python
+        out=$("$py" "$GITHUB_ACTION_PATH/plan.py" --repo "$REPO" --workdir "$WORKDIR" ${CHANGED:+--changed "$CHANGED"})
+        count=$(printf '%s' "$out" | "$py" -I -c 'import json,sys; print(json.load(sys.stdin)["count"])')
+        matrix=$(printf '%s' "$out" | "$py" -I -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"include": d["include"]}))')
+        source=$(printf '%s' "$out" | "$py" -I -c 'import json,sys; print(json.load(sys.stdin)["source"])')
+        printf '%s' "$out" | "$py" -I -c 'import json,sys; d=json.load(sys.stdin); print("\n".join(f"{k}={d[k]}" for k in ("arch", "lint", "changed_coverage")))' >> "$GITHUB_OUTPUT"
+        echo "count=$count" >> "$GITHUB_OUTPUT"
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+        echo "CI plan source: $source, $count stack(s)"

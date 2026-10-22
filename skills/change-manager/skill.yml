@@ -1,0 +1,33 @@
+id: change-manager
+name: Change Manager
+summary: >-
+  Drafts a change record for each production deploy (risk, impact, test
+  evidence, rollback, schedule), checks it against freeze windows and the
+  CAB-lite policy, and syncs it to ServiceNow or a tracker issue. Approval
+  stays with the named approvers.
+phase: release
+tier: enterprise
+default_enabled: false
+legacy: false
+badge: "[Change Manager] "
+trigger:
+  - event: deployment.created
+    filter: "environment == production"
+  - command: change-record
+inputs: [pr, release_history, changelog, ci_results, config, policy, tracker, incident]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: artifact
+    path: "docs/changes/{change_id}.md"
+    description: Change record, also synced to ServiceNow by the tracker adapter
+  - type: comment
+    description: Change record summary and freeze/CAB verdict on the release PR
+  - type: label
+    labels: [awaiting-approval, needs-human, blocking]
+gate:
+  blocking_label: awaiting-approval
+  condition: "Production deploys during a freeze window, or of risk >= medium, wait for CAB-lite approval from the configured approvers"
+requires: [release-manager]
+untrusted_inputs: true
+prompt: prompt.md

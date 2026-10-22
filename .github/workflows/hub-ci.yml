@@ -1,0 +1,151 @@
+name: Hub CI
+# Every change to this repository: lint, types, tests, generated docs,
+# workflow lint and security audit, and a guard against company references.
+# Configuration validation is hub-config.yml. Not copied into scaffolded hubs
+# (squadhq.config.scaffold.PROJECT_ONLY).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+concurrency:
+  group: hub-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -P -m pip install --disable-pip-version-check --quiet -e '.[dev]'
+      - name: ruff (package, tests and action scripts)
+        run: ruff check .
+      - name: mypy (typed subpackages, blocking)
+        run: |
+          mypy -p squadhq.providers -p squadhq.trackers -p squadhq.notify -p squadhq.config -p squadhq.policy \
+            -p squadhq.executors -p squadhq.codehost -p squadhq.skills -p squadhq.audit -p squadhq.store \
+            -p squadhq.server -p squadhq.scheduler
+      - name: mypy (legacy modules, report only)
+        continue-on-error: true
+        run: mypy src/squadhq
+      - name: pytest
+        run: python -P -m pytest --cov=squadhq --cov-report=term-missing:skip-covered --cov-report=xml -q
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  docs:
+    # squadhq.yml, render --check, flows, packs, skills and the eval dry run are
+    # in hub-config.yml, which every scaffolded hub also carries. This job
+    # checks what only this repository has: the generated docs.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      SQUADHQ_HOME: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -P -m pip install --disable-pip-version-check --quiet .
+      - name: Skills catalogue page (docs/skills/CATALOGUE.md)
+        run: python -P -m squadhq.skills catalogue-md --check
+
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: actionlint
+        run: |
+          set -euo pipefail
+          v=1.7.12
+          curl -sSfL -o "$RUNNER_TEMP/actionlint.tgz" "https://github.com/rhysd/actionlint/releases/download/v$v/actionlint_${v}_linux_amd64.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tgz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+          # The project stub and optional templates, rendered with placeholder values.
+          mkdir -p "$RUNNER_TEMP/stub/.github/workflows"
+          for f in onboarding/agents.yml.stub onboarding/optional/*.stub; do
+            sed -e 's#__HUB_REPO__#example/agent-squad-hq#g' -e 's#__HUB_REF__#0000000000000000000000000000000000000000#g' \
+              -e 's#__HUB_TAG__#v0.0.0#g' -e 's#__ORG__#example#g' "$f" \
+              > "$RUNNER_TEMP/stub/.github/workflows/$(basename "$f" .stub)"
+          done
+          cp onboarding/optional/*.yml "$RUNNER_TEMP/stub/.github/workflows/"
+          "$RUNNER_TEMP/actionlint" -color "$RUNNER_TEMP"/stub/.github/workflows/*.yml
+      - name: Job isolation (agent / untrusted-code jobs hold no privileged credential)
+        run: |
+          python -P -m pip install --disable-pip-version-check --quiet --require-hashes -r requirements/actions.lock
+          python -I .github/lint/isolation.py .github/workflows "$RUNNER_TEMP/stub/.github/workflows"
+      - name: zizmor (high and above fail)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -P -m pip install --disable-pip-version-check --quiet 'zizmor==1.31.1'
+          zizmor --min-severity high .github onboarding/optional
+          # The rendered stub names a placeholder hub repo, so no online lookups.
+          zizmor --offline --min-severity high "$RUNNER_TEMP"/stub/.github/workflows/
+      - name: Pinned actions, no unrestricted shell, no inherited secrets
+        run: |
+          set -euo pipefail
+          bad=$(grep -rnE '^\s*-?\s*uses:\s*[^.][^@]*@' .github onboarding --include='*.yml' --include='*.stub' \
+                | grep -vE '@[0-9a-f]{40}( |$)' | grep -v '__HUB_REF__' || true)
+          [ -z "$bad" ] || { echo "::error::actions not pinned to a commit SHA:"; echo "$bad"; exit 1; }
+          bad=$(grep -rnE '^\s*secrets:\s*inherit|Bash\(\*\)' .github onboarding --include='*.yml' --include='*.stub' \
+                | grep -vE '^[^:]+:[0-9]+:\s*#' || true)
+          [ -z "$bad" ] || { echo "::error::forbidden pattern:"; echo "$bad"; exit 1; }
+
+  guard:
+    # Company references from the private predecessor must not come back.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Grep guard
+        run: |
+          # Character classes keep this line from matching itself. The publisher
+          # (bera-software/agent-squad-hq) is legitimate and not matched.
+          pattern='pai[t]ify|agent[g]uard'
+          hits=$(git grep -nIiE "$pattern" -- . ':!CHANGELOG.md' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::company references found outside CHANGELOG.md:"
+            echo "$hits"
+            exit 1
+          fi

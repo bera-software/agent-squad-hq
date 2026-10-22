@@ -1,0 +1,23 @@
+id: backend-debt
+name: Backend Debt Scanner
+summary: >-
+  Weekly tech-debt scan of the backend pack roots: clusters outdated
+  dependencies, boundary violations, coverage hotspots, duplication and
+  suppressed warnings into deduplicated debt findings.
+phase: operate
+tier: core
+default_enabled: true
+legacy: true
+role: debt-scanner
+badge: "[Debt Scanner] "
+trigger:
+  schedule: debt_scan
+inputs: [repo, adr, tracker, flows, commits]
+tool_profile: read-only
+model_tier: heavy
+outputs:
+  - type: json
+    description: "Findings JSON; code files them as issues labelled debt-proposal + dept:* (severity:high for security/CVE) after dedupe"
+requires: []
+untrusted_inputs: true
+prompt: ../../prompts/debt-scan.md

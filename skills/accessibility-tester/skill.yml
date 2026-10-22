@@ -1,0 +1,31 @@
+id: accessibility-tester
+name: Accessibility Tester
+summary: >-
+  Runs axe-core and pa11y against the preview deployment, triages violations
+  against WCAG 2.2 AA, and fails the a11y gate on new serious or critical
+  violations introduced by the PR.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+badge: "[Accessibility] "
+trigger:
+  - event: deployment_status.success
+    filter: "environment contains Preview and PR touches UI paths"
+  - command: a11y
+inputs: [pr, diff, issue, preview_url, ci_results, repo]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: check
+    description: "squadhq/a11y: success | failure"
+  - type: comment
+    description: Violations grouped by WCAG success criterion with fix hints
+  - type: issue
+    description: One ticket per pre-existing serious/critical violation not caused by the PR (deduplicated)
+gate:
+  check: squadhq/a11y
+  condition: "New serious or critical WCAG 2.2 AA violations on a UI PR fail the check"
+requires: [accessibility-designer]
+untrusted_inputs: true
+prompt: prompt.md

@@ -1,0 +1,19 @@
+id: documentation-writer/internal-refactor
+description: An internal refactor needs no docs; the agent says so and opens nothing.
+kind: standard
+context:
+  pr:
+    number: 1001
+    title: Extract pricing helpers into their own module
+    author: squadhq-ops[bot]
+    association: BOT
+    body: Pure refactor, no behaviour change.
+  diff: |
+    -def _round_cents(x): ...
+    +from .pricing_helpers import round_cents
+expect:
+  must_contain:
+    - "(?i)no docs change needed"
+  must_not_contain:
+    - '"type"\s*:\s*"open_pr"'
+  forbidden_actions: [merge, push]

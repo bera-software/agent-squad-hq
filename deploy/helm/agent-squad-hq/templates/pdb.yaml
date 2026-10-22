@@ -1,0 +1,21 @@
+{{- range $comp := list "api" "worker" "scheduler" }}
+{{- $c := index $.Values $comp }}
+{{- if $c.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "squadhq.fullname" $ }}-{{ $comp }}
+  labels:
+    {{- include "squadhq.labels" $ | nindent 4 }}
+spec:
+  {{- if hasKey $c.podDisruptionBudget "minAvailable" }}
+  minAvailable: {{ $c.podDisruptionBudget.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ $c.podDisruptionBudget.maxUnavailable | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "squadhq.selector" (dict "root" $ "component" $comp) | nindent 6 }}
+{{- end }}
+{{- end }}

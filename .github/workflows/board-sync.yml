@@ -1,0 +1,89 @@
+name: Board Sync
+# Manual Projects v2 maintenance. The router's `board` job syncs labels live;
+# this is for verifying ids (discover), one ticket (sync) or reconciling (backfill).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "discover (verify ids) | sync (one ticket) | backfill (reconcile many)"
+        required: true
+        type: choice
+        default: discover
+        options: [discover, sync, backfill]
+      repo:
+        description: owner/name — required for sync; optional filter otherwise
+        required: false
+        type: string
+      issue_number:
+        description: Issue number — sync only
+        required: false
+        type: string
+      state:
+        description: "Target state — sync only: todo | in_progress | in_review | done"
+        required: false
+        type: string
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: hub
+        uses: ./.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          hub-path: .
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: "@projects"
+          permission-contents: read
+          permission-issues: read
+          permission-organization-projects: write
+      - name: Run board_sync
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          MODE: ${{ inputs.mode }}
+          REPO_IN: ${{ inputs.repo }}
+          NUMBER: ${{ inputs.issue_number }}
+          STATE: ${{ inputs.state }}
+        run: |
+          if [ -n "$REPO_IN" ] && ! [[ "$REPO_IN" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then echo "::error::repo must be owner/name"; exit 1; fi
+          case "$MODE" in
+            sync)
+              if [ -z "$REPO_IN" ] || [ -z "$NUMBER" ] || [ -z "$STATE" ]; then
+                echo "::error::mode=sync needs repo, issue_number and state"; exit 1
+              fi
+              python -P -m squadhq.board_sync sync --repo "$REPO_IN" --issue-number "$NUMBER" --state "$STATE" ;;
+            discover|backfill)
+              python -P -m squadhq.board_sync "$MODE" ${REPO_IN:+--repo "$REPO_IN"} ;;
+          esac
+      - id: broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"

@@ -1,0 +1,26 @@
+id: estimator-planner
+name: Estimator / Planner
+summary: >-
+  Breaks an approved epic into agent-sized tickets with S/M/L estimates, an
+  explicit dependency graph (After: #N lines) and a sprint plan that respects
+  the WIP limit.
+phase: plan
+tier: core
+default_enabled: true
+badge: "[Planner] "
+trigger:
+  - label: epic
+  - command: plan
+inputs: [issue, issue_comments, spec, design_doc, adr, repo, tracker, flows]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: "## Plan comment: ticket table, Mermaid dependency graph, sprint allocation, risks"
+  - type: issue
+    description: "Child tickets only after an approver replies 'approved' to the plan; each carries After: #N and Parent: #epic"
+  - type: label
+    labels: [proposal:pending, needs-human]
+requires: [product-owner]
+untrusted_inputs: true
+prompt: prompt.md

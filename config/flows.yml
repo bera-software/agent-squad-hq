@@ -1,0 +1,2155 @@
+##############################################################################
+# config/flows.yml — single source of truth for label registry, flow state
+# machines, role authority, idempotency rules, and numeric limits.
+#
+# Prompts reference this file for MECHANICAL rules (labels, transitions,
+# limits). JUDGMENT (product thinking, quality bars, writing style) stays
+# in the prose prompts — this file never tells an agent HOW to think, only
+# what labels/limits/authority apply.
+#
+# Edit this file FIRST when changing any label/transition/role/limit, then
+# update the affected prompt(s) to match. docs/FLOW-DIAGRAM.md is
+# auto-generated from this file (src/squadhq/flow_diagram.py) — never hand-edit
+# the diagram. src/squadhq/flow_reader.py validate checks this file's internal
+# consistency (labels referenced in transitions exist, roles referenced
+# exist, no orphan states).
+#
+# Entries carry a `source:` pointer to the code or prompt that enforces
+# them. Where two sources disagreed, the more restrictive rule was kept and
+# the resolution is noted inline as "# CONFLICT:".
+##############################################################################
+
+meta:
+  version: 1
+
+##############################################################################
+# LABELS — full registry. Colors: NONE of these labels have ever had a
+# color anywhere in this codebase — src/squadhq/onboard.py:141 calls
+# `gh label create <l> -R <repo> --force` with no `--color` flag, so every
+# label has always gotten GitHub's random default color. The task premise
+# of "source colors from onboard.py" does not hold; there was nothing to
+# source. The colors below are a NEW addition (not historical), assigned
+# here for the first time as a legible standard palette. onboard.py (step 4
+# of this change) starts applying them going forward.
+##############################################################################
+# LABEL OWNERSHIP. Every real label carries
+# `applied_by`: the roles allowed to ADD it. Enforced in code by
+# src/squadhq/label_guard.py — directly in agent_runner.py's executor (hub loops)
+# and as a `gh` wrapper on PATH in every claude-code-action job (router.yml
+# and the hub's agent workflows), which refuses the add before it happens.
+# `any` = every role; `[]` = no agent at all (router code / the approver only).
+# Removing a label is not guarded. The approver, router.yml's own shell steps
+# and src/squadhq/stuck_sweeper.py are code, not agents, and are never guarded.
+label_role_groups:
+  reporter: [growth, seo, legal, finance, ecosystem-watch, okr-tracker,
+             lessons-harvester, daily-brief, weekly-rollup, architect-quarterly]
+
+labels:
+  dept:
+    "dept:backend":
+      applied_by: [any]
+      color: "1D76DB"
+      description: "Backend engineering ownership."
+      source: "src/squadhq/onboard.py:61"
+    "dept:frontend":
+      applied_by: [any]
+      color: "1D76DB"
+      description: "Frontend engineering ownership."
+      source: "src/squadhq/onboard.py:61"
+    "dept:growth":
+      applied_by: [any]
+      color: "1D76DB"
+      description: >
+        Growth ownership. Also used by SEO's own weekly report and
+        self-actuated tickets — there is no separate dept:seo label.
+        # CONFLICT: prompts/... SEO's report/ticket labeling uses
+        # dept:growth, not a dept:seo that doesn't exist anywhere in the
+        # registry (agents/seo/prompt.md, extraction citation L13-14).
+        # Resolution: documented as intentional (SEO folded under Growth
+        # department), not invented a new label — the more conservative
+        # choice vs adding an untested new label.
+      source: "src/squadhq/onboard.py:61; agents/seo/prompt.md:13-14"
+    "dept:legal":
+      applied_by: [any]
+      color: "1D76DB"
+      description: "Legal ownership."
+      source: "src/squadhq/onboard.py:61"
+    "dept:finance":
+      applied_by: [any]
+      color: "1D76DB"
+      description: "Finance ownership."
+      source: "src/squadhq/onboard.py:61"
+    "dept:engineering":
+      applied_by: [any]
+      color: "1D76DB"
+      description: >
+        Cross-cutting engineering ownership — used by Ecosystem Watch,
+        Chief of Staff (cross-project escalations), Daily Brief, Rollup.
+      source: >
+        src/squadhq/onboard.py:61; agents/ecosystem-watch/prompt.md:54,78;
+        agents/chief-of-staff/prompt.md:149; agents/daily-brief/prompt.md:43;
+        agents/rollup/prompt.md:44
+
+  priority:
+    "P0":
+      applied_by: [chief-of-staff]
+      color: "B60205"
+      description: "Drop everything — security/CVE, production-breaking. Only a approver call, except CoS auto-promotes severity:high debt to P0."
+      source: "src/squadhq/onboard.py:62; agents/chief-of-staff/prompt.md:91"
+    "P1":
+      applied_by: [chief-of-staff, product-owner, support-triage]
+      color: "D93F0B"
+      description: "High priority, next up."
+      source: "src/squadhq/onboard.py:62"
+    "P2":
+      applied_by: [chief-of-staff, product-owner, support-triage]
+      color: "FBCA04"
+      description: "Normal priority."
+      source: "src/squadhq/onboard.py:62"
+    "P3":
+      applied_by: [chief-of-staff, product-owner, support-triage]
+      color: "FEF2C0"
+      description: "Backlog — parked, not being worked. Applied alongside verdict:backlog / verdict:decline."
+      source: "src/squadhq/onboard.py:62; router.yml:1420"
+
+  dispatch:
+    "agent:implement":
+      # No chief-of-staff: dispatch is deterministic (stuck
+      # sweeper plan_dispatch); a CoS add would start a second agent run.
+      applied_by: [product-owner, stuck-sweeper]
+      color: "0E8A16"
+      description: "Ready for the Engineer to implement. Triggers router.yml's implement job."
+      source: "src/squadhq/onboard.py:62; router.yml:145,175,940,1983,1986,2012"
+    "needs-design":
+      applied_by: [chief-of-staff, product-owner, engineer, stuck-sweeper]
+      color: "5319E7"
+      description: "Big/architectural — routed to the Architect for a design PR before implementation. Triggers router.yml's design job."
+      source: "src/squadhq/onboard.py:62; router.yml:149,1112,1689"
+    "agent:shape":
+      applied_by: [stuck-sweeper]
+      color: "C5DEF5"
+      description: >
+        Re-run the Product Owner's CLASSIFY on an issue whose first intake
+        never landed. Triggers router.yml's po-shape job (labeled path); the
+        job removes it again after the run. Applied by hand, or by
+        src/squadhq/stuck_sweeper.py for an issue still unshaped past
+        flood-guards.stuck_sweeper.thresholds_minutes.unshaped.
+      source: "router.yml po-shape job (labeled path); src/squadhq/stuck_sweeper.py"
+    "agent:continue":
+      applied_by: [stuck-sweeper]
+      color: "C5DEF5"
+      description: >
+        Re-run the Product Owner's continuation (po-continue) for a approver
+        reply on a proposal:pending / verdict:backlog / verdict:decline issue
+        that never got an answer — the original run was skipped by the
+        capacity breaker or failed. The job removes it after the run.
+      source: "router.yml po-continue job (labeled path); src/squadhq/stuck_sweeper.py"
+
+  status:
+    "needs-human":
+      applied_by: [any]
+      color: "D93F0B"
+      description: "Blocked on a approver decision — ambiguity, round-cap hit, push failure, missing impact justification."
+      source: >
+        src/squadhq/onboard.py:62; router.yml:681,831,866,2177,2193,2204,2450,
+        2470,2670,2692,2693
+    "status:in-progress":
+      applied_by: [engineer, architect, data-engineer, database-migration-engineer, frontend-engineer, iac-devops-engineer, integration-engineer, ml-engineer]
+      color: "FBCA04"
+      description: "An agent is actively working the ticket/PR right now."
+      source: "src/squadhq/onboard.py:64; router.yml:2010"
+    "status:in-review":
+      applied_by: [engineer, architect, data-engineer, database-migration-engineer, frontend-engineer, iac-devops-engineer, integration-engineer, ml-engineer]
+      color: "FBCA04"
+      description: >
+        Something of this ticket awaits review: an open implementation PR, an
+        open design PR, or a REPORT result the Engineer delivered as a comment
+        ("Delivered — moved to review", approver closes it). True ONLY while one
+        of those holds — src/squadhq/stuck_sweeper.py's reconciler removes it
+        otherwise (e.g. the design PR merged), so gate-cleared tickets never freeze in it.
+      source: "src/squadhq/onboard.py:64; router.yml:2011,2015"
+    "ready-to-merge":
+      # Applied only by deterministic code holding the ops identity: the
+      # review-post job (from the reviewer's verdict, as data) and the stuck
+      # sweeper. No agent role owns it; router self-merge requires the ops
+      # sender and merge_policy re-checks who added it.
+      applied_by: [stuck-sweeper]
+      color: "0E8A16"
+      description: >
+        Reviewer approved. Applying this label is what fires router.yml's
+        self-merge job. That job merges when EITHER config/projects.json
+        merge_mode is "auto" (blanket, still off everywhere) OR the PR
+        matches merge_policy.auto_merge below (risk-based, on). Otherwise
+        the approver merges. The Reviewer MUST remove this label on any
+        re-review that changes the verdict, and on a re-review triggered by
+        a base-branch change (a stacked PR's base merging) — see
+        merge_policy.safety_rails.
+      source: "src/squadhq/onboard.py:65; router.yml:196,2364,2371; prompts/review.md"
+    "fork:approved":
+      # HUMAN ONLY. A maintainer applies it after reviewing a fork PR; ci-gate
+      # accepts it only from a non-bot user, added after the current head.
+      applied_by: []
+      color: "5319E7"
+      description: >
+        A maintainer reviewed this fork PR. Until it is present ci-gate fails
+        with "human review required": a fork controls its own copy of the stub
+        workflow, so nothing it reports is trusted. Forks are protected
+        primarily by the required human approval and the "Require approval
+        for all outside collaborators" Actions setting.
+      source: "router.yml ci-gate"
+    "needs-approver-merge":
+      applied_by: []
+      color: "E99695"
+      description: >
+        Reviewer approved, but router.yml's self-merge job decided the PR does
+        NOT qualify for automatic merge — it did not match
+        merge_policy.auto_merge, or the merge request itself was rejected.
+        Applied by that job together with a "[Self-Merge]" PR comment naming
+        the reason, so the decision is visible on the PR and not only in a run
+        summary. Also the dedupe key for that comment: present means the
+        approver has already been told, so the job stays quiet on the Reviewer's
+        next re-application of "ready-to-merge".
+        REMOVED by the same job when a later round DOES qualify (a stale one
+        would make the Daily Brief list an auto-merging PR as awaiting a
+        click), and by the Reviewer on REQUEST CHANGES.
+        Read by agents/daily-brief/prompt.md §1 Decisions.
+      source: "router.yml self-merge job; agents/daily-brief/prompt.md"
+    "review:changes-requested":
+      # From the reviewer's verdict via review-post (ops identity), or the sweeper.
+      applied_by: [stuck-sweeper]
+      color: "D93F0B"
+      description: "Reviewer requested changes. Triggers router.yml's review-fix job (capped at 2 automated rounds)."
+      source: "src/squadhq/onboard.py:65; router.yml:140,679,689,837,854"
+    "escalation":
+      applied_by: [any]
+      color: "E99695"
+      description: "Needs approver attention outside the normal ticket flow — workflow failure, budget cap, stall, cross-project item, capacity trip."
+      source: "src/squadhq/onboard.py:63; router.yml:821,2034,2801"
+
+  lifecycle:
+    "debt":
+      applied_by: [chief-of-staff, stuck-sweeper, dependency-steward]
+      color: "006B75"
+      description: "Accepted tech-debt work, dispatched like a normal ticket."
+      source: "src/squadhq/onboard.py:63; router.yml:593,1284,1293; tech-debt-weekly.yml:64,81,98,99,105,106,187,196,236"
+    "debt-proposal":
+      applied_by: [debt-scanner]
+      color: "BFD4F2"
+      description: "Unreviewed debt-scanner finding, awaiting CoS's DEBT INTAKE accept/decline."
+      source: "src/squadhq/onboard.py:63; router.yml:1287,1290,1292; tech-debt-weekly.yml:105"
+    "awaiting-approval":
+      applied_by: [growth, product-owner]
+      color: "C2E0C6"
+      description: >
+        Content awaiting the approver's manual approval/posting. The
+        Product Owner applies it to a channel:external
+        content ticket it approves (flows.content-flow); never dispatched —
+        it is in stuck_sweeper's BLOCKING and APPROVER_WAIT_LABELS.
+      source: "src/squadhq/onboard.py:63; prompts/product-owner.md CONTENT TICKETS; flows.content-flow"
+    "proposal:pending":
+      applied_by: [product-owner]
+      color: "BFDADC"
+      description: "PO posted a NEEDS SHAPING ## Proposal comment; waiting on team input and/or approver reply."
+      source: "src/squadhq/onboard.py:65; router.yml:163,165,1413,1415,1421,1431,1491,1493"
+    "triaged:ready":
+      applied_by: [product-owner, chief-of-staff]
+      color: "C5DEF5"
+      description: "PO classified SHAPED — concrete, single deliverable. CoS dispatches from here."
+      source: "src/squadhq/onboard.py:65; agents/chief-of-staff/prompt.md (dispatch duty)"
+
+  # CONTENT CHANNEL: Growth/SEO content drafts are
+  # project work, cut as project-repo tickets the PO validates
+  # (flows.content-flow). The channel decides what happens after the PO.
+  channel:
+    "channel:blog":
+      applied_by: [growth, seo]
+      color: "FBCA04"
+      description: >
+        Content for the project's own blog. PO validates like any ticket;
+        SHAPED -> triaged:ready -> Engineer opens a PR adding the post.
+        Merging the PR publishes it.
+      source: "agents/growth/prompt.md CONTENT; agents/seo/prompt.md SELF-ACTUATE; prompts/product-owner.md CONTENT TICKETS"
+    "channel:external":
+      applied_by: [growth]
+      color: "FEF2C0"
+      description: >
+        Content for an external venue (DEV, Indie Hackers, Reddit, a reply
+        thread). Nothing to build: PO validates, then awaiting-approval for
+        the approver to post by hand. NEVER agent:implement — router.yml's
+        implement job and stuck_sweeper's BLOCKING both refuse it.
+      source: "agents/growth/prompt.md CONTENT; prompts/product-owner.md CONTENT TICKETS; router.yml implement job; src/squadhq/stuck_sweeper.py BLOCKING"
+
+  # DEPARTMENT REPORTS: anything about one project lives
+  # in that project's repo — including the SEO/Legal/Growth reports, which
+  # used to be hub issues. "report" marks them as not-work: excluded from
+  # gather's open_issues (agent_runner.py gathers them as recent_reports),
+  # never carries Originated-by: (so no PO intake), and retired after
+  # flood-guards.hub_janitor.project_reports.retain_days by the janitor.
+  report:
+    "report":
+      applied_by: [growth, seo, legal, analytics-reporter, documentation-gardener, finops]
+      color: "EDEDED"
+      description: >
+        A department report (SEO weekly, Legal weekly, Growth nightly), not a
+        work item. Closed by the janitor after 14 days (newest of each series
+        kept). Filter it out of the board's work views.
+      source: "agents/seo/prompt.md; agents/legal/prompt.md; agents/growth/prompt.md; src/squadhq/agent_runner.py gather; src/squadhq/hub_janitor.py"
+
+  verdict:
+    "verdict:proceed":
+      applied_by: [product-owner]
+      color: "BFD4F2"
+      description: "PO's audit-trail stamp for a PROCEED call. Never touched by CoS."
+      source: "src/squadhq/onboard.py:66"
+    "verdict:backlog":
+      applied_by: [product-owner]
+      color: "D4C5F9"
+      description: "PO's audit-trail stamp for a BACKLOG call. Applied with P3; the stuck sweeper closes it after stuck_sweeper.backlog_close_days without a approver reply."
+      source: "src/squadhq/onboard.py:66; router.yml:164,165,1418,1424,1432,1492,1495"
+    "verdict:decline":
+      applied_by: [product-owner]
+      color: "D4C5F9"
+      description: "PO's audit-trail stamp for a DECLINE call. Applied with P3; the stuck sweeper closes it after stuck_sweeper.decline_close_days without a approver reply."
+      source: "src/squadhq/onboard.py:66; router.yml:164,165,1418,1424,1432,1492,1495"
+    "verdict:overridden":
+      applied_by: [product-owner]
+      color: "5319E7"
+      description: "Approver overrode a verdict:backlog/verdict:decline (do-it-now / do it anyway). Dispatched same run."
+      source: "src/squadhq/onboard.py:66; router.yml:1424"
+
+  severity:
+    "severity:high":
+      applied_by: [debt-scanner, reporter, secrets-response]
+      color: "B60205"
+      description: >
+        CVE/security findings (debt scanners — see note below), deadline
+        <30-day Ecosystem Watch action items, HIGH-severity Legal findings,
+        >80%-of-budget Finance pace warnings.
+        # The debt scanner applies severity:high to every CVE/security
+        # finding, whatever the stack, so CoS's debt-intake promotes it to P0.
+      source: "src/squadhq/onboard.py:63; prompts/debt-scan.md"
+
+  dynamic:
+    "project:<name>":
+      applied_by: [reporter]
+      color: "5319E7"
+      description: >
+        One label per registered project (config/projects.json), created
+        in the HUB repo only (never in project repos). Applied to every
+        reporting agent's hub issue. NOT present in src/squadhq/onboard.py's
+        static LABELS array — it's generated per-project by onboard.py's
+        own project-registration step, missed by a naive "read LABELS"
+        extraction. Included here so the registry is actually complete.
+      source: "src/squadhq/onboard.py:142,192 (created per-project, not in LABELS)"
+
+  # HUB-ONLY labels. Real GitHub labels, but they belong on the hub repo and
+  # nowhere else — a project repo has no use for them and should not carry
+  # them. Excluded from static_label_names() (src/squadhq/flow_reader.py's
+  # _STATIC_LABEL_EXCLUDED_CATEGORIES) so onboard.py never creates them on a
+  # project; created on the HUB by onboard.py's apply(), alongside
+  # project:<name>.
+  # Both are applied by
+  # src/squadhq/agent_runner.py's MODE_LABEL and demanded by the two digest
+  # prompts, but appeared nowhere in this registry — so nothing ever created
+  # them, and they only worked because they had been made by hand in the hub.
+  # On a fresh hub the create_issue call would have failed "label not found"
+  # and silently retried unlabeled (agent_runner.py:721-727), leaving Growth's
+  # "read strategy context from any issue labeled daily-brief" instruction
+  # matching nothing, forever.
+  hub_only:
+    "daily-brief":
+      applied_by: [daily-brief]
+      color: "0052CC"
+      description: >
+        The Daily Brief's own report issue (one per weekday). Also read by
+        agents/growth/prompt.md for strategy context.
+      source: >
+        src/squadhq/agent_runner.py:1094-1098 MODE_LABEL; agents/daily-brief/prompt.md:4;
+        agents/growth/prompt.md:11; README.md
+    "weekly-rollup":
+      applied_by: [weekly-rollup]
+      color: "0052CC"
+      description: "The Weekly Rollup's own report issue (one per Monday)."
+      source: >
+        src/squadhq/agent_runner.py:1094-1098 MODE_LABEL; agents/rollup/prompt.md:24;
+        README.md
+
+  # RISK CLASSIFICATION — applied by the Reviewer on its APPROVE verdict
+  # (prompts/review.md's handoff "Risk:" line), read by router.yml's
+  # self-merge job to evaluate merge_policy.auto_merge (below).
+  # The label is the MODEL's judgment. squadhq.policy.risk computes a
+  # deterministic path floor (auth, payments, migrations, dependencies,
+  # workflows, IaC, secrets) and the final risk is max(label, floor): a
+  # model can raise risk, never lower it.
+  risk:
+    "risk:low":
+      # Applied by review-post (ops identity) as max(reviewer verdict, path floor).
+      applied_by: []
+      color: "0E8A16"
+      description: >
+        Reviewer-assessed low risk. One of the conditions in
+        merge_policy.auto_merge.requires_all — the others being reviewer
+        APPROVE, bot-authored, no failing check, and a path-based risk floor
+        of low (squadhq.policy.risk). Only consulted when
+        merge_policy.auto_merge is enabled (off by default).
+      source: "prompts/review.md APPROVE handoff; merge_policy.auto_merge"
+    "risk:medium":
+      applied_by: []
+      color: "FBCA04"
+      description: >
+        Reviewer-assessed medium risk — also the Reviewer's deliberate
+        "I am not certain" escape hatch. Always forces a approver merge.
+      source: "prompts/review.md APPROVE handoff; merge_policy.auto_merge"
+    "risk:high":
+      # Raising risk is always safe, so specialists may still add it.
+      applied_by: [data-engineer, database-migration-engineer, iac-devops-engineer, iac-scanner-triage, rollback]
+      color: "D93F0B"
+      description: "Reviewer-assessed high risk. Always forces a approver merge."
+      source: "prompts/review.md APPROVE handoff; merge_policy.auto_merge"
+
+  # SSDLC ARTIFACTS — threat model, security review and the deterministic
+  # scan gates (SAST / SCA / secrets). A gate:* label only ever BLOCKS: the
+  # triage roles may add it (raising the bar is safe), but merge decisions
+  # read the scan CHECK result in ci-gate, never the absence of the label —
+  # so a model removing one cannot make a failing scan pass.
+  security:
+    "needs-threat-model":
+      applied_by: [product-owner, architect, security-reviewer]
+      color: "B60205"
+      description: >
+        The change needs a threat model (STRIDE + OWASP LLM Top 10) before
+        implementation: new trust boundary, auth/crypto/PII/payments, or a
+        design whose risk is medium or above. The Threat Modeler writes
+        docs/threats/<n>.md and removes the label when it lands.
+      source: "docs/security/ssdlc.md (Design)"
+    "security:review-required":
+      applied_by: [reviewer, threat-modeler, security-reviewer, dependency-steward, iac-scanner-triage, sast-triage, secrets-response]
+      color: "D93F0B"
+      description: >
+        An independent security review is required before merge — always the
+        case when the final risk (squadhq.policy.risk) is medium or above.
+        Removed only by the Security Reviewer's verdict.
+      source: "docs/security/ssdlc.md (Review)"
+    "security:approved":
+      applied_by: [security-reviewer]
+      color: "0E8A16"
+      description: >
+        The independent Security Reviewer (a different model or provider from
+        the author) approved the change. Required for auto-merge when
+        merge_policy.auto_merge is enabled.
+      source: "docs/security/ssdlc.md (Review)"
+    "gate:sast":
+      applied_by: [sast-triage]
+      color: "5319E7"
+      description: "Static analysis (CodeQL/Semgrep) found blocking issues on the PR head. Raised by ci-gate or the matching triage role; ci-gate's required check, not this label, decides the merge."
+      source: "docs/security/ssdlc.md (gates)"
+    "gate:sca":
+      applied_by: [dependency-steward]
+      color: "5319E7"
+      description: "Dependency scan (OSV/npm audit/pip-audit) found a blocking vulnerability or license violation. Raised by ci-gate or the matching triage role; ci-gate's required check, not this label, decides the merge."
+      source: "docs/security/ssdlc.md (gates)"
+    "gate:secrets":
+      applied_by: [secrets-response]
+      color: "5319E7"
+      description: "Secret scanning (gitleaks) found a committed credential. Raised by ci-gate or the matching triage role; ci-gate's required check, not this label, decides the merge."
+      source: "docs/security/ssdlc.md (gates)"
+
+  # OPERATIONS & BUSINESS — trigger labels for incident, planning, support,
+  # privacy and sales skills (skills/*/skill.yml). `[]` = applied by humans
+  # or code (alert webhooks, squadhq.skills.uptime), never by an agent.
+  operations:
+    "incident":
+      applied_by: []
+      color: "B60205"
+      description: "A production incident (uptime watcher, alert webhook or a human). Starts the SRE incident responder; closing it starts the postmortem writer."
+      source: "skills/sre-incident-responder/skill.yml; skills/uptime-watcher/skill.yml"
+    "epic":
+      applied_by: [product-owner]
+      color: "3E4B9E"
+      description: "An approved epic the Estimator/Planner breaks into agent-sized tickets with After: #N dependencies."
+      source: "skills/estimator-planner/skill.yml"
+    "question":
+      applied_by: []
+      color: "D876E3"
+      description: "A how-do-I question about Agent Squad HQ; the Onboarding Guide answers from the docs."
+      source: "skills/onboarding-guide/skill.yml"
+    "needs-dpia":
+      applied_by: [privacy-officer]
+      color: "B60205"
+      description: "Processing of personal data changed; a DPIA (docs/privacy/) is required before merge."
+      source: "skills/privacy-dpia/skill.yml"
+    "questionnaire":
+      applied_by: []
+      color: "C5DEF5"
+      description: "An RFP or security questionnaire for the Sales Engineer to draft answers to from the company's own docs."
+      source: "skills/sales-engineer/skill.yml"
+    "pentest:requested":
+      applied_by: []
+      color: "B60205"
+      description: "An approver requested a scoped pentest pass on a preview/staging target. Only humans apply it — it authorises active testing."
+      source: "skills/pentest-assistant/skill.yml"
+
+  # Present in src/squadhq/onboard.py's LABELS (so still created on every repo,
+  # unchanged behavior) but never referenced by any workflow condition or
+  # dispatch rule anywhere in the codebase. Kept for backward compatibility
+  # — dropping them would silently stop creating labels some external
+  # process might expect. Marked deprecated so nothing new is built on them.
+  deprecated:
+    "refactor":
+      applied_by: []
+      color: "CCCCCC"
+      description: "Unused. No prompt or workflow ever applies this label."
+      source: "src/squadhq/onboard.py:62 (dead — confirmed via full-codebase grep)"
+
+  # Deliberately NOT part of the GitHub label registry — never created via
+  # `gh label create`, never applied via `gh issue edit --add-label`. These
+  # are plain-text conventions written into report/comment PROSE that
+  # downstream prompts grep for as substrings. Listed here only so nobody
+  # "fixes" their absence from labels.* by mistakenly turning them into
+  # real GitHub labels.
+  report_tags_not_real_labels:
+    "needs-lawyer":
+      description: >
+        Written into a Legal report's body text for items requiring lawyer
+        confirmation — never a GitHub label. org/CLAUDE-org.md's
+        Self-actuation policy and agents/legal/prompt.md both reference the
+        literal substring "needs-lawyer", not a label.
+      source: "org/CLAUDE-org.md:40; agents/legal/prompt.md:42"
+    "blocking":
+      description: >
+        A yes/no field inside team-thread assessment comments
+        ("blocking: yes"/"blocking: no"), read by the final agreement step
+        to classify CONSENSUS vs DISSENT. Never a GitHub label.
+      source: "router.yml team-thread job, assessment steps ~1693-1912"
+
+##############################################################################
+# FLOWS — six state machines. Each transition cites the actor (job name or
+# role) and the exact trigger condition where one exists in code.
+##############################################################################
+flows:
+
+  ticket-lifecycle:
+    description: >
+      A ticket's life from a plain issue to a merged/closed PR, covering
+      both the approver-authored and self-actuated (Originated-by:) paths.
+    states: [new, needs_shaping, shaped, dispatched, needs_design,
+             in_progress, in_review, needs_human, closed]
+    transitions:
+      - from: new
+        to: shaped
+        trigger: "issues.opened, PO classifies SHAPED"
+        actor: product-owner
+        condition: "concrete, single deliverable, clear acceptance implied"
+        labels_add: ["triaged:ready"]
+        note: >
+          The PO also stamps exactly one verdict:* label on every intake
+          (see roles.product-owner) — PROCEED usually accompanies this
+          transition; BACKLOG/DECLINE instead route to override-flow's
+          `parked` state regardless of SHAPED/NEEDS SHAPING classification.
+        source: "router.yml:1281 po-shape job; prompts/product-owner.md:50-54,138-149"
+      - from: new
+        to: needs_shaping
+        trigger: "issues.opened, PO classifies NEEDS SHAPING"
+        actor: product-owner
+        condition: "open-ended / multi-part / ambiguous / strategic"
+        labels_add: ["proposal:pending"]
+        source: "router.yml:1281 po-shape job; prompts/product-owner.md:56-75"
+      - from: new
+        to: new
+        trigger: "issues.labeled agent:shape (manual, or stuck-sweeper re-fire)"
+        actor: "approver OR stuck-sweeper"
+        condition: "issue still carries no PO outcome label past the unshaped threshold"
+        labels_add: ["agent:shape"]
+        note: >
+          Re-entry into intake, not a new state: po-shape runs CLASSIFY again
+          and then removes agent:shape. The outcome is one of the two
+          transitions above.
+        source: "router.yml po-shape job (labeled path); src/squadhq/stuck_sweeper.py"
+      - from: needs_shaping
+        to: shaped
+        trigger: "team-thread CONSENSUS, or approver approval/override reply"
+        actor: "team-thread (final agreement step) OR po-continue"
+        labels_remove: ["proposal:pending"]
+        labels_add: ["agent:implement", "needs-design"]
+        note: "one of the two, per the shaped ticket plan — agent:implement for a code ticket, needs-design for size-L/architectural"
+        source: "router.yml:1412 po-continue; router.yml:1560 team-thread; see also override-flow"
+      - from: shaped
+        to: dispatched
+        trigger: "hourly deterministic dispatch: WIP slot free, ready (triaged:ready or accepted debt), impact context present, After: order met"
+        actor: stuck-sweeper
+        condition: "not needs-design, not P3"
+        labels_add: ["agent:implement"]
+        labels_remove: ["triaged:ready"]
+        source: "agents/chief-of-staff/prompt.md duty 2 (L75-77)"
+      - from: shaped
+        to: needs_design
+        trigger: "CoS triage duty, size L / architectural"
+        actor: chief-of-staff
+        labels_add: ["needs-design"]
+        source: "agents/chief-of-staff/prompt.md duty 1 (L73-74)"
+      - from: needs_design
+        to: dispatched
+        trigger: "design PR merged, gate cleared (see design-gate flow)"
+        actor: chief-of-staff
+        labels_remove: ["needs-design"]
+        labels_add: ["agent:implement"]
+        source: "agents/chief-of-staff/prompt.md duty 6; see flows.design-gate"
+      - from: dispatched
+        to: in_progress
+        trigger: "issues.labeled agent:implement"
+        actor: implement-job
+        condition: "github.event.label.name == 'agent:implement'"
+        labels_add: ["status:in-progress"]
+        source: "router.yml:939-941 implement job; prompts/implement.md:49-51,142-145"
+      - from: in_progress
+        to: in_review
+        trigger: "PR opened, Closes #N"
+        actor: implement-job
+        labels_add: ["status:in-review"]
+        labels_remove: ["status:in-progress"]
+        source: "prompts/implement.md:49-51"
+      - from: [needs_design, in_review]
+        to: dispatched
+        trigger: "design PR (Gate-for: #N) merged — reconciled hourly by the stuck sweeper"
+        actor: stuck-sweeper
+        labels_remove: ["needs-design", "status:in-review", "status:in-progress"]
+        labels_add: ["agent:implement"]
+        note: >
+          Deterministic gate-clear from PR facts, never left to a model.
+          Under the WIP limit it adds agent:implement (fires implement);
+          at the limit it adds triaged:ready for CoS to dispatch later.
+        source: "router.yml ticket-transition (on the merge, seconds) + src/squadhq/stuck_sweeper.py reconcile_issue (hourly backstop)"
+      - from: [dispatched, in_progress, in_review]
+        to: needs_human
+        trigger: "the ticket's PR (implementation or design) was CLOSED without merging"
+        actor: stuck-sweeper
+        labels_remove: ["status:in-review", "status:in-progress"]
+        labels_add: ["needs-human"]
+        note: "A human closed the work — re-dispatch or drop is a approver call, never guessed."
+        source: "src/squadhq/stuck_sweeper.py reconcile_issue"
+      - from: in_review
+        to: closed
+        trigger: "approver merges PR (review-loop flow's approved state) — Closes #N auto-closes"
+        actor: approver
+        condition: "PR must appear in agent_runner.py's recent_merged list before any agent asserts closure"
+        source: "agents/chief-of-staff/prompt.md duty 5 STATE GROUNDING; router.yml:2342 auto-merge"
+
+  review-loop:
+    description: >
+      A PR's life from open to merged, including the bounded 2-round
+      automated fix loop.
+    states: [pr_opened, classified, ci_running, review_pending,
+             changes_requested, fix_round, needs_human, approved, merged]
+    transitions:
+      - from: pr_opened
+        to: classified
+        trigger: "pull_request or push"
+        actor: detect-changes
+        condition: "github.event_name in ('pull_request','push')"
+        outputs: [backend, frontend, config, docs_only, ci_relevant, needs_review, change_scope]
+        source: "router.yml:221-233 detect-changes job (dorny/paths-filter@v4)"
+      - from: classified
+        to: ci_running
+        trigger: "pull_request, not draft"
+        actor: "backend-ci or frontend-ci"
+        condition: "detect-changes.outputs.backend|frontend == 'true'"
+        source: "router.yml:391-396 backend-ci; router.yml:449-454 frontend-ci"
+      - from: classified
+        to: review_pending
+        trigger: "pull_request, not draft, needs_review == 'true'"
+        actor: reviewer
+        condition: "a docs-only PR (needs_review=='false') skips this state entirely"
+        source: "router.yml:469-483 review job"
+      - from: review_pending
+        to: approved
+        trigger: "Reviewer APPROVE"
+        actor: reviewer
+        labels_add: ["ready-to-merge"]
+        labels_remove: ["review:changes-requested"]
+        source: "prompts/review.md:119-121"
+      - from: review_pending
+        to: changes_requested
+        trigger: "Reviewer REQUEST CHANGES"
+        actor: reviewer
+        condition: "no linked issue is an automatic REQUEST CHANGES; round 2+ must cite bug/security/rule-violation only, never style"
+        labels_add: ["review:changes-requested"]
+        labels_remove: ["ready-to-merge"]
+        source: "prompts/review.md:139-141,113-115,144"
+      - from: changes_requested
+        to: fix_round
+        trigger: "issues.labeled review:changes-requested (round < 2)"
+        actor: engineer
+        condition: "gated on detect-changes needs_review output"
+        source: "router.yml:675-691 review-fix job; flood-guards.review_fix_round_cap"
+      - from: fix_round
+        to: review_pending
+        trigger: "push to PR branch re-triggers pull_request synchronize"
+        actor: engineer
+        source: "router.yml detect-changes re-fires on synchronize"
+      - from: fix_round
+        to: needs_human
+        trigger: "round cap (2) reached"
+        actor: review-fix-job
+        labels_add: ["needs-human"]
+        note: "posts a [fix-round STOP] approver-decision digest instead of a third automated attempt"
+        source: "router.yml review-fix job, comment ~2192"
+      - from: approved
+        to: merged
+        trigger: >
+          pull_request_review state=='approved' by non-Bot OWNER/MEMBER (the
+          auto-merge job), OR issues.labeled ready-to-merge where the PR
+          satisfies merge_policy.auto_merge (the self-merge job's risk-based
+          path), OR merge_mode:"auto" (the self-merge job's blanket path,
+          off everywhere), OR a approver click.
+        actor: "auto-merge job, self-merge job, or approver"
+        condition: >
+          The self-merge job evaluates merge_policy.auto_merge.requires_all
+          in full; a single failing condition means it skips and the approver
+          merges. See merge_policy below for the resolution order.
+        source: "router.yml:2342 auto-merge; router.yml:2362 self-merge; merge_policy"
+      - from: approved
+        to: approved
+        trigger: "deployment_status success, environment contains 'Preview'"
+        actor: qa-preview
+        note: "adds a Playwright check run + PR comment; does not change labels or advance state"
+        source: "router.yml:2271 qa-preview"
+      - from: approved
+        to: approved
+        trigger: "base branch pushed while this PR is merge-bound, or the PR just became merge-bound"
+        actor: "update-prs (on push) / self-merge + auto-merge (on approval)"
+        condition: >
+          LAZY UPDATE (cost): only merge-bound PRs (ready-to-merge,
+          needs-approver-merge, or auto-merge armed) are
+          brought up to date with the base; other PRs are only rebased when
+          they CONFLICT. The ruleset's strict up-to-date check makes the
+          approval-time update mandatory, which is why self-merge and
+          auto-merge carry a "Bring branch up to date" step.
+        note: >
+          The resulting synchronize is BASE-ONLY when the PR's three-dot diff
+          is identical to the previous head's and that head passed ci-gate:
+          CI re-runs against the new base, review is skipped, and ci-gate
+          carries the previous verdict (detect-changes base_only output).
+          Anything else — a real code change, a conflict resolution, a
+          stacked-PR retarget — gets the full review as before.
+        source: "router.yml update-prs, detect-changes (base_only), review, ci-gate, self-merge, auto-merge"
+
+  team-thread:
+    description: >
+      Collaborative assessment round for a NEEDS SHAPING proposal —
+      Architect + Engineer always, Legal/Finance/Growth conditional on the
+      PO's own Team-input-scope: line. Never runs for a SHAPED ticket
+      (proportional, not a blanket tax).
+    states: [proposal_posted, team_input_requested, architect_assessed,
+             engineer_assessed, legal_assessed, finance_assessed,
+             growth_assessed, agreement_classified]
+    idempotency_marker: "<!-- team-thread-complete -->"
+    concurrency_group: "team-thread-${{ github.repository }}-${{ github.event.issue.number }}"
+    transitions:
+      - from: proposal_posted
+        to: team_input_requested
+        trigger: "PO posts a comment containing @team-thread with a Team-input-scope: line"
+        actor: product-owner
+        source: "prompts/product-owner.md:93-102"
+      - from: team_input_requested
+        to: architect_assessed
+        trigger: "issue_comment.created, contains(comment.body,'@team-thread') && comment.user.type=='Bot'"
+        actor: architect
+        note: >
+          A human typing the literal string is deliberately ignored — only
+          a bot-authored comment (the PO's own trigger comment) fires this.
+        source: "router.yml:1560,1595-1598 team-thread job"
+      - from: architect_assessed
+        to: engineer_assessed
+        actor: engineer
+        source: "router.yml:1735 team-thread job, Engineer step"
+      - from: engineer_assessed
+        to: legal_assessed
+        condition: "Team-input-scope line contains 'legal'"
+        actor: legal
+        source: "router.yml:1776 team-thread job, Legal step"
+      - from: engineer_assessed
+        to: finance_assessed
+        condition: "Team-input-scope line contains 'finance'"
+        actor: finance
+        source: "router.yml:1818 team-thread job, Finance step"
+      - from: engineer_assessed
+        to: growth_assessed
+        condition: "Team-input-scope line contains 'growth'"
+        actor: growth
+        source: "router.yml:1861 team-thread job, Growth step"
+      - from: [legal_assessed, finance_assessed, growth_assessed, engineer_assessed]
+        to: agreement_classified
+        trigger: "all in-scope assessments posted"
+        actor: product-owner
+        outcomes:
+          CONSENSUS: "no assessment flagged blocking: yes -> create tickets immediately, no approver reply needed"
+          DISSENT: "at least one blocking: yes -> summarize positions, ask approver to rule, wait"
+          APPROVER_OVERRIDE: "approver already replied approved (any time) -> create tickets regardless, note unresolved concerns per ticket"
+        source: "router.yml:1912 team-thread job, agreement step; prompts/product-owner.md:117-130"
+
+  debt-intake:
+    description: >
+      Weekly tech-debt scan -> dedup-or-propose -> CoS accept/decline. Lives
+      almost entirely OUTSIDE router.yml — tech-debt-weekly.yml + CoS duty 3.
+      Debt-proposal issues deliberately carry no Originated-by: line so
+      po-shape's widened bot-exclusion condition does not pull them into PO
+      intake (see ticket-lifecycle's `new` state — this flow bypasses it).
+    states: [repo_scanned, finding_dedup_checked, existing_issue_commented,
+             debt_proposal_created, cos_impact_checked, accepted, declined]
+    transitions:
+      - from: repo_scanned
+        to: finding_dedup_checked
+        trigger: "cron Sun 03:00 UTC, matrix over every project repo"
+        actor: debt-scanner
+        source: "tech-debt-weekly.yml; prompts/debt-scan.md"
+      - from: finding_dedup_checked
+        to: existing_issue_commented
+        condition: "finding overlaps an existing open debt/debt-proposal issue (same file/area)"
+        actor: debt-scanner
+        note: "gh issue comment with new evidence + gh issue edit to bump severity:high if this scan's severity is higher; NOT counted against the 5-finding cap"
+        source: "prompts/debt-scan.md (tool grant widened in tech-debt-weekly.yml)"
+      - from: finding_dedup_checked
+        to: debt_proposal_created
+        condition: "genuinely new finding, cap 5 findings/run"
+        actor: debt-scanner
+        labels_add: ["debt-proposal", "dept:backend", "dept:frontend", "severity:high"]
+        note: "dept:backend OR dept:frontend depending on which scanner ran; severity:high only for CVE/security findings (both scanners)"
+        source: "prompts/debt-scan.md"
+      - from: debt_proposal_created
+        to: cos_impact_checked
+        actor: chief-of-staff
+        condition: "Why this matters: (Business+Technical) section present in the body"
+        source: "agents/chief-of-staff/prompt.md duty 3 IMPACT CHECK (L84-89)"
+      - from: cos_impact_checked
+        to: declined
+        condition: "no Why this matters section"
+        actor: chief-of-staff
+        note: "comment asking for it, do NOT relabel to debt"
+        source: "agents/chief-of-staff/prompt.md duty 3 IMPACT CHECK"
+      - from: cos_impact_checked
+        to: accepted
+        actor: chief-of-staff
+        labels_add: ["debt"]
+        labels_remove: ["debt-proposal"]
+        note: >
+          Also applies a priority label (P0..P3, not fixed here — CoS's own
+          triage judgment; severity:high findings get P0). Self-idempotent
+          by construction — relabeling removes the issue from the
+          debt-proposal match set.
+        source: "agents/chief-of-staff/prompt.md duty 3 (L90-94)"
+
+  design-gate:
+    description: >
+      needs-design -> Architect's design PR (Gate-for: #N) -> merge ->
+      CoS clears the gate -> agent:implement. Mostly CoS duty 6, not
+      router.yml, once the design PR itself is open.
+    states: [needs_design_labeled, branch_cut, design_pr_opened,
+             design_pr_merged, gate_cleared]
+    transitions:
+      - from: needs_design_labeled
+        to: branch_cut
+        trigger: "issues.labeled needs-design"
+        actor: architect
+        condition: "github.event.label.name == 'needs-design'"
+        labels_add: ["status:in-progress"]
+        source: "router.yml:1111-1112 design job; prompts/design.md:104-105"
+      - from: branch_cut
+        to: design_pr_opened
+        actor: architect
+        condition: "PR body MUST contain 'Gate-for: #<N>', MUST NOT contain 'Closes #N'"
+        labels_add: ["status:in-review"]
+        labels_remove: ["status:in-progress"]
+        source: "prompts/design.md:67-69,106-107"
+      - from: design_pr_opened
+        to: design_pr_merged
+        trigger: "approver merges (via review-loop flow, same as any PR)"
+        actor: approver
+        source: "flows.review-loop (design PRs go through the same review loop as code PRs)"
+      - from: design_pr_merged
+        to: gate_cleared
+        trigger: "next CoS run reads recent_merged, finds Gate-for: #N"
+        actor: chief-of-staff
+        condition: "#N is open AND does not already carry agent:implement (idempotency check FIRST, before acting)"
+        labels_remove: ["needs-design"]
+        labels_add: ["agent:implement"]
+        source: "agents/chief-of-staff/prompt.md duty 6 (L125-134)"
+
+  content-flow:
+    description: >
+      Growth/SEO content -> project-repo ticket carrying channel:blog or
+      channel:external + Originated-by: -> po-shape validates (positioning,
+      claims, duplicate posts) -> blog: normal ticket-lifecycle (Engineer PR
+      adds the post); external: awaiting-approval, approver posts by hand and
+      closes.
+    states: [content_ticket_opened, blog_ready, external_awaiting_approver,
+             declined_or_backlogged]
+    transitions:
+      - from: content_ticket_opened
+        to: blog_ready
+        trigger: "issues.opened (Originated-by: in body) -> po-shape"
+        actor: product-owner
+        condition: "channel:blog AND classified SHAPED"
+        labels_add: ["triaged:ready", "verdict:proceed"]
+        source: "prompts/product-owner.md CONTENT TICKETS; continues as flows.ticket-lifecycle"
+      - from: content_ticket_opened
+        to: external_awaiting_approver
+        trigger: "issues.opened (Originated-by: in body) -> po-shape"
+        actor: product-owner
+        condition: "channel:external AND PO approves the draft (never triaged:ready, never agent:implement)"
+        labels_add: ["awaiting-approval", "verdict:proceed"]
+        source: "prompts/product-owner.md CONTENT TICKETS"
+      - from: content_ticket_opened
+        to: declined_or_backlogged
+        actor: product-owner
+        condition: "off-positioning, false/hype claim, duplicate of an existing post or open ticket"
+        labels_add: ["P3"]
+        source: "prompts/product-owner.md VERDICT (verdict:backlog or verdict:decline)"
+
+  override-flow:
+    description: >
+      Approver overrides a PO verdict, or approves/changes a NEEDS SHAPING
+      proposal, outside the team-thread CONSENSUS path.
+    states: [proposal_pending, tickets_cut, revised_proposal,
+             parked, overridden, dispatched]
+    transitions:
+      - from: proposal_pending
+        to: parked
+        trigger: "PO VERDICT = BACKLOG or DECLINE"
+        actor: product-owner
+        labels_add: ["P3", "verdict:backlog", "verdict:decline"]
+        note: >
+          Exactly one of verdict:backlog/verdict:decline applies, plus P3.
+          Issue stays open; a DECLINE with no approver reply is closed by
+          the stuck sweeper after stuck_sweeper.decline_close_days. Modeled here as
+          arising from proposal_pending (the common NEEDS SHAPING case) —
+          per prompts/product-owner.md's Calibration section, a SHAPED
+          ticket can also receive BACKLOG/DECLINE; this flow doesn't
+          duplicate that branch, see flows.ticket-lifecycle's `shaped` note.
+        source: "prompts/product-owner.md:138-149 VERDICT"
+      - from: proposal_pending
+        to: tickets_cut
+        trigger: "issue_comment by non-Bot OWNER/MEMBER, approval or approver override reply"
+        actor: po-continue
+        labels_remove: ["proposal:pending"]
+        labels_add: ["agent:implement", "needs-design"]
+        note: "one of the two per the shaped plan; Shaped-from: #<idea> and After: #<n> links; idea issue closed 'Shaped into: <links>'"
+        source: "router.yml:1412 po-continue job; prompts/product-owner.md:165-178"
+      - from: proposal_pending
+        to: revised_proposal
+        trigger: "issue_comment, change request"
+        actor: po-continue
+        note: "posts a revised ## Proposal comment, proposal:pending stays"
+        source: "prompts/product-owner.md ON APPROVAL/OVERRIDE, change-request path"
+      - from: parked
+        to: overridden
+        trigger: >
+          issue_comment by non-Bot OWNER/MEMBER on a verdict:backlog or
+          verdict:decline issue, containing do-it-now or 'do it anyway'
+        actor: po-continue
+        labels_remove: ["P3", "verdict:backlog", "verdict:decline"]
+        labels_add: ["verdict:overridden"]
+        note: "removes whichever of verdict:backlog/verdict:decline was present; PO never re-argues the original call once overridden"
+        source: "router.yml:1412 po-continue job; prompts/product-owner.md:179-187"
+      - from: overridden
+        to: dispatched
+        trigger: "same run as the override"
+        actor: po-continue
+        note: >
+          Executes the shaped plan if one exists, or applies agent:implement
+          directly if the issue was SHAPED (triaged:ready, no proposal). CoS
+          is a safety net only: if an overridden issue is somehow still
+          undispatched on the next cycle, CoS adds triaged:ready rather than
+          re-running a second full PO pass.
+        source: "prompts/product-owner.md:179-187; agents/chief-of-staff/prompt.md (verdict:overridden safety net)"
+
+##############################################################################
+# LABEL STATES — which label set IS which flow state.
+#
+# The flows above name their states; this section pins each state to the
+# exact set of STATE labels an open issue carries in it, so "what state is
+# #N in?" and "is this label set even legal?" are answered by data, not by
+# reading prompts. A combination no flow produces (e.g. debt-proposal +
+# triaged:ready) is detected and repaired or escalated, never left to sit.
+#
+# Resolution, for an OPEN issue (closed issues are not checked):
+#   1. Take its labels ∩ state_labels — everything else (dept:*, P*,
+#      verdict:*, channel:*, risk:*, trigger labels like agent:shape) is
+#      metadata and never decides the state.
+#   2. Apply `repairs` (first match wins) — known-bad combinations with a
+#      safe automatic fix, or an escalation when the fix is a approver call.
+#   3. Look the set up in `combos`. No match -> strip `modifiers` one at a
+#      time, in order, and retry. A modifier is a label that rides along on
+#      top of a state without changing it.
+#   4. Still no match -> the set is ILLEGAL. The stuck sweeper escalates it
+#      (needs-human + comment naming the labels), never guesses.
+#
+# Consumers: src/squadhq/stuck_sweeper.py (ticket_state, normalize_issue),
+# src/squadhq/flow_reader.py validate() (every label exists, every state exists
+# in its flow, combos are unique, every non-escalating repair lands on a
+# legal combo), src/squadhq/flow_diagram.py (renders the tables in
+# docs/FLOW-DIAGRAM.md). Facts-dependent repairs (which side wins depends
+# on whether a PR exists) stay in stuck_sweeper.normalize_issue code.
+##############################################################################
+label_states:
+  issue:
+    state_labels: [proposal:pending, triaged:ready, debt-proposal, debt, needs-design,
+                   agent:implement, status:in-progress, status:in-review, needs-human]
+    modifiers:
+      - label: needs-human
+        meaning: "parked on the approver; the underlying state is kept for when it is lifted"
+      - label: debt
+        meaning: "accepted tech debt — a kind of ticket, so it rides along once dispatched"
+    combos:
+      - {labels: [],                                     state: ticket-lifecycle.new,          meaning: "unshaped ticket, or not a ticket at all (report, content draft)"}
+      - {labels: [proposal:pending],                     state: ticket-lifecycle.needs_shaping, meaning: "PO proposal awaiting team-thread / approver"}
+      - {labels: [triaged:ready],                        state: ticket-lifecycle.shaped,       meaning: "shaped; the sweeper dispatches it into a free WIP slot"}
+      - {labels: [debt-proposal],                        state: debt-intake.debt_proposal_created, meaning: "debt finding awaiting CoS intake"}
+      - {labels: [debt],                                 state: debt-intake.accepted,          meaning: "accepted debt; dispatched like triaged:ready"}
+      - {labels: [needs-design],                         state: ticket-lifecycle.needs_design, meaning: "Architect owes a design PR"}
+      - {labels: [needs-design, status:in-progress],     state: ticket-lifecycle.in_progress,  meaning: "Architect writing the design"}
+      - {labels: [needs-design, status:in-review],       state: ticket-lifecycle.in_review,    meaning: "design PR open"}
+      - {labels: [agent:implement],                      state: ticket-lifecycle.dispatched,   meaning: "Engineer dispatched, not started"}
+      - {labels: [agent:implement, status:in-progress],  state: ticket-lifecycle.in_progress,  meaning: "Engineer working"}
+      - {labels: [agent:implement, status:in-review],    state: ticket-lifecycle.in_review,    meaning: "PR open (or report delivered)"}
+      - {labels: [status:in-review],                     state: ticket-lifecycle.in_review,    meaning: "report ticket delivered, waiting for the approver to close it"}
+      - {labels: [needs-human],                          state: ticket-lifecycle.needs_human,  meaning: "approver's call"}
+    # Each repair matches when EVERY group has at least one label present
+    # and no `unless` label is present. remove/add touch only what applies.
+    repairs:
+      - groups: [[verdict:backlog, verdict:decline, P3], [agent:implement, needs-design, triaged:ready]]
+        unless: [verdict:overridden]
+        escalate: true
+        reason: "parked (backlog/decline/P3) AND dispatched — either the park or the dispatch is wrong, and that is the approver's call."
+      - groups: [[debt-proposal], [triaged:ready]]
+        unless: [verdict:backlog, verdict:decline, P3]
+        remove: [debt-proposal, triaged:ready]
+        add: [debt]
+        reason: "a `debt-proposal` marked `triaged:ready` is accepted debt — relabelled to `debt` so it can dispatch."
+      - groups: [[debt-proposal], [debt]]
+        remove: [debt-proposal]
+        reason: "already accepted as `debt` — the proposal label is stale."
+      - groups: [[proposal:pending], [triaged:ready]]
+        unless: [agent:implement, needs-design]
+        escalate: true
+        reason: "both `proposal:pending` (needs shaping) and `triaged:ready` (shaped) — the PO has to settle which."
+      - groups: [[triaged:ready, debt-proposal], [agent:implement, needs-design]]
+        remove: [triaged:ready, debt-proposal]
+        reason: "already dispatched — `triaged:ready` is the step before dispatch."
+      - groups: [[proposal:pending], [agent:implement, needs-design]]
+        remove: [proposal:pending]
+        reason: "already dispatched — the proposal stage is over."
+    # Documentation only: repairs whose winner depends on PR facts, so they
+    # live in stuck_sweeper.normalize_issue code. Listed here so the
+    # generated doc shows every automatic repair in one place.
+    fact_repairs:
+      - when: "`agent:implement` + `needs-design`"
+        action: "design PR merged -> remove `needs-design`; otherwise remove `agent:implement` (design first)"
+      - when: "`status:in-progress` + `status:in-review`"
+        action: "PR open -> remove `status:in-progress`; otherwise remove `status:in-review`"
+  pr:
+    # Risk labels are metadata (they never decide the
+    # state) but EXCLUSIVE: merge_policy reads exactly one risk:*, so two at
+    # once fails every auto-merge closed until someone notices.
+    state_labels: [ready-to-merge, review:changes-requested, needs-approver-merge, needs-human,
+                   status:in-progress, status:in-review]
+    exclusive:
+      - [risk:low, risk:medium, risk:high]
+    modifiers:
+      - label: needs-human
+        meaning: "parked on the approver (fix-round cap hit, stuck re-fires); the review state is kept"
+    combos:
+      - {labels: [],                                       state: review-loop.review_pending, meaning: "opened — CI and review pending (or review in progress)"}
+      - {labels: [review:changes-requested],               state: review-loop.changes_requested, meaning: "Reviewer asked for changes; the fix round runs"}
+      - {labels: [ready-to-merge],                         state: review-loop.approved,       meaning: "Reviewer approved; self-merge deciding, or auto-merge armed and waiting on ci-gate"}
+      - {labels: [ready-to-merge, needs-approver-merge],    state: review-loop.approved,       meaning: "approved but not auto-mergeable (risk above low, human-authored, failed check) — waiting on the approver's click"}
+      - {labels: [needs-human],                            state: review-loop.needs_human,    meaning: "approver's call"}
+    repairs:
+      - groups: [[status:in-progress, status:in-review]]
+        remove: [status:in-progress, status:in-review]
+        reason: "`status:*` labels track the ISSUE; on a PR they are noise the board and readers misread."
+      - groups: [[needs-approver-merge]]
+        unless: [ready-to-merge]
+        remove: [needs-approver-merge]
+        reason: "`needs-approver-merge` without an approval (`ready-to-merge`) is stale."
+    fact_repairs:
+      - when: "`ready-to-merge` + `review:changes-requested`"
+        action: "latest verdict wins (label events): newer REQUEST CHANGES -> remove `ready-to-merge` and `needs-approver-merge`; newer APPROVE -> remove `review:changes-requested`"
+      - when: "two or more `risk:*`"
+        action: "keep the most recently applied risk label (the Reviewer's latest verdict), remove the rest"
+
+##############################################################################
+# ROLES — every badge-carrying persona. `authority` is a whitelist: an
+# agent CANNOT perform an action type or touch a repo scope not listed
+# here. `hard_limits` are numeric ceilings enforced at minimum by prompt
+# instruction; "enforced_in_code: true" marks the subset also enforced by
+# src/squadhq/agent_runner.py itself (belt-and-suspenders, not prompt-only).
+##############################################################################
+roles:
+  chief-of-staff:
+    badge: "[Chief of Staff] "
+    authority:
+      action_types: [create_issue, comment, add_labels, remove_labels, close_issue]
+      repos: [hub, project]
+      note: "Never creates cross-project tickets on its own — cross-project work becomes an hq escalation issue instead."
+    hard_limits:
+      max_actions_per_run: {value: 20, enforced_in_code: true, source: "src/squadhq/agent_runner.py:626 execute() batch=actions[:20]; agents/chief-of-staff/prompt.md:163"}
+      wip_limit_open_prs_per_project: {value: 5, raised_from: 3, source: "agents/chief-of-staff/prompt.md duty 2 (L75-77); also referenced by prompts/product-owner.md", note: "Raised from 3 to 5 with stacked-PR support and risk-based auto-merge — low-risk PRs clear faster, freeing slots. A stack of 3 counts as 3 slots, not 1."}
+      resurface_max_per_day: {value: 1, source: "agents/chief-of-staff/prompt.md duty 8"}
+      capacity_refire_max_per_cycle: {value: 1, source: "agents/chief-of-staff/prompt.md duty 9"}
+      hygiene_check_cap_per_run: {value: 10, source: "agents/chief-of-staff/prompt.md duty 5"}
+      stall_threshold_hours: {value: 2, source: "agents/chief-of-staff/prompt.md duty 5"}
+      unblock_stale_threshold_hours: {value: 24, source: "agents/chief-of-staff/prompt.md duty 4 (\"older than a day\")"}
+      transient_exhausted_stale_close_hours: {value: 4, source: "agents/chief-of-staff/prompt.md duty 5"}
+      report_originated_flood_pacing: {value: "if >5 report-originated tickets arrive in one day, dispatch at most 2/cycle", source: "agents/chief-of-staff/prompt.md"}
+      debt_refactor_share_target: {value: "~20%", source: "agents/chief-of-staff/prompt.md duty 3"}
+      stacked_ticket_dispatch: {value: "dispatch 'After: #N' tickets in order — only once #N has an open or merged PR; each ticket in a stack counts as its own WIP slot", source: "agents/chief-of-staff/prompt.md duty 2", note: "Duplicated into the prompt on purpose: the CoS runs on src/squadhq/agent_runner.py with no file access, so it reads this via flow_reader.context_slice_for_role's hard_limits, not by opening flows.yml."}
+    idempotency: [label-before-add, duplicate-comment-24h, gate-clear-guard, merge-state-only-closures]
+    source: "agents/chief-of-staff/prompt.md"
+
+  daily-brief:
+    badge: "[Daily Brief] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub]
+      note: "DIGEST role — never creates tickets from its own findings. A gap it notices is reported as 'Gap noticed: ... — no ticket exists for this', never ticketed directly."
+    hard_limits:
+      max_actions_per_run: {value: 1, source: "agents/daily-brief/prompt.md L3-4,19 — hard contract"}
+    idempotency: [merge-state-only-closures]
+    source: "agents/daily-brief/prompt.md; src/squadhq/agent_runner.py MODE_BADGE"
+
+  weekly-rollup:
+    badge: "[Weekly Rollup] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub]
+      note: "DIGEST role, same non-origination rule as daily-brief."
+    hard_limits:
+      max_actions_per_run: {value: 1, source: "agents/rollup/prompt.md L8-14,16-17"}
+      body_length: {value: "<=1 page", source: "agents/rollup/prompt.md L21"}
+    idempotency: [merge-state-only-closures]
+    # Badge format note: agents/rollup/prompt.md specifies the badge as the
+    # literal FIRST LINE of the body rather than an inline "[Role] " prefix
+    # (agents/growth, agents/seo, agents/legal, agents/finance,
+    # agents/chief-of-staff, agents/daily-brief all use inline-prefix
+    # instead). Both forms satisfy org/CLAUDE-org.md's IDENTITY rule
+    # ("must begin with your role badge") — not a real conflict, just a
+    # stylistic variant. Documented here rather than silently normalized;
+    # not worth a behavior-risking prompt edit for a purely cosmetic gap.
+    source: "agents/rollup/prompt.md; src/squadhq/agent_runner.py MODE_BADGE"
+
+  growth:
+    badge: "[Growth] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub, project]
+      note: "Content drafts, feature opportunities AND the 'nothing new' / overflow report -> project repo (content carries channel:blog or channel:external, flows.content-flow; the report carries report + dept:growth). Nothing goes to the hub. Never posts content itself (manual approver approval required — see org/CLAUDE-org.md Self-actuation policy)."
+    hard_limits:
+      draft_cap_per_run: {value: 3, condition: "kill score < 7", source: "agents/growth/prompt.md L11,16"}
+      self_actuation_ticket_cap_per_run: {value: 3, source: "agents/growth/prompt.md L49-50 FLOOD GUARD"}
+    idempotency: [duplicate-comment-24h]
+    source: "agents/growth/prompt.md"
+
+  seo:
+    badge: "[SEO] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub, project]
+      note: "Report -> project repo, labeled report + dept:growth (see labels.dept.\"dept:growth\" note — no dept:seo exists). HIGH-impact/LOW-effort tickets -> project repo, no dispatch label; a blog-post proposal carries channel:blog (flows.content-flow)."
+    hard_limits:
+      report_proposal_cap: {value: 3, source: "agents/seo/prompt.md L10-11"}
+      self_actuation_ticket_cap_per_run: {value: 3, source: "agents/seo/prompt.md L39-40 FLOOD GUARD"}
+    idempotency: []
+    source: "agents/seo/prompt.md"
+
+  legal:
+    badge: "[Legal] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub, project]
+      note: "Report -> project repo, labeled report + dept:legal. Higher self-actuation bar than other reporters. HIGH severity -> project repo ticket (escalation + severity:high). MEDIUM -> project repo ticket, no dispatch label. LOW/needs-lawyer -> report-only, never ticketed."
+    hard_limits:
+      self_actuation_ticket_cap_per_run: {value: 3, source: "agents/legal/prompt.md L46-49 FLOOD GUARD"}
+    idempotency: []
+    source: "agents/legal/prompt.md"
+
+  finance:
+    badge: "[Finance] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub, project]
+      note: >
+        Cost-anomaly tickets -> HUB repo only (explicitly not project —
+        operational, never reaches po-shape/team-thread since the hub repo
+        has no router.yml stub on itself). Infrastructure-cost findings ->
+        project repo, if actionable there. Budget-cap/model-tier
+        recommendations stay report-only (approver decision).
+    hard_limits:
+      self_actuation_ticket_cap_per_run: {value: 3, source: "agents/finance/prompt.md L63-66 FLOOD GUARD"}
+      pace_escalation_threshold: {value: "80% of monthly budget", source: "agents/finance/prompt.md L55"}
+    idempotency: []
+    source: "agents/finance/prompt.md"
+
+  ecosystem-watch:
+    badge: "[Ecosystem Watch] "
+    authority:
+      action_types: [create_issue]
+      repos: [hub, project]
+      note: >
+        Weekly report -> hub, dept:engineering, always created even with
+        nothing to report. Action-required items -> project repo ticket
+        (severity:high if deadline <30 days). Recommended-update items ->
+        ticket only if effort <=1 day and benefit is clear. Hub-repo config
+        changes (config/models.json, router.yml, etc.) are explicitly
+        EXCLUDED from self-actuation — no automated dispatch path exists in
+        the hub repo — CoS escalates those to the approver directly instead.
+    hard_limits:
+      self_actuation_ticket_cap_per_run: {value: 3, source: "agents/ecosystem-watch/prompt.md L107-110 FLOOD GUARD"}
+      web_search_soft_minimum: {value: "10-20+ searches", source: "agents/ecosystem-watch/prompt.md L11"}
+      action_required_severity_high_deadline_days: {value: 30, note: "severity:high if the action-required item's deadline is under this many days", source: "agents/ecosystem-watch/prompt.md L95-96"}
+      recommended_update_effort_ceiling_days: {value: 1, note: "a recommended-update item only becomes a ticket if effort is at or under this", source: "agents/ecosystem-watch/prompt.md L100"}
+    idempotency: [dedup-before-create]
+    # CONFLICT: unlike the debt scanners, this
+    # prompt had NO "search existing tickets before creating" step — a
+    # persistent unresolved Action-required item could get a fresh
+    # duplicate ticket every Saturday. Resolution: applied the debt
+    # scanner's stricter dedup-before-create pattern here too (see
+    # idempotency.dedup-before-create below; prompt updated in step 3 of
+    # this change to reference it).
+    source: "agents/ecosystem-watch/prompt.md"
+
+  debt-scanner:
+    badge: "[Debt Scanner] "
+    authority:
+      action_types: [comment, add_labels]  # NOT create_issue directly
+      repos: [project]
+      note: >
+        NEVER calls gh issue create directly (explicit prohibition) — new
+        findings go into a shared findings.json consumed by a separate
+        workflow step that creates the actual debt-proposal issues. Direct
+        actions the agent itself performs: gh issue comment / gh issue edit
+        on an EXISTING debt/debt-proposal issue only (dedup path). Never edits code (no Edit/Write tool grant).
+    hard_limits:
+      findings_cap_per_run: {value: 5, enforced_in_code: true, source: "prompts/debt-scan.md"}
+    idempotency: [dedup-before-create]
+    source: "prompts/debt-scan.md"
+
+  architect:
+    badge: "[Architect] "
+    authority:
+      action_types: [comment]  # PRs/branches via git, not the JSON action contract
+      repos: [project]
+      note: >
+        design.md: writes ADR/design docs, opens a Gate-for: #N PR, never
+        applies agent:implement itself (CoS clears the gate on merge).
+        quarterly-review.md: writes ONE findings.json entry
+        (labels ["escalation","dept:backend"]), never calls gh issue
+        create, never modifies code/ADRs directly.
+    hard_limits: {}
+    idempotency: [merge-state-only-closures]
+    source: "prompts/design.md; prompts/quarterly-review.md"
+
+  engineer:
+    badge: "[Engineer] "
+    authority:
+      action_types: [comment]  # code changes via git/PR, not the JSON action contract
+      repos: [project]
+      note: >
+        implement.md: writes code, opens PR (Closes #N), applies
+        status:in-progress/status:in-review to the linked issue. Blocked by
+        an existing needs-design label, an unmerged Design: PR, an existing
+        open PR for the same ticket, ambiguity, or a missing "Why this
+        matters" section (comments + needs-human instead of implementing
+        blind). review-fix reuses this same badge for automated fix rounds.
+    hard_limits: {}
+    idempotency: [duplicate-pr-guard, gate-check-before-implement]
+    source: "prompts/implement.md"
+
+  reviewer:
+    badge: "[Reviewer] "
+    authority:
+      action_types: [comment]  # inline PR comments + one verdict comment
+      repos: [project]
+      note: "Never creates issues. Always posts exactly one verdict comment, never silent."
+    hard_limits:
+      review_round_severity_bar: {value: "round 2+ REQUEST CHANGES must cite bug/security/rule-violation only, never style", source: "prompts/review.md L113-115"}
+    idempotency: []
+    source: "prompts/review.md"
+
+  threat-modeler:
+    badge: "[Threat Modeler] "
+    authority:
+      action_types: [comment]
+      repos: [project]
+      note: "Writes docs/threats/<n>.md (STRIDE, LINDDUN where personal data is involved, OWASP LLM Top 10) in a design PR and files mitigation tickets through the Product Owner. Never implements, never merges."
+    hard_limits: {}
+    idempotency: []
+    source: "docs/security/ssdlc.md (Design)"
+
+  security-reviewer:
+    badge: "[Security Reviewer] "
+    authority:
+      action_types: [comment]
+      repos: [project]
+      note: "Independent of the Reviewer (different model or provider). Required for auto-merge and for any PR whose final risk is medium or above. Its approval is the security:approved label; it can only raise risk, never lower it below squadhq.policy.risk's floor."
+    hard_limits: {}
+    idempotency: []
+    source: "docs/security/ssdlc.md (Review)"
+
+  release-manager:
+    badge: "[Release Manager] "
+    authority:
+      action_types: [comment, create_issue]
+      repos: [hub, project]
+      note: "Drafts release notes and the change record from merged PRs, checks the release gate checklist (SBOM, signatures, open security:review-required items) and asks an approver to publish. Never tags, deploys or merges itself."
+    hard_limits: {}
+    idempotency: []
+    source: "docs/security/ssdlc.md (Release)"
+
+  analytics-reporter:
+    badge: "[Analytics] "
+    authority:
+      action_types: [create_issue, add_labels]
+      repos: [hub, project]
+      note: "Analytics Reporter. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/analytics-reporter/skill.yml"
+
+  compliance-mapper:
+    badge: "[Compliance] "
+    authority:
+      action_types: [create_issue]
+      repos: [project]
+      note: "Compliance Mapper. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/compliance-mapper/skill.yml"
+
+  data-engineer:
+    badge: "[Data Engineer] "
+    authority:
+      action_types: [add_labels, comment]
+      repos: [project]
+      note: "Data Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/data-engineer/skill.yml"
+
+  database-migration-engineer:
+    badge: "[Migration Engineer] "
+    authority:
+      action_types: [add_labels, comment]
+      repos: [project]
+      note: "Database / Migration Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/database-migration-engineer/skill.yml"
+
+  dependency-steward:
+    badge: "[Dependency Steward] "
+    authority:
+      action_types: [comment, create_issue, add_labels]
+      repos: [project]
+      note: "Dependency Steward. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/dependency-steward/skill.yml"
+
+  documentation-gardener:
+    badge: "[Docs Gardener] "
+    authority:
+      action_types: [create_issue, add_labels]
+      repos: [hub, project]
+      note: "Documentation Gardener. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/documentation-gardener/skill.yml"
+
+  documentation-writer:
+    badge: "[Docs Writer] "
+    authority:
+      action_types: [comment]
+      repos: [project]
+      note: "Documentation Writer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/documentation-writer/skill.yml"
+
+  finops:
+    badge: "[FinOps] "
+    authority:
+      action_types: [create_issue, add_labels]
+      repos: [hub, project]
+      note: "FinOps (cloud spend). Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/finops/skill.yml"
+
+  frontend-engineer:
+    badge: "[Frontend Engineer] "
+    authority:
+      action_types: [add_labels, comment]
+      repos: [project]
+      note: "Frontend Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/frontend-engineer/skill.yml"
+
+  iac-devops-engineer:
+    badge: "[DevOps Engineer] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "IaC / DevOps Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/iac-devops-engineer/skill.yml"
+
+  iac-scanner-triage:
+    badge: "[IaC Scanner] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "IaC & Container Scanner Triage. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/iac-scanner-triage/skill.yml"
+
+  integration-engineer:
+    badge: "[Integration Engineer] "
+    authority:
+      action_types: [add_labels, comment]
+      repos: [project]
+      note: "Integration Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/integration-engineer/skill.yml"
+
+  license-compliance:
+    badge: "[License Compliance] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "License Compliance. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/license-compliance/skill.yml"
+
+  localisation:
+    badge: "[Localisation] "
+    authority:
+      action_types: [create_issue, add_labels]
+      repos: [project]
+      note: "Localisation. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/localisation/skill.yml"
+
+  ml-engineer:
+    badge: "[ML Engineer] "
+    authority:
+      action_types: [add_labels, comment]
+      repos: [project]
+      note: "ML Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/ml-engineer/skill.yml"
+
+  observability-engineer:
+    badge: "[Observability] "
+    authority:
+      action_types: [comment]
+      repos: [project]
+      note: "Observability Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/observability-engineer/skill.yml"
+
+  postmortem-writer:
+    badge: "[Postmortem] "
+    authority:
+      action_types: [create_issue, comment]
+      repos: [project]
+      note: "Postmortem Writer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/postmortem-writer/skill.yml"
+
+  privacy-officer:
+    badge: "[Privacy] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "Privacy Officer / DPIA. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/privacy-dpia/skill.yml"
+
+  rollback:
+    badge: "[Rollback] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "Rollback. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/rollback/skill.yml"
+
+  sales-engineer:
+    badge: "[Sales Engineer] "
+    authority:
+      action_types: [comment]
+      repos: [project]
+      note: "Sales Engineer. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/sales-engineer/skill.yml"
+
+  sast-triage:
+    badge: "[SAST Triage] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "SAST Triage. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/sast-triage/skill.yml"
+
+  secrets-response:
+    badge: "[Secrets Response] "
+    authority:
+      action_types: [create_issue, comment, add_labels]
+      repos: [project]
+      note: "Secrets Response. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/secrets-response/skill.yml"
+
+  sre-incident-responder:
+    badge: "[SRE] "
+    authority:
+      action_types: [comment, add_labels]
+      repos: [project]
+      note: "SRE / Incident Responder. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys. Code changes go out as a PR from an agent/* branch via the deterministic push step."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/sre-incident-responder/skill.yml"
+
+  support-triage:
+    badge: "[Support] "
+    authority:
+      action_types: [create_issue, comment, add_labels]
+      repos: [project]
+      note: "Support Triage. Least privilege: only the action types its skill outputs; never closes issues, never merges or deploys."
+    hard_limits: {}
+    idempotency: []
+    source: "skills/support-triage/skill.yml"
+
+  product-owner:
+    badge: "[Product Owner] "
+    authority:
+      action_types: [create_issue, comment, add_labels, remove_labels]
+      repos: [project]
+      note: "Classifies every approver-opened AND self-actuated (Originated-by:) issue before anything else touches it. Never argues twice with a approver override. Content tickets (channel:*) follow flows.content-flow: channel:external ends at awaiting-approval, never triaged:ready."
+    hard_limits:
+      subagent_cap: {value: 4, foreground_only: true, source: "prompts/product-owner.md L19"}
+      wip_check_reference: {value: 5, note: "same number as roles.chief-of-staff.hard_limits.wip_limit_open_prs_per_project — was independently duplicated in both files, now single-sourced here."}
+    idempotency: []
+    source: "prompts/product-owner.md"
+
+  mention:
+    badge: "[Engineer] (code work) or [Assistant] (plain answers)"
+    authority:
+      action_types: [comment]
+      repos: [project]
+    hard_limits: {}
+    idempotency: []
+    note: "Logic is inline in router.yml's mention job (no separate prompt file)."
+    source: "router.yml mention job"
+
+  concierge:
+    badge: "[Concierge] "
+    authority:
+      action_types: [create_issue, comment]
+      repos: [project]
+    hard_limits: {}
+    idempotency: []
+    note: "Logic is inline in claude-concierge.yml (no separate prompt file)."
+    source: ".github/workflows/claude-concierge.yml"
+
+  lessons-harvester:
+    badge: "[Lessons Harvester] "
+    authority:
+      action_types: [create_issue, comment]  # branch + PR via git, not the JSON action contract
+      repos: [hub]
+      note: >
+        Writes ONLY org/lessons.md and org/lessons-archive.md, only on a
+        lessons-harvest-<date> branch, and opens a PR. Never merges, never
+        pushes to the integration branch, never edits a project repo (project-
+        scoped lessons are LISTED in the PR body for traceability and left for
+        the approver or a follow-up ticket). Reads across project repos (issue/PR
+        search, docs/lessons.md history) but writes only in the hub. Falls back
+        to ONE hub issue "Lessons harvest — <date> — nothing new" when no source
+        produced a candidate, rather than opening an empty PR.
+    hard_limits:
+      proposals_per_run: {value: 8, source: "agents/lessons-harvester/prompt.md FLOOD GUARD"}
+    idempotency: [dedup-before-create]
+    # Every proposed lesson must cite a real source artifact (closed escalation,
+    # "judgment call, not codified" verdict, RESOLVED audit finding, [fix-round
+    # STOP] digest, or a project docs/lessons.md commit). An unsourced lesson is
+    # unfalsifiable advice charged to every agent on every future run — the
+    # prompt refuses to emit one. dedup-before-create applies to the org file
+    # itself: check org/lessons.md for an existing entry citing the same source
+    # before re-proposing it.
+    source: "agents/lessons-harvester/prompt.md; .github/workflows/lessons-harvester.yml"
+
+  okr-tracker:
+    badge: "[OKR Tracker] "
+    authority:
+      action_types: [create_issue, comment]  # branch + PR via git, not the JSON action contract
+      repos: [hub]
+      note: >
+        Writes ONLY org/strategy/okrs.md, only on an okr-progress-<date> branch,
+        and within that file only the "Progress:" and "Evidence:" lines —
+        objectives and KR targets are the approver's words and are never
+        reworded, retargeted, added, or removed. Never merges. Opens NO PR when
+        nothing changed (a no-op week must not create noise). Separately posts
+        the quarterly "OKR refresh due — Q<N> <year>" hub issue, which is a
+        PROMPT to the approver, never an action: the machine does not write
+        objectives and does not archive a finished quarter on its own.
+    hard_limits:
+      unmeasurable_kr_policy:
+        value: "leave the existing Progress value unchanged; write 'manual update needed — <source that would answer it>'"
+        source: "agents/okr-tracker/prompt.md EVERY RUN step b"
+      quarterly_reminder_repeat_interval_days:
+        value: 7
+        note: "A weekly cron must not repost the same refresh reminder every Friday for a quarter — comment on the existing open issue at most weekly."
+        source: "agents/okr-tracker/prompt.md QUARTERLY"
+    idempotency: [dedup-before-create]
+    source: "agents/okr-tracker/prompt.md; .github/workflows/okr-tracker.yml"
+
+##############################################################################
+# IDEMPOTENCY — standing rules referenced by name from roles.*.idempotency.
+##############################################################################
+idempotency:
+  label-before-add:
+    rule: >
+      Before add_labels/remove_labels, check whether the target labels are
+      already present/absent. agent_runner.py's executor enforces this in
+      code as a backstop (skips as a no-op); CoS's own prompt additionally
+      instructs checking BEFORE acting rather than relying on the backstop.
+    enforced_by: "code + prompt"
+    source: "src/squadhq/agent_runner.py:788-797 (add), 826-835 (remove); agents/chief-of-staff/prompt.md IDEMPOTENCY block"
+
+  duplicate-comment-24h:
+    rule: >
+      Escalation-issue dedup: find_recent_open_issue() matches on EXACT
+      title string AND createdAt within the last 24h; if found, comments
+      "Recurred — see below" on the existing issue instead of creating a
+      new one. NOTE: this is narrower than "don't repeat any comment in
+      24h" — it is specifically an escalation-issue title-and-age match, not
+      a general duplicate-comment detector. CoS's own prompt separately
+      instructs a broader habit (check for an identical comment posted by
+      itself in the last 24h) at the prompt level only, not code-enforced.
+    enforced_by: "code (escalation issues only) + prompt (broader, CoS only)"
+    source: "src/squadhq/agent_runner.py:967-995 find_recent_open_issue(); agents/chief-of-staff/prompt.md IDEMPOTENCY block"
+
+  gate-clear-guard:
+    rule: >
+      Before clearing a design gate (removing needs-design, adding
+      agent:implement), check #N is open AND does not already carry
+      agent:implement. A merged design PR stays in recent_merged across
+      multiple CoS cycles — without this check the gate would be
+      "re-cleared" (redundant label churn) every cycle.
+    enforced_by: "prompt only"
+    source: "agents/chief-of-staff/prompt.md duty 6 GATE-CLEAR IDEMPOTENCY"
+
+  merge-state-only-closures:
+    rule: >
+      Never assert or act on a PR being merged unless it appears in the
+      recent_merged list of the current run's input data. Never close an
+      issue because its PR "looks done." Labels never imply state
+      (ready-to-merge means awaiting approval, not merged;
+      status:in-review means awaiting review, not done).
+    enforced_by: "prompt only"
+    source: "agents/chief-of-staff/prompt.md duty 5 STATE GROUNDING"
+
+  dedup-before-create:
+    rule: >
+      Before creating a new issue for a finding, search existing open
+      issues for one covering the same underlying thing. If found: add
+      evidence via a comment on the existing issue (and bump its severity
+      label if this pass's severity is higher) instead of creating a
+      duplicate. Originally debt-scanner-only; applied to Ecosystem Watch's
+      self-actuation too as of this change (see roles.ecosystem-watch
+      CONFLICT note) — a persistent unresolved finding should accumulate
+      evidence on one ticket across weekly report cycles, not spawn a new
+      ticket every cycle.
+    enforced_by: "prompt only"
+    source: "prompts/debt-scan.md; agents/ecosystem-watch/prompt.md"
+
+  duplicate-pr-guard:
+    rule: "If an open PR already exists for a ticket, do not re-implement — only fix issue labels and comment."
+    enforced_by: "prompt only"
+    source: "prompts/implement.md L118-124"
+
+  gate-check-before-implement:
+    rule: "If the ticket carries needs-design, or an unmerged Design: PR exists for it, do not implement — remove agent:implement if present and comment blocked."
+    enforced_by: "prompt only"
+    source: "prompts/implement.md L113-116"
+
+##############################################################################
+# MERGE POLICY — WHO merges an approved PR.
+#
+# THREE tiers, evaluated by two different jobs:
+#
+#   trivial_merge  router.yml's `trivial-merge` job, on pull_request.
+#                  No review happens at all — the `review` job is gated off by
+#                  detect-changes' trivial_only output. Applies
+#                  "ready-to-merge" itself and enables auto-merge.
+#
+#   auto_merge     router.yml's `self-merge` job, on the Reviewer's
+#                  "ready-to-merge" label. The review DID happen; this asks
+#                  whether the approver's click can be skipped.
+#                  OFF BY DEFAULT (OSS ships merge mode "approvers").
+#
+#   approver_merge everything else. The default: a human in the approver set
+#                  merges.
+#
+# The two automated tiers are independent, not a fallthrough: a trivial PR
+# never reaches auto_merge, and a reviewed PR never reaches trivial_merge.
+# Both are implemented by src/squadhq/merge_policy.py — ONE evaluator, called
+# with a tier name. Adding a condition to a tier here without adding an
+# evaluator there disables that tier rather than widening it.
+#
+# requires_all is AND — every condition must hold. Any condition that cannot
+# be EVALUATED (missing risk label, unreadable file list, failed author
+# lookup) counts as NOT MET: the job fails closed to approver merge.
+#
+# OPTING IN to auto_merge (risk-based merge without a human click). Do this
+# only when ALL of the following hold for the project:
+#   1. SAST, SCA and secret scanning run as REQUIRED checks in the project's
+#      ruleset (the `gate:sast`, `gate:sca`, `gate:secrets` labels below record
+#      their outcome; ci-gate must fail when any of them fails);
+#   2. the deterministic risk floor is in force — the `final_risk: low`
+#      condition below. final risk = max(Reviewer's risk:* label, path floor
+#      from squadhq.policy.risk + the packs' risk_paths). Anything touching
+#      auth/crypto/payments, migrations, dependency manifests or lockfiles,
+#      workflows, IaC or secrets/config is never low, whatever a model says;
+#   3. an independent security reviewer (roles.security-reviewer) is enabled,
+#      and you are comfortable that `security:approved` is applied by it.
+# Then set auto_merge.enabled: true. Leaving any condition out of
+# requires_all widens what merges unattended — do not.
+##############################################################################
+merge_policy:
+  auto_merge:
+    enabled: false
+    requires_all:
+      - review_verdict: approve
+        # The "ready-to-merge" label that fires the job is applied by the
+        # Reviewer's APPROVE verdict; re-read at evaluation time.
+      - risk_tag: low
+        # The PR carries exactly one risk:* label, and it is risk:low.
+      - final_risk: low
+        # max(risk label, deterministic path floor) must be low. Evaluated by
+        # src/squadhq/merge_policy.py via squadhq.policy.risk over the PR's
+        # changed files plus merge_policy.risk_paths and the RISK_EXTRA_GLOBS
+        # env var (pack risk_paths). Unreadable file list -> high.
+      - ci_checks: passing
+        # Refuses a PR with an ALREADY-FAILED check. A still-running check is
+        # not a refusal: the merge uses `gh pr merge --squash --auto`, so
+        # GitHub holds the PR until every REQUIRED check passes.
+      - pr_author_type: bot
+        # Human-authored PRs always wait for a human merge.
+    label: ready-to-merge
+
+  # Extra globs (beyond squadhq.policy.risk's core list) that force a PR's
+  # risk to high for every project. Packs add their own risk_paths.
+  risk_paths: []
+
+  # ---------------------------------------------------------------------
+  # TRIVIAL MERGE — no review at all.
+  #
+  # "Is there anything for a reviewer to judge?" For a PR that contains ONLY
+  # regenerated, deterministic output there is not: regenerate it and you get
+  # the same bytes. STRICT BY CONSTRUCTION: one non-matching file makes
+  # trivial_only false and the full review runs.
+  #
+  # Lockfiles and dependency manifests are deliberately NOT trivial: a
+  # lockfile is an INPUT to the build (resolved URLs and integrity hashes) and
+  # a lockfile-only diff can repoint a dependency at a different tarball. Those
+  # PRs take the normal review path, where SCA runs and the risk floor is high.
+  # ---------------------------------------------------------------------
+  trivial_merge:
+    enabled: true
+    description: "Generated/deterministic files only, on our bot's own regeneration branch — skip review"
+    requires_all:
+      - ci_checks: passing
+      - pr_author_login: bot
+        # Exactly this hub's bot login (settings.bot_logins()), not any bot:
+        # another installed app's PR is somebody else's code. A human-authored
+        # PR never takes this path either — a hand-edited generated file is
+        # exactly what a reviewer should see.
+      - trivial_lane: trivial_lanes
+        # The head branch selects ONE lane and every changed file must match
+        # that lane's paths: graph-refresh-* may touch only the three tracked
+        # graph files, flow-diagram-* only docs/FLOW-DIAGRAM.md.
+      - all_files_match: trivial_paths
+        # Belt and braces: the union list router.yml mirrors.
+    action: "add ready-to-merge label directly, skip review"
+
+  trivial_lanes:
+    - head_branch: "graph-refresh-*"
+      paths:
+        - "graphify-out/graph.json"
+        - "graphify-out/GRAPH_REPORT.md"
+        - "graphify-out/manifest.json"
+    - head_branch: "flow-diagram-*"
+      paths:
+        - "docs/FLOW-DIAGRAM.md"
+
+  # The union of trivial_lanes' paths — MIRRORED by router.yml's
+  # detect-changes `trivial:` paths-filter (paths-filter patterns must be
+  # literals in the workflow file). `python -m squadhq.flow_reader validate`
+  # reports drift; `validate --strict` fails on it; it also fails when this
+  # list is not exactly the union of trivial_lanes.
+  trivial_paths:
+    - "graphify-out/graph.json"       # regenerated by the graph-refresh job
+    - "graphify-out/GRAPH_REPORT.md"
+    - "graphify-out/manifest.json"
+    - "docs/FLOW-DIAGRAM.md"          # regenerated by `python -m squadhq.flow_diagram` from this file
+
+  approver_merge:
+    description: "Everything not matching auto_merge or trivial_merge — the default."
+  safety_rails:
+    verdict_change_removes_label:
+      rule: >
+        The Reviewer MUST remove "ready-to-merge" on any re-review whose
+        verdict changes. Already enforced in prompts/review.md's REQUEST
+        CHANGES branch (--add-label review:changes-requested --remove-label
+        ready-to-merge).
+      enforced_by: "prompt only (prompts/review.md)"
+    retarget_removes_label:
+      rule: >
+        When a stacked PR is retargeted because its base PR merged, GitHub
+        does NOT remove "ready-to-merge" natively — verified, it only changes
+        the base ref and emits a synchronize event. So prompts/review.md
+        instructs: on a re-review following a synchronize event caused by a
+        base-branch change, re-evaluate the verdict FROM SCRATCH and remove
+        "ready-to-merge" if present BEFORE posting the new verdict. Without
+        this, an approval earned against branch A survives onto a diff now
+        measured against main.
+      enforced_by: "prompt only (prompts/review.md)"
+    trivial_is_strict:
+      rule: >
+        detect-changes' trivial_only output is true ONLY when every changed
+        file matches merge_policy.trivial_paths. ONE non-matching file makes it
+        false, the review job runs in full, and the PR takes the normal
+        auto_merge-or-approver path. There is no partial credit and no
+        "mostly trivial" — this is the defense-in-depth answer to "what if a
+        trivial PR somehow includes a real code change".
+      enforced_by: "code (router.yml detect-changes `trivial:` filter + count comparison; src/squadhq/merge_policy.py all_files_match re-checks it independently before merging)"
+    ledger_field:
+      rule: >
+        Every self-merge job run records a cost-ledger line carrying
+        "auto_merged": true (policy matched, merged without a approver click)
+        or false (policy did not match, the approver merges). The weekly
+        rollup reports "N PRs auto-merged this week, M awaited approver" from
+        this field. The trivial-merge job records the same field plus
+        "review_skipped": true, so finance can also report how many reviews
+        the trivial tier saved. Ledger schema v7 — see src/squadhq/cost_ledger.py.
+      enforced_by: "code (src/squadhq/cost_ledger.py AUTO_MERGED / REVIEW_SKIPPED env vars)"
+
+##############################################################################
+# FLOOD-GUARDS — every numeric cap/limit in one place. Roles reference
+# these by name where the same number is shared across multiple roles
+# (e.g. subagent_cap_default) rather than restating it per-role.
+##############################################################################
+flood-guards:
+  subagent_cap_default:
+    value: 4
+    unit: "subagents per run, FOREGROUND ONLY"
+    applies_to: [chief-of-staff-adjacent-claude-code-action-jobs, product-owner, architect, engineer-implement, reviewer, debt-scanner, architect-quarterly]
+    note: "Identical wording copy-pasted into 7 separate prompt files — the single most duplicated mechanical rule in the whole prompt set. This is the canonical value; prompts reference it by name instead of restating the number."
+    source: "prompts/debt-scan.md, prompts/design.md, prompts/implement.md, prompts/quarterly-review.md, prompts/product-owner.md, prompts/review.md (all identical)"
+
+  self_actuation_ticket_cap_per_run:
+    value: 3
+    unit: "tickets per report run"
+    applies_to: [growth, seo, legal, finance, ecosystem-watch]
+    note: "Overflow noted in the report for next cycle, never silently dropped."
+    source: "agents/growth/prompt.md, agents/seo/prompt.md, agents/legal/prompt.md, agents/finance/prompt.md, agents/ecosystem-watch/prompt.md (all identical wording)"
+
+  growth_draft_cap_per_run:
+    value: 3
+    unit: "content drafts per run"
+    condition: "kill score < 7"
+    source: "agents/growth/prompt.md L11,16"
+
+  debt_scanner_findings_cap_per_run:
+    value: 5
+    unit: "new findings per repo per run"
+    enforced_in_code: true
+    source: "prompts/debt-scan.md"
+
+  cos_max_actions_per_run:
+    value: 20
+    unit: "actions per CoS run"
+    enforced_in_code: true
+    cadence_reviewed: "2026-08-27"
+    cadence_note: "Unchanged by the */45 -> */30 move: same 34 runs/day, so the daily action ceiling is unmoved."
+    source: "src/squadhq/agent_runner.py:626 execute() batch=actions[:20]; agents/chief-of-staff/prompt.md L163"
+
+  wip_limit_open_prs_per_project:
+    value: 5
+    unit: "open PRs, per project repo"
+    raised_from: 3
+    raised_on: "2026-08-27"
+    note: >
+      Raised from 3 to 5 with stacked-PR support and risk-based auto-merge —
+      low-risk PRs clear faster, freeing slots. Each ticket in a stack counts
+      as its own slot: a stack of 3 is 3 WIP, not 1. Duplicated independently
+      in agents/chief-of-staff/prompt.md and prompts/product-owner.md before
+      the flows.yml consolidation — now single-sourced here and mirrored into
+      roles.chief-of-staff / roles.product-owner (the only two places an
+      agent actually reads it from).
+    watch: >
+      router.yml's update-prs job re-runs CI + re-review on every open PR
+      targeting a pushed base branch. Its own header comment says "fine at
+      WIP<=3; revisit (e.g. batch/debounce) if WIP grows" — at 5 this is now
+      worth watching in the Finance report before raising further.
+    source: "agents/chief-of-staff/prompt.md duty 2; prompts/product-owner.md"
+
+  cos_report_originated_flood_pacing:
+    value: "if >5 report-originated tickets arrive in one day, dispatch at most 2/cycle"
+    source: "agents/chief-of-staff/prompt.md"
+
+  cos_resurface_max_per_day:
+    value: 1
+    cadence_reviewed: "2026-08-27"
+    note: >
+      Unchanged by the CoS cadence move from */45 to */30. The cap is
+      per-DAY, not per-cycle, so it is cadence-independent by construction —
+      a more frequent loop just reaches the day's single resurrection sooner.
+    source: "agents/chief-of-staff/prompt.md duty 8"
+
+  cos_capacity_refire_max_per_cycle:
+    value: 1
+    cadence_reviewed: "2026-08-27"
+    note: >
+      Per-CYCLE, so nominally cadence-sensitive — but the run COUNT did not
+      change: `*/45 6-22` fires at :00 and :45 (34 runs/day) and `*/30 6-22`
+      fires at :00 and :30 (also 34 runs/day). Only the spacing became
+      regular. Daily refire volume is therefore identical; left at 1.
+    source: "agents/chief-of-staff/prompt.md duty 9"
+
+  cos_hygiene_check_cap_per_run:
+    value: 10
+    unit: "issues checked per run"
+    source: "agents/chief-of-staff/prompt.md duty 5"
+
+  reporter_single_action_per_run:
+    value: 1
+    unit: "actions per run"
+    applies_to: [daily-brief, weekly-rollup]
+    note: "Hard contract, not a soft target — digest agents never take more than one action."
+    source: "agents/daily-brief/prompt.md L3-4,19; agents/rollup/prompt.md L8-14,16-17"
+
+  review_fix_round_cap:
+    value: 2
+    unit: "automated fix rounds before needs-human hand-off"
+    source: "router.yml review-fix job; prompts/review.md L113-115 (round 2+ severity bar)"
+
+  budget_guard_monthly_usd:
+    value: 50
+    unit: "USD, env-overridable via MONTHLY_BUDGET_USD"
+    enforced_in_code: true
+    note: "On hit: creates/reuses a 'BUDGET CAP HIT: $<budget> for <month>' issue, halts that single mode's run only — not a cross-mode kill switch."
+    source: "src/squadhq/agent_runner.py:385-402"
+
+  call_claude_retry:
+    value: "2 retries (3 attempts total), backoff 1s/2s"
+    transient_statuses: [408, 429, 500, 502, 503, 504]
+    enforced_in_code: true
+    source: "src/squadhq/agent_runner.py:486,505-513"
+
+  capacity_trip_pause_minutes:
+    value: 60
+    enforced_in_code: true
+    source: "src/squadhq/capacity_gate.py:243-244"
+
+  capacity_write_retry:
+    value: "up to 3 attempts, jitter 2-5s between"
+    enforced_in_code: true
+    source: "src/squadhq/capacity_gate.py:92-113"
+
+  failure_handler_transient_retry_cap:
+    value: "run_attempt < 3 retries; attempt 3+ escalates as TRANSIENT-EXHAUSTED"
+    enforced_in_code: true
+    source: "src/squadhq/failure_handler.py:312"
+
+  gather_caps:
+    open_issues_per_project: {value: 60, source: "src/squadhq/agent_runner.py:415"}
+    open_prs_per_project: {value: 30, source: "src/squadhq/agent_runner.py:418"}
+    recent_merged_prs_per_project: {value: 15, source: "src/squadhq/agent_runner.py:427"}
+    hub_open_issues: {value: 100, source: "src/squadhq/agent_runner.py:438"}
+    po_verdicts_search: {value: 100, source: "src/squadhq/agent_runner.py:336"}
+    issue_pr_body_truncation_chars: {value: 800, source: "src/squadhq/agent_runner.py:431,435,442"}
+
+  action_body_caps:
+    create_issue_body_chars: {value: 6000, source: "src/squadhq/agent_runner.py:705"}
+    comment_body_chars: {value: 6000, source: "src/squadhq/agent_runner.py:772"}
+    title_chars: {value: 200, source: "src/squadhq/agent_runner.py:702"}
+
+  board_sync_backfill_limit:
+    value: 200
+    unit: "issues per repo"
+    source: "src/squadhq/board_sync.py:230"
+
+  stuck_sweeper:
+    thresholds_minutes:
+      unshaped: 30
+      team_thread: 60
+      dispatched_not_started: 45
+      design_not_started: 45
+      review_missing: 60
+      fix_round_not_started: 45
+      merge_decision_missing: 30
+      approver_reply_unanswered: 30
+      in_progress_stalled: 180
+      impact_missing: 30
+      mention_unanswered: 30
+    refire_attempts_max: 2
+    refire_window_hours: 24
+    # Deterministic dispatcher (plan_dispatch): at most this many new
+    # agent:implement per repo per hourly run, inside the WIP limit.
+    dispatch_max_per_run: 2
+    # Idle alarm: a repo with no open PR, nothing in flight,
+    # nothing dispatchable and no PR closed for this many hours gets ONE
+    # "Pipeline idle" escalation in the project repo listing why each shaped
+    # ticket is blocked; refreshed in place, closed once work flows. 0 = off.
+    idle_alarm_hours: 24
+    # Parked issues: verdict:decline / verdict:backlog with no
+    # verdict:overridden and no approver comment for this many days since the
+    # verdict closes as not planned (labels kept). Reopen + "do it anyway" /
+    # "do-it-now" revives it. 0 = off.
+    decline_close_days: 7
+    backlog_close_days: 30
+    actions_per_run_max: 10
+    enforced_in_code: true
+    note: >
+      Deterministic (no LLM) sweep over every project repo. First RECONCILES
+      each open ticket's labels with facts (its implementation / design PRs
+      open, merged or closed; delivered reports), which clears design gates,
+      moves tickets to review, closes merged work and escalates closed-unmerged
+      PRs; cleans work labels off recently closed issues; then NORMALIZES
+      contradictory label sets (removes the stale side; escalates parked AND
+      dispatched), then re-checks the corrected state. An item waiting on
+      AUTOMATION past its threshold gets the trigger event it is waiting for
+      re-fired (label remove+re-add, draft toggle, or a re-posted @team-thread
+      comment). After refire_attempts_max re-fires inside refire_window_hours it
+      stops re-firing and adds needs-human instead, so nothing stays stuck
+      silently. Escalates WITHOUT re-firing when the dispatched agent already
+      ran and commented without a PR (implement_stopped / design_stopped).
+      Items waiting on the APPROVER (proposal:pending without a
+      pending team-thread, needs-human, status:in-review, needs-approver-merge,
+      awaiting-approval) are never touched. Skips the whole run while the
+      capacity breaker is open (state/capacity.json paused_until).
+    triggers: >
+      EVENT PATH first: router.yml's ticket-transition job runs on every merge
+      to a project's default branch and moves the tickets that merge touched
+      (src/squadhq/ticket_transition.py, same rule functions). This hourly sweep
+      is the BACKSTOP — its cron was measured running only every 3-7 hours
+      (GitHub schedules are best-effort) — plus manual workflow_dispatch.
+    source: "src/squadhq/stuck_sweeper.py; .github/workflows/stuck-sweeper.yml; src/squadhq/ticket_transition.py"
+
+  cos_comment_only_cooldown_hours:
+    value: 24
+    enforced_in_code: true
+    note: >
+      A Chief of Staff comment with no label change or close on the same item
+      in the same batch is dropped if CoS already commented on that item
+      within this window, so repeated "holding, not touching" narration on the
+      same tickets is suppressed.
+    source: "src/squadhq/agent_runner.py execute() NARRATION GUARD"
+
+  hub_janitor:
+    # Deterministic cleanup of the HUB repo's own issue list (src/squadhq/hub_janitor.py,
+    # .github/workflows/hub-janitor.yml). Why: hub agents read at most
+    # gather_caps.hub_open_issues (100) open hub issues, and ~95% of them are
+    # dated reports — past the cap the OLDEST fall out of view silently.
+    # Retention per report series, by age. Every hub series
+    # keeps ONLY its newest issue open (retain_days 0): the digests read a
+    # week of history from hq_recent_reports (open or closed, gathered by
+    # src/squadhq/agent_runner.py), so a closed report is still read — it just no
+    # longer clutters the list. Reporters read their previous report, which
+    # is the newest, so still open. Cost ledgers: cost_ledger.py and
+    # load_cost_ledger look the month up by title with --state all, so a past
+    # month closes safely and the current month is always the newest.
+    series:
+      - {key: daily-brief,     title: "^(Daily Brief|brief report) — ",   retain_days: 0}
+      - {key: growth-nightly,  title: "^(Growth nightly|growth report) — ", retain_days: 0}
+      - {key: cos-report,      title: "^cos report — ",                    retain_days: 0}
+      - {key: seo-weekly,      title: "^SEO weekly — ",                    retain_days: 0}
+      - {key: legal-weekly,    title: "^(Legal weekly|legal report) — ",   retain_days: 0}
+      - {key: finance-weekly,  title: "^(Finance weekly|finance report) — ", retain_days: 0}
+      - {key: ecosystem-watch, title: "^Ecosystem Watch — ",               retain_days: 0}
+      - {key: lessons-harvest, title: "^Lessons harvest — ",               retain_days: 0}
+      - {key: weekly-rollup,   title: "^(Weekly Rollup|rollup report) — ", retain_days: 0}
+      - {key: cost-ledger,     title: "^Cost ledger — ",                   retain_days: 0}
+    # Issues with an identical title (e.g. the same failure escalated once per
+    # run) are MERGED: the newest stays open with a comment listing every
+    # duplicate and its run link, the rest close as "Duplicate of #N".
+    merge_identical_titles: true
+    # PROJECT REPOS: department reports moved out of the
+    # hub. The same series/protect rules run over each registered project's
+    # open issues carrying this label only — never anything else in a
+    # project — with one flat retention. No title merging there.
+    project_reports:
+      label: "report"
+      retain_days: 14
+    # EXPIRE: point-in-time issues that are not a series,
+    # closed once older than retain_days. Hub only (project_cfg drops it).
+    # Run-failure escalations: a recurring failure opens a fresh one, so a
+    # week-old one is history, not an open problem. Legacy hub drafts: Growth
+    # files content in the project repo, where the PO validates it.
+    expire:
+      - {key: run-escalation,   title: "^ESCALATION\\b", retain_days: 7,
+         reason: "run-failure escalation older than 7 days — a recurrence opens a new one"}
+      - {key: legacy-hub-draft, title: "^Draft: ",       retain_days: 14,
+         reason: "legacy hub content draft — content now flows through the project repo (channel:external)"}
+      - {key: legacy-growth-nightly, title: "^Growth nightly — ", retain_days: 14,
+         reason: "Growth reports live in the project repo"}
+      # The newest of a series is always kept — but these series no longer
+      # get new hub issues (they live in project repos), so their
+      # last hub issue would stay open forever without this.
+      - {key: legacy-dept-report, title: "^(SEO weekly|Legal weekly|legal report|growth report|cos report) — ",
+         retain_days: 14, reason: "department reports live in the project repo"}
+      - {key: cos-escalation,   title: "^\\[Chief of Staff\\] ", retain_days: 14,
+         reason: "Chief of Staff escalation older than 14 days with no approver reply — CoS re-raises it if still true"}
+    # Never touched, whatever the rules above say.
+    protect:
+      titles: ["^Claude capacity window exhausted$", "^Quarterly Architecture Review"]
+      # awaiting-approval is not protected: no hub issue is created with it
+      # any more (content approvals live in project repos), and it kept 30
+      # stale hub drafts open forever. A draft the approver commented on is
+      # still protected by human_engaged.
+      labels: []
+      human_authored: true        # opened by a person, not an agent
+      human_engaged: true         # any OWNER/MEMBER/COLLABORATOR comment
+      pinned: true
+    actions_per_run_max: 80
+    enforced_in_code: true
+    note: >
+      Cost ledgers are a series, not protected: every reader
+      looks the month up by title with --state all. The capacity
+      escalation (capacity_gate.py refreshes it by title; CoS duty 9 reads its
+      closure as "capacity is back") and the quarterly review are approver-
+      or script-owned — closing them
+      would break a lookup or drop a pending decision.
+    source: "src/squadhq/hub_janitor.py"
+
+  debt_refactor_share_target:
+    value: "~20%"
+    unit: "share of dispatched work"
+    source: "agents/chief-of-staff/prompt.md duty 3"

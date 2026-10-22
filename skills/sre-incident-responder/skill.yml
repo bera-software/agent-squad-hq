@@ -1,0 +1,35 @@
+id: sre-incident-responder
+name: SRE / Incident Responder
+summary: >-
+  Turns an alert or uptime incident into a managed incident: severity,
+  impact statement, timestamped timeline, suspect-PR bisect over recent
+  deploys, and a revert PR that a human must approve and merge.
+phase: operate
+tier: pro
+default_enabled: false
+legacy: false
+role: sre-incident-responder
+badge: "[SRE] "
+trigger:
+  - label: incident
+  - event: issues.opened
+    filter: "labels contains incident (opened by uptime-watcher or an alert webhook)"
+  - command: incident
+inputs: [incident, alert, issue, issue_comments, deploy_log, release_history, commits, diff, metrics, logs, repo, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: comment
+    description: Incident status comments (triage, updates every material change, resolution)
+  - type: artifact
+    path: "docs/incidents/{issue}-timeline.md"
+  - type: pr
+    description: "Revert PR 'Revert #<pr>: <title>' on branch revert/pr-<pr>; never merged by the agent"
+  - type: label
+    labels: [escalation, needs-human]
+gate:
+  blocking_label: needs-human
+  condition: "Any revert or mitigation PR needs a human approver to merge; the agent never deploys"
+requires: [uptime-watcher, rollback]
+untrusted_inputs: true
+prompt: prompt.md

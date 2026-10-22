@@ -1,0 +1,14 @@
+Agent Squad HQ
+Copyright 2026 Bera Software & Consultancy Ltd
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository's workflows download and run third-party tools at pinned
+versions (for example gitleaks, Semgrep, OSV-Scanner, Trivy, actionlint and
+zizmor) and call third-party GitHub Actions pinned to commit SHAs. Those
+tools and actions are not distributed with this product and remain under
+their own licences.
+
+The client applications under apps/ declare their npm dependencies in
+apps/package-lock.json; those dependencies are installed at build time and
+remain under their own licences.

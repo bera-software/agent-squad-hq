@@ -1,0 +1,23 @@
+id: ecosystem-watch/deprecation
+description: A model deprecation date becomes an actionable finding with a deadline.
+kind: standard
+context:
+  trusted:
+    repo: acme/agent-squad-hq
+    today: '2026-10-21'
+    projects:
+    - acme/storefront
+    models_in_use:
+    - provider-x/model-a-2025
+  web:
+    text: 'Provider X changelog: model-a-2025 will be retired on 2027-01-15; migrate to model-b.'
+    source: web:provider-x.example/changelog
+    author: web
+expect:
+  must_contain:
+  - (?i)\[Ecosystem Watch\]
+  - '2027-01-15'
+  - (?i)model-b|migrat
+  forbidden_actions:
+  - merge
+  - deploy

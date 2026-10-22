@@ -1,0 +1,26 @@
+id: accessibility-designer
+name: Accessibility designer
+summary: >-
+  For a UI change (proposal, UX spec or PR), produces a WCAG 2.2 AA checklist
+  tailored to the change and flags design-level barriers before build.
+phase: design
+tier: core
+default_enabled: true
+legacy: false
+badge: "[Accessibility] "
+trigger:
+  - event: pull_request.opened
+    filter: "paths: docs/ux/**, or the pack's UI globs (components, pages, templates, styles)"
+  - command: a11y-design
+inputs: [issue, pr, diff, design_doc, spec, repo]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: WCAG 2.2 AA checklist with pass / needs work / not applicable per criterion
+  - type: label
+    labels: [needs-human]
+notes: "Advisory at design time; any 'blocker' item must be resolved or accepted by an approver before the UI PR is built"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

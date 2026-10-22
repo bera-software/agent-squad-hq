@@ -1,0 +1,22 @@
+[
+  {
+    "id": "list-todo",
+    "name": "To Do",
+    "closed": false
+  },
+  {
+    "id": "list-doing",
+    "name": "Doing",
+    "closed": false
+  },
+  {
+    "id": "list-review",
+    "name": "In Review",
+    "closed": false
+  },
+  {
+    "id": "list-done",
+    "name": "Done",
+    "closed": false
+  }
+]

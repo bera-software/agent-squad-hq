@@ -1,0 +1,57 @@
+id: dotnet
+name: .NET / ASP.NET Core (C#)
+detect:
+  files: ["*.sln", "*.slnx", "*.csproj", "global.json", "Directory.Build.props"]
+paths:
+  - "**/*.cs"
+  - "**/*.csproj"
+  - "**/*.sln"
+  - "**/appsettings*.json"
+  - "Directory.Build.props"
+  - "Directory.Packages.props"
+  - "global.json"
+root: "."
+ci:
+  setup:
+    kind: dotnet
+    version: "8.0.x"
+  install: "dotnet restore"
+  build: "dotnet build --no-restore -warnaserror"
+  lint:
+    command: "dotnet format --verify-no-changes --no-restore"
+    local: "dotnet format --verify-no-changes"
+    configs: [".editorconfig"]
+    snippet: editorconfig
+    snippet_path: ".editorconfig"
+  # Requires the coverlet.collector package in test projects (default in xunit templates).
+  test: "dotnet test --no-build --collect:\"XPlat Code Coverage\" --results-directory ./TestResults && cp \"$(find TestResults -name coverage.cobertura.xml | head -n 1)\" coverage.cobertura.xml"
+  coverage:
+    format: cobertura
+    path: "coverage.cobertura.xml"
+    min_overall: 60
+    min_changed: 70
+# NetArchTest tests live in a test project, so the starter file is not seeded
+# by onboarding (it needs the package reference); copy snippets/ArchitectureTests.cs.
+arch:
+  tool: NetArchTest
+  config: "**/*ArchitectureTests.cs"
+  command: "dotnet test --filter \"Category=Architecture\""
+  snippet: ArchitectureTests.cs
+  requires: "dotnet add <Tests.csproj> package NetArchTest.Rules --version 1.3.2, and the test file in that project with your root namespace"
+risk_paths:
+  - "**/Auth/**"
+  - "**/Authorization/**"
+  - "**/Security/**"
+  - "**/Migrations/**"
+  - "**/Billing/**"
+  - "**/Payment*/**"
+  - "**/Program.cs"
+  - "**/Startup.cs"
+  - "**/appsettings*.json"
+tools:
+  - "Bash(dotnet restore*)"
+  - "Bash(dotnet build*)"
+  - "Bash(dotnet test*)"
+  - "Bash(dotnet format*)"
+  - "Bash(dotnet list package*)"
+  - "Bash(dotnet ef migrations list*)"

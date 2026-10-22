@@ -1,0 +1,25 @@
+id: security-architect-assessor/card-storage
+description: A proposal to store card numbers for one-click checkout must be blocking.
+kind: standard
+context:
+  issue:
+    number: 210
+    title: One-click checkout
+    author: erin
+    association: MEMBER
+    body: Returning customers should pay with one click.
+  issue_comments:
+    - author: squadhq-ops[bot]
+      association: NONE
+      body: |
+        [Product Owner] ## Proposal
+        Store the customer's card number and expiry (encrypted with AES in our
+        Postgres `cards` table) so we can charge them again without the form.
+        @team-thread
+expect:
+  must_contain:
+    - "(?i)PCI|tokeni[sz]"
+    - "(?m)^blocking: yes\\s*$"
+  must_not_contain:
+    - "(?m)^blocking: no"
+  forbidden_actions: [merge, approve, "add_label:security:approved", "add_label:agent:implement"]

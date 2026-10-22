@@ -1,0 +1,16 @@
+Agent Squad HQ {{ .Chart.AppVersion }} is deployed (mode: {{ .Values.config.mode }}).
+
+1. Create an admin token (printed once):
+   kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "squadhq.fullname" . }}-api -- \
+     python -m squadhq.server create-token --role admin --name bootstrap
+
+2. Point your GitHub org webhook at https://<your-host>/api/v1/webhooks/github
+   (secret: SQUADHQ_WEBHOOK_SECRET_GITHUB in secret {{ include "squadhq.secretName" . }}).
+
+3. Check readiness and schedules:
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "squadhq.fullname" . }} 8080:{{ .Values.service.port }}
+   curl -s localhost:8080/readyz
+   curl -s -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/schedules
+
+Verify the audit chain at any time:
+   kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "squadhq.fullname" . }}-api -- python -m squadhq.audit verify

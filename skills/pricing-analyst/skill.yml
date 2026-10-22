@@ -1,0 +1,22 @@
+id: pricing-analyst
+name: Pricing & Packaging Analyst
+summary: >-
+  On request, proposes a pricing or packaging experiment with a hypothesis,
+  the metric it moves, guardrails, sample-size estimate and rollback, from
+  revenue, usage and competitor data. Proposal only; humans decide prices.
+phase: plan
+tier: pro
+default_enabled: false
+badge: "[Pricing Analyst] "
+trigger:
+  command: pricing
+inputs: [issue, issue_comments, analytics, metrics, web, cost_ledger, config]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: "## Pricing experiment proposal comment on the requesting issue"
+  - type: label
+    labels: [awaiting-approval, needs-human]
+untrusted_inputs: true
+prompt: prompt.md

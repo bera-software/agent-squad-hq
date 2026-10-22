@@ -1,0 +1,4 @@
+{"output": {"message": {"role": "assistant", "content": [{"text": "Bedrock says hi"}]}},
+ "stopReason": "end_turn",
+ "usage": {"inputTokens": 30, "outputTokens": 4, "totalTokens": 34, "cacheReadInputTokens": 0},
+ "metrics": {"latencyMs": 420}}

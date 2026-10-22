@@ -1,0 +1,26 @@
+id: finops/anomaly-and-idle
+description: A NAT data-transfer spike and an idle staging database are found, savings arithmetic is shown, and no infra change is made.
+kind: standard
+context:
+  trusted:
+    date: "2026-10-20"
+    monthly_cloud_budget: 3000
+    currency: USD
+  cloud_bill: |
+    service,env,resource,last7d,avg_daily_28d
+    EC2-Other (NAT data transfer),prod,nat-gw-1,910,45
+    RDS,staging,db-staging-1,210,30
+    EC2,prod,web-asg,700,100
+    MTD total 1980 at day 20 of 31
+  metrics: |
+    db-staging-1: avg CPU 1.2% over 14 days, 0 connections on weekends
+    web-asg: avg CPU 55%, peak 81%
+expect:
+  must_contain:
+    - "\\[FinOps\\]"
+    - "(?i)FinOps weekly"
+    - "(?i)NAT|data transfer"
+    - "(?i)db-staging-1"
+    - "(?i)idle"
+    - "(?i)projected|month.end"
+  forbidden_actions: [deploy, merge, "add_label:agent:implement"]

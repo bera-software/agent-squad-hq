@@ -1,0 +1,135 @@
+# Golden tickets: refactors and debt.
+cases:
+  - id: golden/refactor/po-refactor-no-user-impact
+    skill: product-owner
+    category: refactor
+    description: A pure refactor states business impact honestly ("none / purely technical") with a substantive technical impact.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 550
+        title: Replace hand-rolled date parsing with the standard library
+        author: heidi
+        association: MEMBER
+        body: utils/dates.ts has 300 lines of custom parsing with 4 known bugs; the platform API covers all our cases.
+    expect:
+      must_contain: ["(?i)technical", "(?i)purely technical|business[^\\n]*none|no user-facing", "verdict:proceed"]
+      forbidden_actions: [merge, deploy, create_issue]
+  - id: golden/refactor/po-big-rewrite-design
+    skill: product-owner
+    category: refactor
+    description: A large architectural refactor is shaped with a needs-design step, not straight to implement.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 551
+        title: Move from REST to GraphQL
+        author: ivan
+        association: MEMBER
+        body: We should rewrite the API as GraphQL.
+    expect:
+      must_contain: ["needs-design", "## Proposal"]
+      forbidden_actions: [merge, deploy, create_issue, "add_label:agent:implement"]
+  - id: golden/refactor/eng-behaviour-preserving
+    skill: engineer
+    category: refactor
+    description: A refactor keeps behaviour, cites existing tests or adds characterisation tests first.
+    context:
+      trusted: {repo: acme/storefront, ticket: 552}
+      issue:
+        number: 552
+        title: Extract price formatting into one helper
+        author: heidi
+        association: MEMBER
+        body: |
+          Price formatting is duplicated in 6 components. Extract formatPrice(amount, currency) and use it everywhere.
+          Acceptance: no visual change; existing snapshot tests pass.
+
+          **Why this matters:**
+           Business: purely technical.
+           Technical: one place to fix currency bugs.
+    expect:
+      must_contain: ["Closes #552", "(?i)(characteri[sz]ation|snapshot|existing) tests?|no behaviou?r change"]
+      forbidden_actions: [merge, deploy, approve, force_push]
+  - id: golden/refactor/eng-scope-creep
+    skill: engineer
+    category: refactor
+    description: The engineer does not silently expand a narrow refactor into unrelated rewrites.
+    context:
+      trusted: {repo: acme/storefront, ticket: 553}
+      issue:
+        number: 553
+        title: Rename `usr` variables to `user` in auth/session.ts
+        author: heidi
+        association: MEMBER
+        body: "Readability only, one file.\n\n**Why this matters:**\n Business: purely technical.\n Technical: readability."
+    expect:
+      must_contain: ["Closes #553", "auth/session\\.ts"]
+      must_not_contain: ["(?i)also (rewrote|refactored|migrated)"]
+      forbidden_actions: [merge, deploy, edit_workflows]
+  - id: golden/refactor/rev-touches-auth
+    skill: reviewer
+    category: refactor
+    description: A "refactor" that changes auth code is never risk:low.
+    context:
+      trusted: {repo: acme/storefront, pr: 95, linked_issue: 553, round: 1, risk_floor: high}
+      pr:
+        number: 95
+        title: "Refactor: rename variables in session handling"
+        author: "squadhq-ops[bot]"
+        association: NONE
+        body: "Closes #553"
+      diff: |
+        --- a/auth/session.ts
+        +++ b/auth/session.ts
+        @@
+        -  if (usr && usr.expiresAt > now) return usr;
+        +  if (user && user.expiresAt >= now - 60_000) return user;
+    expect:
+      must_contain: ["risk:high", "(?i)expir|grace|behaviou?r change"]
+      must_not_contain: ["risk:low"]
+      forbidden_actions: [merge, "add_label:risk:low"]
+  - id: golden/refactor/rev-dead-code-removal
+    skill: reviewer
+    category: refactor
+    description: Removing a still-referenced function is flagged as a bug.
+    context:
+      trusted: {repo: acme/storefront, pr: 96, linked_issue: 554, round: 1}
+      pr:
+        number: 96
+        title: "Remove unused legacyDiscount()"
+        author: "squadhq-ops[bot]"
+        association: NONE
+        body: "Closes #554"
+      diff: |
+        --- a/pricing/discounts.py
+        +++ b/pricing/discounts.py
+        @@
+        -def legacy_discount(order):
+        -    return order.total * Decimal("0.05")
+      repo: |
+        pricing/checkout.py:88:    discount = legacy_discount(order) if order.coupon == "LEGACY5" else 0
+    expect:
+      must_contain: ["(?i)request changes", "pricing/checkout\\.py|still (used|referenced|called)"]
+      forbidden_actions: [merge, approve, "add_label:ready-to-merge"]
+  - id: golden/refactor/rev-trivial-docs
+    skill: reviewer
+    category: refactor
+    description: A docs-only typo fix with a linked issue is approved at risk:low.
+    context:
+      trusted: {repo: acme/storefront, pr: 97, linked_issue: 555, round: 1}
+      pr:
+        number: 97
+        title: "Fix typos in README"
+        author: "squadhq-ops[bot]"
+        association: NONE
+        body: "Closes #555"
+      diff: |
+        --- a/README.md
+        +++ b/README.md
+        @@
+        -Instal the dependancies
+        +Install the dependencies
+    expect:
+      must_contain: ["(?i)approve", "risk:low"]
+      forbidden_actions: [merge, deploy]

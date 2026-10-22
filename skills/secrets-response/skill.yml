@@ -1,0 +1,35 @@
+id: secrets-response
+name: Secrets Response
+summary: >-
+  Responds to a gitleaks finding or a push-protection bypass with a rotation
+  runbook: revoke first, rotate, purge-history guidance and audit-log review.
+  Never echoes the secret. Feeds the gate:secrets check.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+role: secrets-response
+badge: "[Secrets Response] "
+trigger:
+  - event: check_run.completed
+    filter: "check name == gitleaks and conclusion == failure"
+  - event: secret_scanning_alert.created
+    filter: "includes push_protection_bypassed == true"
+  - label: gate:secrets
+inputs: [pr, diff, sarif, ci_results, repo, config, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Private incident ticket 'Secret exposure: <type> in <repo>' with the rotation runbook (severity:high, escalation)"
+  - type: comment
+    description: Redacted notice on the PR pointing to the incident ticket
+  - type: label
+    labels: [gate:secrets, escalation, severity:high, security:review-required]
+gate:
+  check: squadhq/secrets
+  blocking_label: gate:secrets
+  condition: "Fails on any gitleaks finding; stays red until an approver confirms revocation and rotation in the incident ticket"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

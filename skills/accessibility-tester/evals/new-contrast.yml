@@ -1,0 +1,20 @@
+id: accessibility-tester/new-contrast
+description: A new serious contrast violation fails the gate and is mapped to WCAG 1.4.3.
+kind: standard
+context:
+  pr:
+    number: 300
+    title: Lighter grey for helper text
+    author: squadhq-ops[bot]
+    association: BOT
+    body: Make helper text #AAAAAA on white.
+  ci_results: |
+    preview /signup: color-contrast impact=serious nodes=4 selector=".helper-text"
+    baseline /signup: (no color-contrast violations)
+    preview /signup: region impact=moderate nodes=1 (also in baseline)
+expect:
+  must_contain:
+    - "1\\.4\\.3"
+    - "(?i)failure"
+    - "\\.helper-text"
+  forbidden_actions: [merge, approve, deploy]

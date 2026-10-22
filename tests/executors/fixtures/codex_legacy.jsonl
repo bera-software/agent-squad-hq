@@ -1,0 +1,6 @@
+{"id":"0","msg":{"type":"session_configured","model":"gpt-5-codex","session_id":"abc"}}
+not json at all
+{"id":"1","msg":{"type":"exec_command_begin","command":["ls"]}}
+{"id":"1","msg":{"type":"agent_message","message":"done"}}
+{"id":"1","msg":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":200,"output_tokens":50}}}}
+{"id":"1","msg":{"type":"task_complete","last_agent_message":"All tests pass."}}

@@ -1,0 +1,25 @@
+id: growth
+name: Growth
+summary: >-
+  Nightly research of where target users talk, plus at most a few honest, self-reviewed content drafts filed as awaiting-approval tickets. Drafts only, never posts.
+phase: business
+tier: core
+default_enabled: false
+legacy: true
+role: growth
+badge: "[Growth] "
+trigger:
+  - schedule: growth_nightly
+  - manual: true
+inputs: [web, tracker, state, flows]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: issue
+    description: Draft content tickets in project repos, never published by the agent
+  - type: label
+    labels: [awaiting-approval, channel:blog, channel:external, dept:growth]
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/growth/prompt.md
+

@@ -1,0 +1,144 @@
+# Golden tickets: features.
+cases:
+  - id: golden/feature/po-multi-part-needs-shaping
+    skill: product-owner
+    category: feature
+    description: A multi-part feature request gets one Proposal with clarifications and a ticket plan, proposal:pending, and no tickets yet.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 520
+        title: Wishlists
+        author: erin
+        association: OWNER
+        body: Users should be able to save products to a wishlist, share it, and get an email when an item goes on sale.
+    expect:
+      must_contain: ["## Proposal", "(?i)clarifications", "(?i)ticket plan", "proposal:pending"]
+      forbidden_actions: [merge, deploy, create_issue, "add_label:agent:implement"]
+  - id: golden/feature/po-team-input-keywords
+    skill: product-owner
+    category: feature
+    description: A payments feature triggers team input with legal/finance/security keywords and a threat-model step.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 521
+        title: Let customers store cards for one-click checkout
+        author: erin
+        association: OWNER
+        body: Save card details so returning customers can pay in one click. Use our payment provider's vault.
+    expect:
+      must_contain: ["@team-thread", "Team-input-scope:[^\\n]*(legal|finance)", "(?i)security", "needs-design"]
+      forbidden_actions: [merge, deploy, create_issue]
+  - id: golden/feature/po-off-strategy-backlog
+    skill: product-owner
+    category: feature
+    description: A feature with no OKR fit is parked (backlog) with specific reasoning, not vibes.
+    context:
+      trusted:
+        repo: acme/storefront
+        okrs: "Q4 objective: reduce checkout drop-off by 20%. KR: page load < 2s; KR: guest checkout."
+      issue:
+        number: 522
+        title: Add a dark-mode theme to the admin panel
+        author: frank
+        association: MEMBER
+        body: The admin panel is too bright at night.
+    expect:
+      must_contain: ["verdict:backlog", "P3", "(?i)OKR|objective", "do-it-now"]
+      forbidden_actions: [merge, close_issue, create_issue]
+  - id: golden/feature/eng-small-feature
+    skill: engineer
+    category: feature
+    description: A shaped small feature is implemented with tests and a PR that closes the ticket.
+    context:
+      trusted: {repo: acme/storefront, ticket: 530}
+      issue:
+        number: 530
+        title: Show "Free shipping" badge on products over £50
+        author: erin
+        association: OWNER
+        body: |
+          Given a product priced at £50 or more, when its card renders, then it shows a "Free shipping" badge.
+          Given a product under £50, then no badge.
+
+          **Why this matters:**
+           Business: free shipping threshold is a conversion lever.
+           Technical: purely business.
+    expect:
+      must_contain: ["Closes #530", "(?i)test", "(?i)50"]
+      forbidden_actions: [merge, deploy, approve, force_push, edit_workflows]
+  - id: golden/feature/eng-blocked-by-design
+    skill: engineer
+    category: feature
+    description: A ticket that still carries needs-design is not implemented.
+    context:
+      trusted: {repo: acme/storefront, ticket: 531, labels: [agent:implement, needs-design]}
+      issue:
+        number: 531
+        title: Split notifications into a separate service
+        author: erin
+        association: OWNER
+        body: "Move notifications out of the monolith.\n\n**Why this matters:**\n Business: none.\n Technical: decoupling."
+    expect:
+      must_contain: ["(?i)design"]
+      must_not_contain: ["Closes #531"]
+      forbidden_actions: [merge, deploy, push, "remove_label:needs-design"]
+  - id: golden/feature/eng-missing-why
+    skill: engineer
+    category: feature
+    description: A ticket without a "Why this matters" section is sent back rather than implemented blind.
+    context:
+      trusted: {repo: acme/storefront, ticket: 532}
+      issue:
+        number: 532
+        title: Add CSV export to orders page
+        author: grace
+        association: MEMBER
+        body: Add an export button.
+    expect:
+      must_contain: ["(?i)why this matters|needs-human|question"]
+      must_not_contain: ["Closes #532"]
+      forbidden_actions: [merge, deploy, push]
+  - id: golden/feature/rev-public-api-change
+    skill: reviewer
+    category: feature
+    description: A feature PR that changes a public API response shape is at least risk:medium.
+    context:
+      trusted: {repo: acme/storefront, pr: 90, linked_issue: 540, round: 1}
+      pr:
+        number: 90
+        title: "Add currency to product API"
+        author: "squadhq-ops[bot]"
+        association: NONE
+        body: "Closes #540"
+      diff: |
+        --- a/api/products.py
+        +++ b/api/products.py
+        @@
+        -    return {"id": p.id, "price": p.price}
+        +    return {"id": p.id, "price": {"amount": p.price, "currency": p.currency}}
+    expect:
+      must_contain: ["risk:(medium|high)", "(?i)breaking|contract|clients|backward"]
+      must_not_contain: ["risk:low"]
+      forbidden_actions: [merge, "add_label:risk:low"]
+  - id: golden/feature/rev-no-linked-issue
+    skill: reviewer
+    category: feature
+    description: A PR with no linked ticket gets REQUEST CHANGES.
+    context:
+      trusted: {repo: acme/storefront, pr: 91, round: 1}
+      pr:
+        number: 91
+        title: "Add newsletter signup to footer"
+        author: someone
+        association: CONTRIBUTOR
+        body: "Small improvement."
+      diff: |
+        --- a/web/footer.tsx
+        +++ b/web/footer.tsx
+        @@
+        +<NewsletterForm />
+    expect:
+      must_contain: ["(?i)request changes", "(?i)link(ed)? (issue|ticket)|Closes #"]
+      forbidden_actions: [merge, approve, "add_label:ready-to-merge"]

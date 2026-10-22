@@ -1,0 +1,150 @@
+name: Squad HQ — token
+description: >
+  Mint a GitHub App installation token for the ops or the agent identity.
+  Token-broker mode (SQUADHQ_TOKEN_BROKER set): exchange this job's GitHub
+  Actions OIDC token at the broker (ADR-0011); the job needs
+  `permissions: id-token: write`. Otherwise: actions/create-github-app-token
+  with the App key, exactly as before.
+author: Agent Squad HQ
+
+# Composite actions cannot read `vars` or `secrets`; callers pass them in. The
+# broker URL defaults to SQUADHQ_TOKEN_BROKER on the job env, which every hub
+# workflow sets from vars.SQUADHQ_TOKEN_BROKER.
+inputs:
+  identity:
+    description: "ops (bookkeeping, routing, merges) or agent (coding agents: one repository, least permissions)."
+    required: false
+    default: ops
+  repositories:
+    description: Repositories the token covers (owner/name or name, comma or newline separated). Empty = the App's / the broker's default.
+    required: false
+    default: ""
+  purpose:
+    description: Recorded by the broker with the grant. Default the job id.
+    required: false
+    default: ""
+  app-client-id:
+    description: Client id of the App for `identity` (App-key mode only).
+    required: false
+    default: ""
+  app-private-key:
+    description: Private key of the App for `identity` (App-key mode only).
+    required: false
+    default: ""
+  skip-token-revoke:
+    description: >-
+      "true": do not revoke the token when the job ends. App-key mode: create-github-app-token's
+      post step revokes it. Broker mode: the token is listed for the job's final revoke step.
+    required: false
+    default: "false"
+  broker:
+    description: Token broker URL. Default env SQUADHQ_TOKEN_BROKER. Empty = App-key mode.
+    required: false
+    default: ""
+  broker-audience:
+    description: OIDC audience. Default env SQUADHQ_TOKEN_BROKER_AUDIENCE, else the broker URL.
+    required: false
+    default: ""
+  permission-contents:
+    description: contents permission (both modes; the broker only narrows, never widens).
+    required: false
+    default: ""
+  permission-issues:
+    description: issues permission (both modes).
+    required: false
+    default: ""
+  permission-pull-requests:
+    description: pull-requests permission (both modes).
+    required: false
+    default: ""
+  permission-actions:
+    description: actions permission (both modes).
+    required: false
+    default: ""
+  permission-checks:
+    description: checks permission (both modes).
+    required: false
+    default: ""
+  permission-statuses:
+    description: statuses permission (both modes).
+    required: false
+    default: ""
+  permission-workflows:
+    description: workflows permission (both modes).
+    required: false
+    default: ""
+  permission-actions-variables:
+    description: actions_variables permission (both modes).
+    required: false
+    default: ""
+  permission-organization-projects:
+    description: organization-projects permission (both modes).
+    required: false
+    default: ""
+
+outputs:
+  token:
+    description: The installation token (masked).
+    value: ${{ steps.app.outputs.token || steps.broker.outputs.token }}
+  app-slug:
+    description: Slug of the App the token belongs to.
+    value: ${{ steps.app.outputs.app-slug || steps.broker.outputs.app-slug }}
+  login:
+    description: Bot login of the token's identity (<slug>[bot]).
+    value: ${{ steps.broker.outputs.login || (steps.app.outputs.app-slug && format('{0}[bot]', steps.app.outputs.app-slug)) || '' }}
+  mode:
+    description: broker | app
+    value: ${{ steps.mode.outputs.broker != '' && 'broker' || 'app' }}
+
+runs:
+  using: composite
+  steps:
+    - id: mode
+      name: Token source
+      shell: bash
+      env:
+        IN_BROKER: ${{ inputs.broker }}
+      run: echo "broker=${IN_BROKER:-${SQUADHQ_TOKEN_BROKER:-}}" >> "$GITHUB_OUTPUT"
+
+    - id: app
+      if: steps.mode.outputs.broker == ''
+      name: Mint the token with the App key
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ inputs.repositories }}
+        # agent-prep's tokens outlive the prep job; its post job revokes them.
+        skip-token-revoke: ${{ inputs.skip-token-revoke }}  # zizmor: ignore[github-app]
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-issues: ${{ inputs.permission-issues }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        permission-actions: ${{ inputs.permission-actions }}
+        permission-checks: ${{ inputs.permission-checks }}
+        permission-statuses: ${{ inputs.permission-statuses }}
+        permission-workflows: ${{ inputs.permission-workflows }}
+        permission-actions-variables: ${{ inputs.permission-actions-variables }}
+        permission-organization-projects: ${{ inputs.permission-organization-projects }}
+
+    - id: broker
+      if: steps.mode.outputs.broker != ''
+      name: Mint the token at the token broker (OIDC)
+      shell: bash
+      env:
+        SQUADHQ_TOKEN_BROKER: ${{ steps.mode.outputs.broker }}
+        SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ inputs.broker-audience || env.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+        TOKEN_IDENTITY: ${{ inputs.identity }}
+        TOKEN_REPOSITORIES: ${{ inputs.repositories }}
+        TOKEN_PURPOSE: ${{ inputs.purpose || github.job }}
+        TOKEN_SKIP_REVOKE: ${{ inputs.skip-token-revoke }}
+        # The same narrowing as the App-key path (empty entries are skipped).
+        TOKEN_PERMISSIONS: >-
+          contents=${{ inputs.permission-contents }},issues=${{ inputs.permission-issues }},
+          pull-requests=${{ inputs.permission-pull-requests }},actions=${{ inputs.permission-actions }},
+          checks=${{ inputs.permission-checks }},statuses=${{ inputs.permission-statuses }},
+          workflows=${{ inputs.permission-workflows }},actions-variables=${{ inputs.permission-actions-variables }},
+          organization-projects=${{ inputs.permission-organization-projects }}
+      # Unless skip-token-revoke, the job must end with the revoke step
+      # (see broker.py): composite actions have no post step.
+      run: python3 -I "$GITHUB_ACTION_PATH/broker.py" token

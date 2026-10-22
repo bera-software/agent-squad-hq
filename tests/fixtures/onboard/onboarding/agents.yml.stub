@@ -1,0 +1,4 @@
+# Managed by stub-sync
+jobs:
+  hub:
+    uses: __HUB_REPO__/.github/workflows/router.yml@__HUB_REF__  # __HUB_TAG__

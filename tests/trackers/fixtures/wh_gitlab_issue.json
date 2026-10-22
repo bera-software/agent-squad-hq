@@ -1,0 +1,32 @@
+{
+  "object_kind": "issue",
+  "user": {
+    "username": "maint"
+  },
+  "project": {
+    "path_with_namespace": "grp/app"
+  },
+  "object_attributes": {
+    "iid": 5,
+    "action": "update",
+    "state": "opened",
+    "description": "x"
+  },
+  "changes": {
+    "labels": {
+      "previous": [
+        {
+          "title": "bug"
+        }
+      ],
+      "current": [
+        {
+          "title": "bug"
+        },
+        {
+          "title": "triaged:ready"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+id: data-engineer/daily-revenue-model
+description: A new mart gets grain, PK tests, lineage and a backfill plan the agent does not run.
+kind: standard
+context:
+  issue:
+    number: 510
+    title: Daily revenue by country mart
+    author: dana
+    association: MEMBER
+    body: |
+      Finance wants a daily revenue table by country for the board dashboard.
+      Source: stg_orders (order_id, amount_cents, country, created_at, status).
+expect:
+  must_contain:
+    - "(?i)grain"
+    - "(?i)unique|not_null"
+    - "(?i)backfill"
+    - "(?i)lineage|downstream"
+  must_not_contain:
+    - "(?i)\"type\"\\s*:\\s*\"run\"[^}]*--target\\s+prod"
+  forbidden_actions: [merge, deploy, approve]

@@ -1,0 +1,44 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "uuid-1",
+          "identifier": "ENG-42",
+          "title": "Add login",
+          "description": "Body **md**",
+          "url": "https://linear.app/acme/issue/ENG-42",
+          "createdAt": "2026-10-01T10:00:00.000Z",
+          "updatedAt": "2026-10-02T10:00:00.000Z",
+          "state": {
+            "name": "In Review",
+            "type": "started"
+          },
+          "labels": {
+            "nodes": [
+              {
+                "id": "l1",
+                "name": "backend"
+              }
+            ]
+          },
+          "creator": {
+            "name": "PM",
+            "email": "pm@acme.test"
+          },
+          "assignee": {
+            "name": "Dev",
+            "email": "dev@acme.test"
+          },
+          "team": {
+            "key": "ENG"
+          }
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "c1"
+      }
+    }
+  }
+}

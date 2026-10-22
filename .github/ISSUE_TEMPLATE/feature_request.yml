@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a new capability, pack, skill, provider or tracker.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How you would like it to work. Include example `squadhq.yml` if configuration is involved.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Pipeline / flows / labels
+        - Skill (new or changed)
+        - Stack pack
+        - LLM provider or executor
+        - Tracker or code host
+        - Notifications
+        - SSDLC gates
+        - Configuration / CLI
+        - Server mode / deployment
+        - Dashboard or mobile app
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security considerations
+      description: |
+        Does this change what an agent can do, which events start an LLM job, which tokens or permissions are used,
+        or how untrusted text reaches a model? Write "none" if not.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to work on this myself (see CONTRIBUTING.md).

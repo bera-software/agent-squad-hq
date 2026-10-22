@@ -1,0 +1,12 @@
+id: java-spring
+name: Java / Spring Boot
+detect:
+  files: ["pom.xml", "build.gradle", "build.gradle.kts"]
+paths: ["**/*.java", "pom.xml"]
+root: backend
+ci:
+  setup: {kind: java, version: "21"}
+  build: "./gradlew build --continue || mvn -B verify"
+  coverage: {format: jacoco, path: "build/reports/jacoco/test/jacocoTestReport.xml", min_overall: 60, min_changed: 70}
+risk_paths: ["**/security/**"]
+tools: ["Bash(./gradlew *)", "Bash(mvn *)"]

@@ -1,0 +1,26 @@
+id: stuck-sweeper
+name: Stuck Sweeper
+summary: >-
+  Deterministic hygiene: finds tickets stuck past the thresholds in
+  flood-guards.stuck_sweeper (unshaped, dispatched but idle, review stalled)
+  and re-applies the dispatch label or escalates.
+phase: operate
+tier: core
+default_enabled: true
+legacy: true
+deterministic: true
+trigger:
+  - schedule: stuck_sweeper
+  - manual: true
+inputs: [tracker, flows, state]
+tool_profile: comment
+model_tier: none
+outputs:
+  - type: label
+    labels: [agent:shape, agent:continue, agent:implement, escalation]
+  - type: report
+    description: Step summary listing every stuck item and the action taken
+requires: []
+untrusted_inputs: false
+prompt: null
+entrypoint: "python -m squadhq.stuck_sweeper"

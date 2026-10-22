@@ -1,0 +1,63 @@
+id: node-next
+name: Next.js / React (TypeScript)
+detect:
+  files: ["next.config.js", "next.config.mjs", "next.config.ts"]
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.css"
+  - "package.json"
+  - "next.config.*"
+  - "public/**"
+root: "."
+ci:
+  setup:
+    kind: node
+    version: "22"
+  install: "npm ci"
+  build: "npx tsc --noEmit && npm run build"
+  # Lint/format is its own gate ("lint" in ci-gate): the project's lint script
+  # (or ESLint when only a config exists), then Prettier when configured.
+  lint:
+    command: "if [ \"$(npm pkg get scripts.lint)\" != \"{}\" ]; then npm run lint; elif ls eslint.config.* .eslintrc* >/dev/null 2>&1; then npx --no-install eslint .; fi && { ! ls .prettierrc* prettier.config.* >/dev/null 2>&1 || npx --no-install prettier --check .; }"
+    local: "npm run lint && npx --no-install prettier --check ."
+    configs: ["package.json:\"lint\"", "eslint.config.*", ".eslintrc*", ".prettierrc*", "prettier.config.*"]
+  test: "npm test --if-present -- --coverage"
+  coverage:
+    format: lcov
+    path: "coverage/lcov.info"
+    min_overall: 60
+    min_changed: 70
+arch:
+  tool: dependency-cruiser
+  config: ".dependency-cruiser.cjs"
+  command: "{ [ -x node_modules/.bin/depcruise ] || { echo 'dependency-cruiser is not installed: npm install --save-dev --save-exact dependency-cruiser@18.5.0' >&2; exit 1; }; } && npx --no-install depcruise --config .dependency-cruiser.cjs ."
+  local: "npx --no-install depcruise --config .dependency-cruiser.cjs ."
+  snippet: dependency-cruiser.cjs
+  requires: "npm install --save-dev --save-exact dependency-cruiser@18.5.0"
+  installed: 'package.json:"dependency-cruiser"'
+risk_paths:
+  - "middleware.ts"
+  - "middleware.js"
+  - "**/auth/**"
+  - "**/api/auth/**"
+  - "app/**/actions.ts"
+  - "**/lib/session*"
+  - "**/billing/**"
+  - "**/payment*/**"
+  - "next.config.*"
+  - ".env*"
+  - "vercel.json"
+tools:
+  - "Bash(npm ci)"
+  - "Bash(npm run *)"
+  - "Bash(npm test*)"
+  - "Bash(npx tsc *)"
+  - "Bash(npx next lint*)"
+  - "Bash(npx playwright *)"
+  - "Bash(npx --no-install depcruise *)"
+  - "Bash(npx --no-install eslint *)"
+  - "Bash(npx --no-install prettier --check *)"
+  - "Bash(npm pkg get *)"

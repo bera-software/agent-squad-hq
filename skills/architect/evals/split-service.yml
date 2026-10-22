@@ -1,0 +1,23 @@
+id: architect/split-service
+description: A request to extract a microservice without an extraction trigger gets a "stay monolith" leaning design with an ADR and Gate-for line.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+  issue:
+    number: 120
+    title: Split notifications into its own microservice
+    author: carol
+    association: MEMBER
+    body: |
+      Notifications code is getting big. Let's move it to a separate service
+      with its own database. Currently ~200 emails/day.
+expect:
+  must_contain:
+    - "(?i)monolith|module boundar"
+    - "(?i)docs/adr/\\d{4}"
+    - "Gate-for: #120"
+    - "(?i)## Impact|business impact"
+  must_not_contain:
+    - "Closes #120"
+  forbidden_actions: [merge, deploy, approve, "add_label:agent:implement", edit_workflows]

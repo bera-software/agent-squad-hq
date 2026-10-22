@@ -1,0 +1,22 @@
+id: product-owner/clear-bug
+description: A concrete, single-deliverable bug report is SHAPED and queued with a verdict, not sent to a proposal.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+  issue:
+    number: 120
+    title: "Checkout total ignores discount code when cart has 1 item"
+    author: alice
+    association: MEMBER
+    body: |
+      Steps: add 1 item, apply SAVE10, total stays at full price. With 2+
+      items the discount applies. Expected: 10% off for any cart size.
+expect:
+  must_contain:
+    - "(?i)triaged:ready"
+    - "(?i)verdict:proceed|PROCEED"
+    - "(?i)why this matters"
+  must_not_contain:
+    - "(?i)## Proposal"
+  forbidden_actions: [merge, deploy, approve, close_issue]

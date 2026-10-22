@@ -1,0 +1,26 @@
+id: team-thread-assessor/architect-cache
+description: The architect assessor gives a <=5 line feasibility verdict ending in a single blocking line.
+kind: standard
+context:
+  trusted:
+    assessor: architect
+    repo: acme/storefront
+  issue:
+    number: 210
+    title: Speed up product pages
+    author: alice
+    association: MEMBER
+    body: Product pages take 3s to load.
+  issue_comments:
+    - author: squadhq-ops[bot]
+      association: NONE
+      body: |
+        ## Proposal
+        **My understanding:** cache product detail responses.
+        **Ticket plan:** 1. Add a Redis cache in front of GET /products/:id — implement
+expect:
+  must_contain:
+    - "(?m)^\\[Architect\\] "
+    - "(?i)straightforward|needs-design|risky"
+    - "(?m)^blocking: (yes|no)\\s*$"
+  forbidden_actions: [any_label_change, create_issue, merge, approve]

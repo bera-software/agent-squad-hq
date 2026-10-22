@@ -1,0 +1,231 @@
+name: Agent exec (reusable)
+# The AGENT job of agent-run.yml, as its own workflow so that it can only ever
+# receive the LLM credential and the hand-off key: no App private key is passed
+# to this workflow at all. The agent's tokens come from the sealed hand-off
+# (key derived here with HKDF-SHA256, never transmitted). After the executor,
+# only a hardened shell step and a pinned upload run; outputs are bounded data.
+on:
+  workflow_call:
+    inputs:
+      instance:
+        type: string
+        required: true
+      subject-repo:
+        description: owner/name checked out for the agent (empty = this hub).
+        type: string
+        required: false
+        default: ""
+      auth-mode:
+        description: api | subscription | skip (from prep).
+        type: string
+        required: true
+      auth-secret:
+        description: >-
+          Secret NAME (never a value) of the pool account prep selected; empty = the
+          single credential for auth-mode.
+        type: string
+        required: false
+        default: ""
+      deliver:
+        type: string
+        required: false
+        default: ""
+      timeout-minutes:
+        type: number
+        required: false
+        default: 45
+      sparse-checkout:
+        description: Subject directories to check out (cone mode). Empty = all.
+        type: string
+        required: false
+        default: ""
+      tooling-sparse:
+        description: Hub tooling directories to check out (cone mode). Empty = all.
+        type: string
+        required: false
+        default: ""
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY_1:
+        required: false
+      ANTHROPIC_API_KEY_2:
+        required: false
+      ANTHROPIC_API_KEY_3:
+        required: false
+      ANTHROPIC_API_KEY_4:
+        required: false
+      ANTHROPIC_API_KEY_5:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_1:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_2:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_3:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_4:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_5:
+        required: false
+      SQUADHQ_HANDOFF_KEY:
+        required: false
+    outputs:
+      outcome:
+        value: ${{ jobs.agent.outputs.outcome }}
+      cost-usd:
+        value: ${{ jobs.agent.outputs.cost-usd }}
+      duration-ms:
+        value: ${{ jobs.agent.outputs.duration-ms }}
+      turns:
+        value: ${{ jobs.agent.outputs.turns }}
+      is-error:
+        value: ${{ jobs.agent.outputs.is-error }}
+      error-text:
+        value: ${{ jobs.agent.outputs.error-text }}
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): read for identity decisions only. This workflow's
+  # job has no id-token: write, so it cannot ask the broker for anything.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  PYTHONSAFEPATH: "1"
+  SUBJECT: ${{ inputs.subject-repo || github.repository }}
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    outputs:
+      outcome: ${{ steps.agent.outputs.outcome }}
+      cost-usd: ${{ steps.metrics.outputs.cost-usd }}
+      duration-ms: ${{ steps.metrics.outputs.duration-ms }}
+      turns: ${{ steps.metrics.outputs.turns }}
+      is-error: ${{ steps.metrics.outputs.is-error }}
+      error-text: ${{ steps.metrics.outputs.error-text }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: squadhq-prep-${{ inputs.instance }}
+          path: ${{ runner.temp }}/squadhq-prep
+      - id: tok
+        name: Unseal the agent's token (key derived here, never transmitted)
+        env:
+          IKM_HANDOFF: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+          IKM_LLM: ${{ inputs.auth-mode == 'api' && secrets.ANTHROPIC_API_KEY || secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SALT: ${{ github.run_id }}:squadhq-prep-${{ inputs.instance }}
+          PLAN_DIR: ${{ runner.temp }}/squadhq-prep
+        run: |
+          set -euo pipefail
+          if [ ! -f "$PLAN_DIR/tokens.enc" ]; then echo "agent=" >> "$GITHUB_OUTPUT"; exit 0; fi
+          KEY=$(/usr/bin/python3 -I -c '
+          import hashlib, hmac, os, sys
+          ikm = (os.environ.get("IKM_HANDOFF") or os.environ.get("IKM_LLM") or "").encode()
+          if not ikm:
+              sys.exit("hand-off: no key material")
+          prk = hmac.new(os.environ["SALT"].encode(), ikm, hashlib.sha256).digest()
+          print(hmac.new(prk, b"squadhq-handoff-v1\x01", hashlib.sha256).hexdigest())
+          ')
+          export KEY
+          mapfile -t t < <(/usr/bin/openssl enc -d -aes-256-cbc -pbkdf2 -pass env:KEY -in "$PLAN_DIR/tokens.enc")
+          unset KEY
+          rm -f "$PLAN_DIR/tokens.enc"
+          [ -n "${t[0]:-}" ] && echo "::add-mask::${t[0]}"
+          echo "agent=${t[0]:-}" >> "$GITHUB_OUTPUT"
+      - name: Check out the subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.SUBJECT }}
+          token: ${{ steps.tok.outputs.agent || github.token }}
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+      - name: Check out the hub tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .squadhq
+          persist-credentials: false
+          sparse-checkout: ${{ inputs.tooling-sparse }}
+      - uses: ./.squadhq/.github/actions/setup-hub
+        with:
+          token: ${{ github.token }}
+          hub-repo: ${{ github.repository }}
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+      - id: agent
+        if: steps.tok.outputs.agent != ''
+        uses: ./.squadhq/.github/actions/run-agent
+        with:
+          plan-dir: ${{ runner.temp }}/squadhq-prep
+          agent-token: ${{ steps.tok.outputs.agent }}
+          anthropic-api-key: >-
+            ${{ inputs.auth-mode == 'api' && (
+            inputs.auth-secret == 'ANTHROPIC_API_KEY_1' && secrets.ANTHROPIC_API_KEY_1 ||
+            inputs.auth-secret == 'ANTHROPIC_API_KEY_2' && secrets.ANTHROPIC_API_KEY_2 ||
+            inputs.auth-secret == 'ANTHROPIC_API_KEY_3' && secrets.ANTHROPIC_API_KEY_3 ||
+            inputs.auth-secret == 'ANTHROPIC_API_KEY_4' && secrets.ANTHROPIC_API_KEY_4 ||
+            inputs.auth-secret == 'ANTHROPIC_API_KEY_5' && secrets.ANTHROPIC_API_KEY_5 ||
+            (inputs.auth-secret == '' || inputs.auth-secret == 'ANTHROPIC_API_KEY') && secrets.ANTHROPIC_API_KEY) || '' }}
+          claude-code-oauth-token: >-
+            ${{ inputs.auth-mode != 'api' && (
+            inputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_1' && secrets.CLAUDE_CODE_OAUTH_TOKEN_1 ||
+            inputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_2' && secrets.CLAUDE_CODE_OAUTH_TOKEN_2 ||
+            inputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_3' && secrets.CLAUDE_CODE_OAUTH_TOKEN_3 ||
+            inputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_4' && secrets.CLAUDE_CODE_OAUTH_TOKEN_4 ||
+            inputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_5' && secrets.CLAUDE_CODE_OAUTH_TOKEN_5 ||
+            (inputs.auth-secret == '' || inputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN') && secrets.CLAUDE_CODE_OAUTH_TOKEN) || '' }}
+          executor: ${{ vars.SQUADHQ_EXECUTOR || 'claude-code' }}
+          debug-transcripts: ${{ vars.SQUADHQ_DEBUG_TRANSCRIPTS }}
+      # ---- after the agent: hardened shell and a pinned upload only ----
+      - id: metrics
+        if: always()
+        name: Summarise the run and package deliverables (data only)
+        shell: /usr/bin/env -u BASH_ENV -u ENV -u LD_PRELOAD -u LD_LIBRARY_PATH -u PYTHONPATH -u PYTHONHOME /usr/bin/bash --noprofile --norc -e {0}
+        env:
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution-file }}
+          DELIVER: ${{ inputs.deliver }}
+          OUTCOME: ${{ steps.agent.outputs.outcome }}
+          OUT: ${{ runner.temp }}/squadhq-out
+        run: |
+          export PATH=/usr/bin:/bin
+          mkdir -p "$OUT"
+          if [ "$DELIVER" = pr ] && [ "$OUTCOME" = success ]; then
+            /usr/bin/git add -A -- . ':!.squadhq' 2>/dev/null || true
+            default=$(/usr/bin/git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
+            /usr/bin/git diff --cached --binary "$default" -- . ':!.squadhq' > "$OUT/change.patch" 2>/dev/null || true
+            for f in /tmp/pr-title.txt /tmp/pr-body.md; do [ -f "$f" ] && [ ! -L "$f" ] && /usr/bin/head -c 20000 "$f" > "$OUT/$(/usr/bin/basename "$f")"; done
+          fi
+          if [ "$DELIVER" = findings ] && [ -f /tmp/agent-findings.json ] && [ ! -L /tmp/agent-findings.json ]; then
+            /usr/bin/head -c 2000000 /tmp/agent-findings.json > "$OUT/agent-findings.json"
+          fi
+          /usr/bin/python3 -I -S - <<'PY'
+          import json, os, re
+          data = []
+          try:
+              data = json.loads(open(os.environ.get("EXECUTION_FILE") or "", encoding="utf-8", errors="replace").read(20_000_000))
+          except (OSError, ValueError):
+              pass
+          items = data if isinstance(data, list) else [data]
+          res = next((x for x in reversed(items) if isinstance(x, dict) and x.get("type") == "result"), {}) or {}
+          def num(v, cast):
+              return cast(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else 0
+          text = str(res.get("result") or "") if res.get("is_error") else ""
+          out = {"cost-usd": f"{num(res.get('total_cost_usd'), float):.6f}", "duration-ms": str(num(res.get("duration_ms"), int)),
+                 "turns": str(num(res.get("num_turns"), int)), "is-error": "true" if res.get("is_error") else "false",
+                 "error-text": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", text)[:300]}
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for k, v in out.items():
+                  f.write(f"{k}={v}\n")
+          PY
+      - if: always() && inputs.deliver != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: squadhq-run-${{ inputs.instance }}
+          path: ${{ runner.temp }}/squadhq-out/
+          retention-days: 3
+          if-no-files-found: ignore

@@ -1,0 +1,28 @@
+id: prompt-eval-engineer
+name: Prompt & Eval Engineer
+summary: >-
+  Proposes a prompt change for one skill from failing evals, lessons and
+  escalations, runs the eval suite before and after, and opens a PR with the
+  score diff. Never weakens untrusted-input rules or authority limits.
+phase: platform
+tier: core
+default_enabled: false
+badge: "[Prompt Engineer] "
+trigger:
+  - command: improve-prompt
+  - schedule: weekly_prompt_eval
+inputs: [eval_results, lessons, tracker, repo, flows, state]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "PR 'Prompt: <skill> — <change>' with before/after eval table; labelled awaiting-approval"
+  - type: artifact
+    path: "evals/results/{timestamp}.json"
+  - type: label
+    labels: [awaiting-approval]
+gate:
+  check: squadhq/evals
+  condition: "Prompt PRs need pass rate >= baseline - 2%, 0 policy violations and 100% on injection cases"
+untrusted_inputs: true
+prompt: prompt.md

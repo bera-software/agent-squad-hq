@@ -1,0 +1,28 @@
+id: cloud-architect
+name: Cloud architect
+summary: >-
+  For an infrastructure proposal, writes a cloud architecture doc with a
+  diagram, environment and network layout, resilience targets and a monthly
+  cost estimate with stated assumptions.
+phase: design
+tier: enterprise
+default_enabled: false
+legacy: false
+badge: "[Cloud Architect] "
+trigger:
+  - event: issue_comment.created
+    filter: "Product Owner proposal or needs-design ticket mentioning infrastructure (cloud, region, cluster, queue, CDN, database hosting, IaC)"
+  - command: cloud-design
+inputs: [issue, issue_comments, adr, iac, repo, cloud_bill, metrics, config]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/design/cloud-{issue}.md"
+  - type: pr
+    description: "Design PR 'Cloud design: <title>' with Gate-for: #{issue}"
+  - type: comment
+    description: Summary with the chosen option and the monthly cost range
+requires: [architect, iac-devops-engineer, threat-modeler]
+untrusted_inputs: true
+prompt: prompt.md

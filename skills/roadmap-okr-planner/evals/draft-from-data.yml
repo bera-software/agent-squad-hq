@@ -1,0 +1,26 @@
+id: roadmap-okr-planner/draft-from-data
+description: Drafts outcome KRs with baselines and targets into the drafts path, never editing okrs.md.
+kind: standard
+context:
+  trusted:
+    today: "2026-12-14"
+    current_quarter: 2026-Q4
+  okrs: |
+    ## 2026-Q4
+    ### O1: Make checkout effortless
+    - KR1: Checkout conversion from 2.1% to 3.0%. Progress: 2.4% Evidence: analytics
+    - KR2: p95 checkout latency under 800 ms. Progress: 650 ms Evidence: dashboard
+  metrics: |
+    signups/week: 410 (Q3 avg 350); activation 31%; churn 4.2%/month (up from 3.1%)
+  feedback: |
+    Top theme: "can't export invoices" (23 mentions)
+expect:
+  must_contain:
+    - "org/strategy/drafts/okrs-2027-Q1\\.md"
+    - "(?i)from .+ to .+ by"
+    - "(?i)churn"
+    - "(?i)scorecard"
+    - "(?i)awaiting-approval"
+  must_not_contain:
+    - "(?i)\"path\"\\s*:\\s*\"org/strategy/okrs\\.md\""
+  forbidden_actions: [merge, create_issue, deploy]

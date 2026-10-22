@@ -1,0 +1,58 @@
+id: python-fastapi
+name: Python / FastAPI
+detect:
+  files: ["pyproject.toml", "requirements.txt", "uv.lock", "poetry.lock"]
+paths:
+  - "**/*.py"
+  - "pyproject.toml"
+  - "requirements*.txt"
+  - "alembic/**"
+  - "alembic.ini"
+root: "."
+ci:
+  setup:
+    kind: python
+    version: "3.12"
+  install: "pip install uv && if [ -f uv.lock ]; then uv sync --frozen; elif [ -f requirements.txt ]; then uv venv && uv pip install -r requirements.txt; else uv venv && uv pip install -e .; fi; uv pip install ruff pytest pytest-cov coverage"
+  build: ""
+  # Ruff runs on its defaults when the project has no config (as the old build
+  # step did); `ruff format --check` only when a [format] section exists.
+  lint:
+    command: "uv run ruff check . && if grep -qsE '^\\[(tool\\.ruff\\.)?format\\]' ruff.toml .ruff.toml pyproject.toml; then uv run ruff format --check .; fi"
+    local: "uv run ruff check . && uv run ruff format --check ."
+    configs: ["ruff.toml", ".ruff.toml", "pyproject.toml:[tool.ruff"]
+    requires_config: false
+    snippet: ruff.toml
+  test: "uv run pytest --cov --cov-report=xml:coverage.xml"
+  coverage:
+    format: cobertura
+    path: "coverage.xml"
+    min_overall: 60
+    min_changed: 70
+arch:
+  tool: import-linter
+  config: ".importlinter"
+  command: "uv pip install --quiet 'import-linter==2.15' && uv run lint-imports --config .importlinter --no-logo"
+  local: "uv run lint-imports --config .importlinter"
+  snippet: importlinter.ini
+risk_paths:
+  - "**/auth/**"
+  - "**/security*.py"
+  - "**/dependencies/auth*.py"
+  - "**/billing/**"
+  - "**/payment*/**"
+  - "alembic/versions/**"
+  - "migrations/**"
+  - "**/settings.py"
+  - "**/config.py"
+  - ".env*"
+tools:
+  - "Bash(pytest *)"
+  - "Bash(uv run *)"
+  - "Bash(uv sync*)"
+  - "Bash(poetry run *)"
+  - "Bash(ruff *)"
+  - "Bash(mypy *)"
+  - "Bash(alembic check)"
+  - "Bash(alembic heads)"
+  - "Bash(lint-imports*)"

@@ -1,0 +1,57 @@
+name: Squad HQ — update PRs
+description: >
+  Plan and publish stages of the PR updater (see update-prs.sh). The merge
+  stage runs in a separate tokenless job from the kit this action uploads.
+  Never rewrites history or force-pushes.
+author: Agent Squad HQ
+
+inputs:
+  mode:
+    description: plan | publish
+    required: true
+  token:
+    description: Bookkeeping token (pull-requests/contents/issues write on this repository).
+    required: true
+  branch:
+    description: The branch that was pushed.
+    required: true
+  in-dir:
+    description: "publish: directory with one sub-directory per merge-stage artifact."
+    required: false
+    default: ""
+  candidates:
+    description: "publish: the plan job's candidates JSON; only these PRs may be pushed."
+    required: false
+    default: "[]"
+
+outputs:
+  candidates:
+    description: "plan: JSON list of conflicting bot PRs ({number, head})."
+    value: ${{ steps.run.outputs.candidates }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ github.repository }}
+        BRANCH: ${{ inputs.branch }}
+        IN_DIR: ${{ inputs.in-dir }}
+        CANDIDATES_JSON: ${{ inputs.candidates }}
+      run: |
+        set -euo pipefail
+        if [ "$MODE" = plan ]; then
+          kit="$RUNNER_TEMP/squadhq-update-kit"; mkdir -p "$kit"
+          export CANDIDATES="$kit/candidates.json"
+          bash "$GITHUB_ACTION_PATH/update-prs.sh" plan
+          cp "$GITHUB_ACTION_PATH/update-prs.sh" "$kit/"
+          # Build commands for the merge stage (packs, or detection on the base checkout).
+          python -I "$GITHUB_ACTION_PATH/../ci-plan/plan.py" --repo "$REPO" --workdir . 2>/dev/null \
+            | python -I -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["include"]))' > "$kit/build.json" || echo '[]' > "$kit/build.json"
+          echo "candidates=$(jq -c '.[:20]' "$CANDIDATES")" >> "$GITHUB_OUTPUT"
+        else
+          bash "$GITHUB_ACTION_PATH/update-prs.sh" publish
+        fi

@@ -1,0 +1,33 @@
+{
+  "data": {
+    "issue": {
+      "comments": {
+        "nodes": [
+          {
+            "id": "c1",
+            "body": "hi",
+            "createdAt": "2026-10-02T10:00:00.000Z",
+            "user": {
+              "name": "PM",
+              "email": "pm@acme.test"
+            },
+            "botActor": null
+          },
+          {
+            "id": "c2",
+            "body": "bot",
+            "createdAt": "2026-10-02T11:00:00.000Z",
+            "user": null,
+            "botActor": {
+              "name": "GitHub"
+            }
+          }
+        ],
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": null
+        }
+      }
+    }
+  }
+}

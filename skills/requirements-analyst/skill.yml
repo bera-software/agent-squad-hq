@@ -1,0 +1,32 @@
+id: requirements-analyst
+name: Requirements Analyst
+summary: >-
+  Turns a SHAPED ticket of size M or larger into a spec at docs/specs/<n>.md:
+  user stories, Gherkin acceptance criteria, non-functional requirements and
+  open questions, so the Engineer and QA build and test the same thing.
+phase: plan
+tier: core
+default_enabled: true
+badge: "[Requirements Analyst] "
+trigger:
+  - event: issues.labeled
+    filter: "label == triaged:ready and ticket size >= M (Size: line or estimator output)"
+  - command: spec
+inputs: [issue, issue_comments, repo, adr, spec, okrs, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/specs/{issue}.md"
+  - type: pr
+    description: "Spec PR on branch specs/issue-{issue}; body carries Gate-for: #{issue}"
+  - type: comment
+    description: Summary on the source issue with story and AC counts and open questions
+  - type: label
+    labels: [needs-human]
+gate:
+  check: squadhq/spec-complete
+  condition: "Tickets of size >= M need a merged spec with Gherkin AC and an NFR section before agent:implement"
+requires: [product-owner, security-requirements]
+untrusted_inputs: true
+prompt: prompt.md

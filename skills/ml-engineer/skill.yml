@@ -1,0 +1,30 @@
+id: ml-engineer
+name: ML Engineer
+summary: >-
+  Builds reproducible model training and evaluation pipelines, with pinned
+  data/versions, evaluation against a baseline and a model card. Never
+  promotes a model to production.
+phase: build
+tier: enterprise
+default_enabled: false
+role: ml-engineer
+badge: "[ML Engineer] "
+trigger:
+  - label: agent:implement
+    filter: "specialist route: enabled and the ticket carries dept:ml; replaces engineer"
+  - command: ml
+inputs: [issue, issue_comments, spec, repo, metrics, eval_results, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "Pipeline code, eval config and tests; Closes #{issue}"
+  - type: artifact
+    path: "docs/models/{model}.md"
+  - type: label
+    labels: [status:in-progress, status:in-review]
+  - type: comment
+    description: Session-context comment with the eval table vs baseline
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

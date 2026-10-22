@@ -1,0 +1,19 @@
+# gitleaks configuration for this repository.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures only: throwaway RSA keys for the GitHub App JWT signer, malformed PEM blocks and fake tokens used to test parsing and redaction, and FAKE secrets in skill eval cases."
+paths = [
+  '''tests/codehost/fixtures/app_test_key_pkcs[18]\.pem''',
+  '''tests/codehost/test_github_app\.py''',
+  '''tests/server/test_worker\.py''',
+  '''tests/test_redact\.py''',
+]
+regexes = [
+  '''sk_live_FAKE[A-Z0-9]+''',
+  # Account-pool secret NAMES (ANTHROPIC_API_KEY_3, CLAUDE_CODE_OAUTH_TOKEN_1), never values.
+  '''\b(ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN)_[0-9]\b''',
+  # Prose in packs/go/implement.md ("passwords, `crypto/subtle`").
+  '''^crypto/subtle$''',
+]

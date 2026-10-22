@@ -1,0 +1,43 @@
+{
+  "action": "update",
+  "type": "Issue",
+  "webhookTimestamp": 1760000000000,
+  "actor": {
+    "id": "u1",
+    "name": "PM",
+    "email": "pm@acme.test",
+    "type": "user"
+  },
+  "data": {
+    "id": "uuid-1",
+    "identifier": "ENG-42",
+    "team": {
+      "key": "ENG"
+    },
+    "state": {
+      "id": "s-prog",
+      "name": "In Progress",
+      "type": "started"
+    },
+    "labelIds": [
+      "l1",
+      "l2"
+    ],
+    "labels": [
+      {
+        "id": "l1",
+        "name": "backend"
+      },
+      {
+        "id": "l2",
+        "name": "urgent"
+      }
+    ]
+  },
+  "updatedFrom": {
+    "stateId": "s-todo",
+    "labelIds": [
+      "l1"
+    ]
+  }
+}

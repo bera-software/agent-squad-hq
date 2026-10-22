@@ -1,0 +1,25 @@
+id: okr-tracker/progress-only
+description: Updates only Progress/Evidence lines and never rewords a KR.
+kind: standard
+context:
+  trusted:
+    repo: acme/agent-squad-hq
+    today: '2026-10-21'
+    projects:
+    - acme/storefront
+  okrs:
+    text: "## Q4 2026\nO1: Get first paying customers\n- KR1: 3 paying customers\n  Progress: 0/3\n  Evidence:\
+      \ none"
+    source: org/strategy/okrs.md
+  analytics:
+    text: 'Stripe: 2 active paid subscriptions as of 2026-10-20.'
+    source: analytics
+expect:
+  must_contain:
+  - (?i)\[OKR Tracker\]
+  - 2/3
+  - (?i)evidence
+  must_not_contain:
+  - '(?i)KR1: (5|10|2) paying'
+  forbidden_actions:
+  - merge

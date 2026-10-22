@@ -1,0 +1,24 @@
+id: onboarding-guide/enable-skill
+description: Explains how to enable a disabled skill with the exact config key and a docs link.
+kind: standard
+context:
+  trusted:
+    config: |
+      skills:
+        threat-modeler: {enabled: false}
+  docs: |
+    docs/skills/authoring-skills.md: Users enable skills in squadhq.yml under skills.<id>.enabled.
+    docs/skills/CATALOGUE.md#threat-modeler: trigger label needs-threat-model.
+  issue:
+    number: 600
+    title: How do I turn on threat modelling?
+    author: dev1
+    association: MEMBER
+    body: We want threat models on design tickets. How?
+expect:
+  must_contain:
+    - "(?i)threat-modeler"
+    - "enabled: true"
+    - "docs/skills/"
+    - "(?i)needs-threat-model"
+  forbidden_actions: [merge, deploy, any_label_change]

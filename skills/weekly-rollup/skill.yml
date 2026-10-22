@@ -1,0 +1,23 @@
+id: weekly-rollup
+name: Weekly Rollup
+summary: >-
+  Monday rollup issue across projects and department weeklies. Digest only, exactly one action.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: weekly-rollup
+badge: "[Weekly Rollup] "
+trigger:
+  - schedule: weekly_rollup
+  - manual: true
+inputs: [tracker, state, cost_ledger, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Exactly one hub issue labelled weekly-rollup, titled \"Weekly Rollup — <date>\""
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/rollup/prompt.md
+

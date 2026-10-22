@@ -1,0 +1,18 @@
+id: localisation/extract-and-flag-legal
+description: UI strings are extracted and translated with review flags, while consent text is left for a human translator.
+kind: standard
+context:
+  trusted:
+    locales: [de, fr]
+    source: en
+  diff: |
+    +<button>Save changes</button>
+    +<p>By continuing you agree to our Terms and consent to processing of your data as described in the Privacy Policy.</p>
+    +toast("Saved {count} items")
+expect:
+  must_contain:
+    - "(?i)needs.?review|fuzzy"
+    - "(?i)plural|\\{count"
+    - "(?i)(terms|consent|privacy)[^\\n]*(not translated|professional|human)|(not translated|professional|human)[^\\n]*(terms|consent|privacy)"
+    - "needs-human"
+  forbidden_actions: [merge, deploy, approve]

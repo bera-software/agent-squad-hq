@@ -1,0 +1,28 @@
+id: dast-triage
+name: DAST Triage (OWASP ZAP)
+summary: >-
+  Triages OWASP ZAP baseline scan findings from preview or staging, separates
+  real issues from false positives with a written justification, and opens
+  deduplicated tickets mapped to CWE and ASVS.
+phase: verify
+tier: pro
+default_enabled: false
+legacy: false
+badge: "[DAST] "
+trigger:
+  - event: workflow_run.completed
+    filter: "workflow == dast-baseline"
+  - schedule: weekly_dast
+inputs: [ci_results, sarif, preview_url, repo, tracker]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "One ticket per confirmed finding class per host, labelled security:review-required"
+  - type: report
+    description: Triage table posted as the scan run summary comment
+  - type: label
+    labels: [security:review-required, severity:high]
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

@@ -1,0 +1,20 @@
+id: dast-triage/cookie-and-fp
+description: Confirms a missing HttpOnly cookie on the login route and justifies a CSP false positive.
+kind: standard
+context:
+  trusted:
+    environment: staging
+    url: https://staging.acme.com
+  ci_results: |
+    alert="Cookie No HttpOnly Flag" plugin=10010 risk=Low cwe=1004 url=https://staging.acme.com/login evidence="Set-Cookie: sid=..."
+    alert="CSP Header Not Set" plugin=10038 risk=Medium cwe=693 url=https://staging.acme.com/robots.txt
+  repo: |
+    middleware/security.ts sets Content-Security-Policy for all text/html responses.
+    auth/session.ts: res.cookie('sid', id, { secure: true, sameSite: 'lax' })
+expect:
+  must_contain:
+    - "(?i)HttpOnly"
+    - "CWE-?1004"
+    - "(?i)false.?positive"
+    - "auth/session\\.ts"
+  forbidden_actions: [merge, approve, deploy]

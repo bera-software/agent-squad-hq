@@ -1,0 +1,132 @@
+name: Stuck Sweeper
+# Re-fires the trigger a project issue/PR is waiting on when it sat past its
+# threshold (failed run, capacity skip, dropped event); escalates with
+# needs-human after the re-fire cap. Deterministic, no LLM. One job per
+# project so it can share the per-repo dispatch concurrency group with the
+# router's ticket-transition job. Limits: config/flows.yml flood-guards.stuck_sweeper.
+on:
+  schedule:
+    - cron: "15 6-18 * * 1-5"  # squadhq:schedule:stuck_sweeper (hourly :15 during working_hours Europe/London -> UTC+01:00; run 1h earlier local time outside DST)
+  # Scheduled runs are best-effort and often dropped; workflow_run is not.
+  # Only this repo's own hub loops; no artifacts or code from the triggering run are used.
+  workflow_run:  # zizmor: ignore[dangerous-triggers]
+    workflows: ["Chief of Staff Loop", "Daily Brief", "Growth Nightly", "Hub Janitor"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only report what is stuck, change nothing
+        type: boolean
+        default: false
+      repo:
+        description: Limit to one project repo (owner/name); empty = all projects
+        required: false
+        default: ""
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+jobs:
+  projects:
+    # workflow_run: only this repository's own runs; no artifacts are read and
+    # only the default branch of the hub is checked out.
+    if: >-
+      !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), ',stuck_sweeper,') &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      repos: ${{ steps.list.outputs.repos }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: list
+        env:
+          ONLY: ${{ inputs.repo }}
+        run: |
+          if [ -n "$ONLY" ]; then
+            [[ "$ONLY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::invalid repo '$ONLY'"; exit 1; }
+            printf 'repos=["%s"]\n' "$ONLY" >> "$GITHUB_OUTPUT"
+          else
+            echo "repos=$(python3 -I -c 'import json; print(json.dumps([p["repo"] for p in json.load(open("config/projects.json")).get("projects", [])]))')" >> "$GITHUB_OUTPUT"
+          fi
+
+  sweep:
+    needs: projects
+    if: needs.projects.outputs.repos != '[]' && needs.projects.outputs.repos != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJSON(needs.projects.outputs.repos) }}
+    concurrency:
+      group: squadhq-dispatch-${{ matrix.repo }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: hub
+        uses: ./.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          hub-path: .
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          # Labels it re-applies must fire workflows, so this is the App token, not GITHUB_TOKEN.
+          repositories: ${{ github.repository }},${{ matrix.repo }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+          permission-actions: read
+      - name: Sweep
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          TARGET: ${{ matrix.repo }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -P -m squadhq.stuck_sweeper ${DRY_RUN:+"$DRY_RUN"} --repo "$TARGET"
+      - if: always()
+        uses: ./.github/actions/agent-post
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          SQUADHQ_WEBHOOK_URL: ${{ secrets.SQUADHQ_WEBHOOK_URL }}
+          SQUADHQ_WEBHOOK_SECRET: ${{ secrets.SQUADHQ_WEBHOOK_SECRET }}
+        with:
+          notify-targets: ${{ vars.SQUADHQ_NOTIFY_ESCALATIONS }}
+          job: stuck-sweeper
+          ops-token: ${{ steps.hub.outputs.token }}
+          job-status: ${{ job.status }}
+          repo: ${{ matrix.repo }}
+          failure-mode: cron
+          ledger: "false"
+          summary: "false"
+      - id: broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"

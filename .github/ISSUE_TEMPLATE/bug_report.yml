@@ -1,0 +1,74 @@
+name: Bug report
+description: Something in Agent Squad HQ does not work as documented.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Security problems, including prompt-injection bypasses, must be reported privately** through
+        [SECURITY.md](https://github.com/bera-software/agent-squad-hq/blob/main/SECURITY.md), not here.
+        Remove tokens, private keys, private repository names and transcripts before you paste anything.
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Actions mode (hub + project stubs)
+        - Server mode (byo-compute)
+        - Server mode (worker)
+        - CLI only (init / validate / render / doctor / onboard / drill)
+        - Dashboard or mobile app (preview)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `squadhq version`, and the hub ref or tag your project stubs pin.
+      placeholder: "squadhq 0.1.0, stubs pinned to v0.1.0 (abc1234)"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of steps, ideally starting from `squadhq.example.yml`.
+      placeholder: |
+        1. squadhq.yml with ...
+        2. Open an issue with ...
+        3. The `implement` job ...
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant squadhq.yml
+      description: Only the sections that matter, with secrets and private names removed.
+      render: yaml
+  - type: textarea
+    id: doctor
+    attributes:
+      label: squadhq doctor output
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or run link
+      description: A link to the failed Actions run, or the relevant log lines.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and the troubleshooting guide.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

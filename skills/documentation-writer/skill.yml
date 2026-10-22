@@ -1,0 +1,25 @@
+id: documentation-writer
+name: Documentation Writer
+summary: >-
+  After a user-facing PR merges, updates the user docs and the changelog's
+  Unreleased section in a follow-up docs PR, citing the merged PR.
+phase: build
+tier: core
+default_enabled: true
+role: documentation-writer
+badge: "[Docs Writer] "
+trigger:
+  - event: pull_request.closed
+    filter: "merged == true and the PR touches user-facing paths (not docs-only, not bot docs PRs)"
+  - command: docs
+inputs: [pr, diff, issue, docs, changelog, repo, flows]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: "Docs PR on branch docs/pr-{pr}: user docs + CHANGELOG.md Unreleased entry"
+  - type: comment
+    description: Link to the docs PR on the merged PR, or "no docs change needed" with the reason
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

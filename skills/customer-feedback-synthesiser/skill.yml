@@ -1,0 +1,24 @@
+id: customer-feedback-synthesiser
+name: Customer-feedback Synthesiser
+summary: >-
+  Clusters support tickets, reviews and feedback into themes with counts,
+  representative quotes and affected segments, then files the top themes as
+  proposals for Product Owner intake.
+phase: plan
+tier: pro
+default_enabled: false
+badge: "[Feedback Synthesiser] "
+trigger:
+  - schedule: weekly_feedback
+  - command: synthesise-feedback
+inputs: [support_tickets, feedback, analytics, tracker, state]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Weekly 'Feedback themes — <date>' report labelled report, plus up to 3 theme issues for PO intake"
+  - type: label
+    labels: [report]
+requires: [product-owner]
+untrusted_inputs: true
+prompt: prompt.md

@@ -1,0 +1,20 @@
+id: product-owner/vague-epic
+description: An open-ended strategic idea gets a single Proposal comment with clarifications, scope and a ticket plan, plus proposal:pending; no tickets yet.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+  issue:
+    number: 121
+    title: "We should have a loyalty programme"
+    author: bob
+    association: MEMBER
+    body: "Customers keep asking for points. Let's do something like Starbucks."
+expect:
+  must_contain:
+    - "## Proposal"
+    - "(?i)clarifications"
+    - "(?i)ticket plan"
+    - "(?i)proposal:pending"
+    - "(?i)security & privacy|personal data|payments"
+  forbidden_actions: [merge, deploy, create_issue, "add_label:agent:implement"]

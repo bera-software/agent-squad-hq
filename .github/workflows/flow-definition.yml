@@ -1,0 +1,132 @@
+name: Flow Definition CI
+# config/flows.yml is the single source of truth for labels, flow state
+# machines, role authority and limits.
+#   validate          python -P -m squadhq.flow_reader validate --strict (also
+#                     checks router.yml's `trivial:` mirror of trivial_paths)
+#   diagram-check     PRs: docs/FLOW-DIAGRAM.md must match flows.yml
+#   diagram-refresh   main: regenerates the diagram and opens a PR (never a
+#                     direct push to main)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "config/flows.yml"
+      - "src/squadhq/flow_reader.py"
+      - "src/squadhq/flow_diagram.py"
+      - ".github/workflows/router.yml"
+  pull_request:
+    paths:
+      - "config/flows.yml"
+      - "src/squadhq/flow_reader.py"
+      - "src/squadhq/flow_diagram.py"
+      - ".github/workflows/router.yml"
+      - "docs/FLOW-DIAGRAM.md"
+  workflow_dispatch: {}
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -P -m pip install --disable-pip-version-check --quiet .
+      - run: python -P -m squadhq.flow_reader validate --strict
+        env:
+          SQUADHQ_HOME: ${{ github.workspace }}
+      - if: github.event_name == 'pull_request'
+        name: docs/FLOW-DIAGRAM.md matches config/flows.yml
+        env:
+          SQUADHQ_HOME: ${{ github.workspace }}
+        run: |
+          python -P -m squadhq.flow_diagram config/flows.yml "$RUNNER_TEMP/FLOW-DIAGRAM.md"
+          if ! diff -q "$RUNNER_TEMP/FLOW-DIAGRAM.md" docs/FLOW-DIAGRAM.md > /dev/null; then
+            echo "::error::docs/FLOW-DIAGRAM.md is stale — run 'python -P -m squadhq.flow_diagram' and commit the result."
+            diff "$RUNNER_TEMP/FLOW-DIAGRAM.md" docs/FLOW-DIAGRAM.md || true
+            exit 1
+          fi
+
+  diagram-refresh:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    concurrency:
+      group: squadhq-flow-diagram
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: hub
+        uses: ./.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          hub-path: .
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: ${{ github.repository }}
+          permission-contents: write
+          permission-pull-requests: write
+          git-credentials: "true"
+      - name: Regenerate and open a PR if it changed
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python -P -m squadhq.flow_diagram
+          if git diff --quiet -- docs/FLOW-DIAGRAM.md; then
+            echo "docs/FLOW-DIAGRAM.md already in sync" >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          br=chore/flow-diagram
+          # An existing branch gets main merged in and is pushed normally, never force-pushed.
+          if git ls-remote --exit-code --heads origin "$br" > /dev/null 2>&1; then
+            git checkout -q -- docs/FLOW-DIAGRAM.md
+            git fetch -q origin "$br"
+            git checkout -q -B "$br" "origin/$br"
+            git merge -q --no-edit -X theirs origin/main
+            python -P -m squadhq.flow_diagram
+          else
+            git checkout -q -B "$br"
+          fi
+          git add docs/FLOW-DIAGRAM.md
+          git diff --cached --quiet || git commit -q -m "chore: regenerate docs/FLOW-DIAGRAM.md from config/flows.yml"
+          git push -q origin "HEAD:$br"
+          if ! gh pr list -R "$REPO" --head "$br" --state open --json number --jq '.[0].number' | grep -q .; then
+            gh pr create -R "$REPO" -H "$br" -B main -t "chore: regenerate docs/FLOW-DIAGRAM.md" \
+              -b "Generated from config/flows.yml by flow-definition.yml." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - id: broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"

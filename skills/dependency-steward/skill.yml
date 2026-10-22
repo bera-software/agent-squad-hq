@@ -1,0 +1,36 @@
+id: dependency-steward
+name: Dependency Steward
+summary: >-
+  SCA on every manifest/lockfile change (OSV-Scanner) plus a weekly pass that
+  groups Dependabot/Renovate updates into reviewable upgrade PRs and flags
+  end-of-life runtimes. Feeds the gate:sca check.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+role: dependency-steward
+badge: "[Dependency Steward] "
+trigger:
+  - event: pull_request.synchronize
+    filter: "changed files match manifest or lockfile globs (package.json, *.lock, go.mod, pom.xml, requirements*.txt, Cargo.toml, ...)"
+  - schedule: weekly_dependencies
+  - command: deps
+inputs: [pr, diff, manifest, lockfile, sbom, ci_results, repo, config, flows]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: comment
+    description: SCA summary on the PR (new vulnerable packages, licence changes, major bumps)
+  - type: pr
+    description: "Weekly grouped upgrade PRs on branch deps/<group>-<yyyy-ww>, at most 3 per repo per week"
+  - type: issue
+    description: EOL runtime / unpatched critical tickets labelled debt
+  - type: label
+    labels: [gate:sca, security:review-required, debt]
+gate:
+  check: squadhq/sca
+  blocking_label: gate:sca
+  condition: "Required on manifest change: fails on any new critical or high OSV advisory without a fix applied or a VEX justification"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

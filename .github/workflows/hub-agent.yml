@@ -1,0 +1,120 @@
+name: Hub agent (reusable)
+# One hub loop run by `python -P -m squadhq.agent_runner <mode>`. Called by the
+# scheduled department workflows in this repository. Skips cleanly when the
+# schedule key or the mode is listed in vars.SQUADHQ_DISABLED_AGENTS.
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: agent_runner mode (cos, brief, finance, growth, legal, seo, rollup).
+        type: string
+        required: true
+      key:
+        description: Schedule key (CONVENTIONS), also accepted in SQUADHQ_DISABLED_AGENTS.
+        type: string
+        required: true
+      timeout-minutes:
+        type: number
+        required: false
+        default: 30
+    secrets:
+      SQUADHQ_APP_PRIVATE_KEY:
+        required: true
+      ANTHROPIC_API_KEY:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+      TEAMS_WEBHOOK_URL:
+        required: false
+      DISCORD_WEBHOOK_URL:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      SQUADHQ_WEBHOOK_URL:
+        required: false
+      SQUADHQ_WEBHOOK_SECRET:
+        required: false
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+jobs:
+  run:
+    if: >-
+      !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), format(',{0},', inputs.key)) &&
+      !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), format(',{0},', inputs.mode))
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: hub
+        uses: ./.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          hub-path: .
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: "@projects"
+          # contents:write — state/usage.json is updated through the Contents API.
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+          permission-checks: read
+          permission-actions: read
+      - name: Run ${{ inputs.mode }}
+        env:
+          MODE: ${{ inputs.mode }}
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SQUADHQ_MONTHLY_BUDGET_USD: ${{ vars.SQUADHQ_MONTHLY_BUDGET_USD || '50' }}
+          MONTHLY_BUDGET_USD: ${{ vars.SQUADHQ_MONTHLY_BUDGET_USD || '50' }}
+        run: python -P -m squadhq.agent_runner "$MODE"
+      - if: always()
+        uses: ./.github/actions/agent-post
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          SQUADHQ_WEBHOOK_URL: ${{ secrets.SQUADHQ_WEBHOOK_URL }}
+          SQUADHQ_WEBHOOK_SECRET: ${{ secrets.SQUADHQ_WEBHOOK_SECRET }}
+        with:
+          notify-targets: ${{ vars.SQUADHQ_NOTIFY_ESCALATIONS }}
+          job: ${{ inputs.mode }}
+          ops-token: ${{ steps.hub.outputs.token }}
+          job-status: ${{ job.status }}
+          failure-mode: cron
+          ledger: "false"
+          summary: "false"
+      - id: broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"

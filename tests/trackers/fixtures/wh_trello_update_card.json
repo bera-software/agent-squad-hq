@@ -1,0 +1,33 @@
+{
+  "model": {
+    "id": "board-1"
+  },
+  "action": {
+    "id": "act-1",
+    "type": "updateCard",
+    "idMemberCreator": "mem-1",
+    "memberCreator": {
+      "username": "alice"
+    },
+    "data": {
+      "card": {
+        "id": "card-1",
+        "name": "Add login"
+      },
+      "board": {
+        "id": "board-1"
+      },
+      "listBefore": {
+        "id": "list-todo",
+        "name": "Ready"
+      },
+      "listAfter": {
+        "id": "list-doing",
+        "name": "Doing"
+      },
+      "old": {
+        "idList": "list-todo"
+      }
+    }
+  }
+}

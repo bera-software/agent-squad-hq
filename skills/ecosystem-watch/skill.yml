@@ -1,0 +1,25 @@
+id: ecosystem-watch
+name: Ecosystem Watch
+summary: >-
+  Tracks provider, model, tooling and framework changes (releases, deprecations, pricing, incidents) and says what to do about them.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: ecosystem-watch
+badge: "[Ecosystem Watch] "
+trigger:
+  - schedule: ecosystem_watch
+  - manual: true
+inputs: [web, tracker, state, flows]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: issue
+    description: Hub report plus self-actuated project tickets for actionable changes
+  - type: label
+    labels: [report, dept:engineering, escalation]
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/ecosystem-watch/prompt.md
+

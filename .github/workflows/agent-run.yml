@@ -1,0 +1,575 @@
+name: Agent run (reusable)
+# One isolated agent run from a hub workflow, as three (or four) jobs:
+#   prep     bookkeeping token, no untrusted code; mints and seals the agent token
+#   agent    LLM key + agent token only; hub tooling runs before the agent
+#   post     fresh runner: ledger, capacity trip, failure handler; findings delivery
+#   deliver  (deliver: pr) fresh checkout; validates and applies the agent's patch
+# The workspace root is the subject repository (the hub itself, or a project);
+# hub tooling always lives in a second, read-only checkout at .squadhq.
+on:
+  workflow_call:
+    inputs:
+      key:
+        description: Schedule key / name accepted in SQUADHQ_DISABLED_AGENTS.
+        type: string
+        required: true
+      instance:
+        description: Unique name of this run within the workflow run (artifact names). Letters, digits, - and _.
+        type: string
+        required: false
+        default: main
+      role:
+        description: Job key (models.json, ledger).
+        type: string
+        required: true
+      label-guard-role:
+        type: string
+        required: false
+        default: ""
+      tool-profile:
+        type: string
+        required: false
+        default: read-only
+      extra-tools:
+        type: string
+        required: false
+        default: ""
+      pack-role:
+        type: string
+        required: false
+        default: ""
+      prompt:
+        type: string
+        required: false
+        default: ""
+      skill:
+        description: Catalogue skill id to render instead of / before the prompt.
+        type: string
+        required: false
+        default: ""
+      skill-event:
+        type: string
+        required: false
+        default: ""
+      project-list:
+        type: string
+        required: false
+        default: "false"
+      subject-repo:
+        description: owner/name checked out for the agent. Empty = this hub.
+        type: string
+        required: false
+        default: ""
+      agent-repositories:
+        description: Agent token scope. Empty = the subject repository; "@projects" = hub + projects.
+        type: string
+        required: false
+        default: ""
+      permission-contents:
+        type: string
+        required: false
+        default: read
+      permission-issues:
+        type: string
+        required: false
+        default: write
+      permission-pull-requests:
+        type: string
+        required: false
+        default: read
+      number:
+        type: string
+        required: false
+        default: ""
+      timeout-minutes:
+        type: number
+        required: false
+        default: 45
+      deliver:
+        description: '"" | findings (issues from /tmp/agent-findings.json) | pr (patch -> PR on the hub)'
+        type: string
+        required: false
+        default: ""
+      deliver-prefix:
+        description: "deliver: pr — branch prefix (the workflow creates the branch)."
+        type: string
+        required: false
+        default: ""
+      deliver-allowed:
+        description: "deliver: pr — extended regex every changed path must match."
+        type: string
+        required: false
+        default: "^$"
+      dedupe:
+        description: "deliver: findings — drop repeats of recently closed debt."
+        type: boolean
+        required: false
+        default: false
+      webfetch-domains:
+        description: Comma list; WebFetch is limited to these domains.
+        type: string
+        required: false
+        default: ""
+      sparse-checkout:
+        description: Directories of the subject to check out for the agent (cone mode; root files included). Empty = all.
+        type: string
+        required: false
+        default: ""
+      tooling-sparse:
+        description: Directories of the hub tooling checkout (.squadhq) the agent job gets. Empty = all.
+        type: string
+        required: false
+        default: ""
+      requester:
+        description: >
+          Concierge only: login of the trusted human who asked. After the run,
+          issues the agent identity opened that name this requester are sent to
+          PO intake by the ops identity (agent:shape).
+        type: string
+        required: false
+        default: ""
+    secrets:
+      SQUADHQ_APP_PRIVATE_KEY:
+        required: true
+      SQUADHQ_AGENT_APP_PRIVATE_KEY:
+        required: false
+      SQUADHQ_HANDOFF_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY_1:
+        required: false
+      ANTHROPIC_API_KEY_2:
+        required: false
+      ANTHROPIC_API_KEY_3:
+        required: false
+      ANTHROPIC_API_KEY_4:
+        required: false
+      ANTHROPIC_API_KEY_5:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_1:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_2:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_3:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_4:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_5:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+      TEAMS_WEBHOOK_URL:
+        required: false
+      DISCORD_WEBHOOK_URL:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      SQUADHQ_WEBHOOK_URL:
+        required: false
+      SQUADHQ_WEBHOOK_SECRET:
+        required: false
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  PYTHONSAFEPATH: "1"
+  SUBJECT: ${{ inputs.subject-repo || github.repository }}
+
+jobs:
+  prep:
+    if: >-
+      !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), format(',{0},', inputs.key)) &&
+      !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), format(',{0},', inputs.role))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    outputs:
+      run: ${{ steps.prep.outputs.run }}
+      started: ${{ steps.start.outputs.at }}
+      auth-mode: ${{ steps.prep.outputs.auth-mode }}
+      model: ${{ steps.prep.outputs.model }}
+      used-fallback: ${{ steps.prep.outputs.used-fallback }}
+      role: ${{ steps.prep.outputs.role }}
+      session-resumed: ""
+      account: ${{ steps.prep.outputs.account }}
+      auth-secret: ${{ steps.prep.outputs.auth-secret }}
+    steps:
+      - id: start
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Check out the hub tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .squadhq
+          persist-credentials: false
+      - id: hub
+        uses: ./.squadhq/.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: ${{ inputs.agent-repositories == '@projects' && '@projects' || format('{0},{1}', github.repository, env.SUBJECT) }}
+          permission-contents: write
+          permission-issues: write
+          permission-actions: write
+          permission-actions-variables: write
+      - name: Check out the subject (detection only; nothing is executed)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.SUBJECT }}
+          token: ${{ steps.hub.outputs.token }}
+          clean: false
+          persist-credentials: false
+      - id: prep
+        uses: ./.squadhq/.github/actions/agent-prep
+        with:
+          role: ${{ inputs.role }}
+          prompt: ${{ inputs.prompt }}
+          skill: ${{ inputs.skill }}
+          skill-event: ${{ inputs.skill-event }}
+          project-list: ${{ inputs.project-list }}
+          pack-role: ${{ inputs.pack-role }}
+          label-guard-role: ${{ inputs.label-guard-role }}
+          tool-profile: ${{ inputs.tool-profile }}
+          extra-tools: ${{ inputs.extra-tools }}
+          webfetch-domains: ${{ inputs.webfetch-domains }}
+          push-branches: none
+          subject-repo: ${{ env.SUBJECT }}
+          number: ${{ inputs.number }}
+          agent-repositories: ${{ inputs.agent-repositories }}
+          permission-contents: ${{ inputs.permission-contents }}
+          permission-issues: ${{ inputs.permission-issues }}
+          permission-pull-requests: ${{ inputs.permission-pull-requests }}
+          hub-read: "false"
+          artifact-name: squadhq-prep-${{ inputs.instance }}
+          ops-token: ${{ steps.hub.outputs.token }}
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          agent-app-client-id: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+          agent-app-private-key: ${{ secrets.SQUADHQ_AGENT_APP_PRIVATE_KEY }}
+          handoff-key: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      - &broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"
+
+  agent:
+    # A separate workflow that receives only the LLM credential and the
+    # hand-off key — no App private key can reach the job the agent runs in.
+    needs: [prep]
+    if: needs.prep.outputs.run == 'true'
+    concurrency:
+      group: squadhq-${{ inputs.role }}-${{ inputs.subject-repo || github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    uses: ./.github/workflows/agent-exec.yml
+    with:
+      instance: ${{ inputs.instance }}
+      subject-repo: ${{ inputs.subject-repo }}
+      auth-mode: ${{ needs.prep.outputs.auth-mode }}
+      auth-secret: ${{ needs.prep.outputs.auth-secret }}
+      deliver: ${{ inputs.deliver }}
+      timeout-minutes: ${{ inputs.timeout-minutes }}
+      sparse-checkout: ${{ inputs.sparse-checkout }}
+      tooling-sparse: ${{ inputs.tooling-sparse }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      SQUADHQ_HANDOFF_KEY: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+      ANTHROPIC_API_KEY_1: ${{ secrets.ANTHROPIC_API_KEY_1 }}
+      ANTHROPIC_API_KEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
+      ANTHROPIC_API_KEY_3: ${{ secrets.ANTHROPIC_API_KEY_3 }}
+      ANTHROPIC_API_KEY_4: ${{ secrets.ANTHROPIC_API_KEY_4 }}
+      ANTHROPIC_API_KEY_5: ${{ secrets.ANTHROPIC_API_KEY_5 }}
+      CLAUDE_CODE_OAUTH_TOKEN_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_1 }}
+      CLAUDE_CODE_OAUTH_TOKEN_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+      CLAUDE_CODE_OAUTH_TOKEN_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_3 }}
+      CLAUDE_CODE_OAUTH_TOKEN_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_4 }}
+      CLAUDE_CODE_OAUTH_TOKEN_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_5 }}
+
+  post:
+    needs: [prep, agent]
+    if: always() && needs.prep.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - name: Check out the hub tooling (fresh)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .squadhq
+          persist-credentials: false
+      - id: hub
+        uses: ./.squadhq/.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: ${{ inputs.agent-repositories == '@projects' && '@projects' || format('{0},{1}', github.repository, env.SUBJECT) }}
+          permission-contents: write
+          permission-issues: write
+          permission-actions: write
+          permission-actions-variables: write
+      - name: Fetch the sealed hand-off (to revoke and delete it)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: squadhq-prep-${{ inputs.instance }}
+          path: ${{ runner.temp }}/squadhq-prep
+      - name: Revoke the agent's token and delete the hand-off artifact
+        continue-on-error: true
+        env:
+          IKM_HANDOFF: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+          IKM_LLM: ${{ needs.prep.outputs.auth-mode == 'api' && secrets.ANTHROPIC_API_KEY || secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SALT: ${{ github.run_id }}:squadhq-prep-${{ inputs.instance }}
+          PLAN_DIR: ${{ runner.temp }}/squadhq-prep
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          NAME: squadhq-prep-${{ inputs.instance }}
+        run: |
+          if [ -f "$PLAN_DIR/tokens.enc" ]; then
+            KEY=$(bash .squadhq/.github/actions/agent-prep/handoff-key.sh) && export KEY
+            mapfile -t t < <(openssl enc -d -aes-256-cbc -pbkdf2 -pass env:KEY -in "$PLAN_DIR/tokens.enc" 2>/dev/null)
+            unset KEY
+            for x in "${t[@]}"; do
+              [ -n "$x" ] || continue
+              echo "::add-mask::$x"
+              curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $x" -H "Accept: application/vnd.github+json" https://api.github.com/installation/token
+            done
+          fi
+          for id in $(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq ".artifacts[] | select(.name == env.NAME) | .id"); do
+            gh api -X DELETE "repos/$REPO/actions/artifacts/$id" > /dev/null
+          done
+          exit 0
+      - continue-on-error: true
+        if: inputs.deliver != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: squadhq-run-${{ inputs.instance }}
+          path: ${{ runner.temp }}/run
+      - id: file
+        name: Execution result (rebuilt from the agent job's bounded outputs)
+        env:
+          COST: ${{ needs.agent.outputs.cost-usd }}
+          DURATION: ${{ needs.agent.outputs.duration-ms }}
+          TURNS: ${{ needs.agent.outputs.turns }}
+          IS_ERROR: ${{ needs.agent.outputs.is-error }}
+          ERROR_TEXT: ${{ needs.agent.outputs.error-text }}
+        run: |
+          python -I - <<'PY'
+          import json, os, re
+          def num(v, cast):
+              try:
+                  return max(cast(v), 0)
+              except (TypeError, ValueError):
+                  return 0
+          is_error = os.environ.get("IS_ERROR") == "true"
+          rec = {"type": "result", "subtype": "error_during_execution" if is_error else "success",
+                 "is_error": is_error, "total_cost_usd": num(os.environ.get("COST"), float),
+                 "duration_ms": num(os.environ.get("DURATION"), int), "num_turns": num(os.environ.get("TURNS"), int),
+                 "result": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", os.environ.get("ERROR_TEXT") or "")[:300]}
+          path = os.path.join(os.environ["RUNNER_TEMP"], "execution.json")
+          json.dump([rec], open(path, "w"))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"path={path}\n")
+          PY
+      - name: Bookkeeping
+        uses: ./.squadhq/.github/actions/agent-post
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          SQUADHQ_WEBHOOK_URL: ${{ secrets.SQUADHQ_WEBHOOK_URL }}
+          SQUADHQ_WEBHOOK_SECRET: ${{ secrets.SQUADHQ_WEBHOOK_SECRET }}
+        with:
+          notify-targets: ${{ vars.SQUADHQ_NOTIFY_ESCALATIONS }}
+          job: ${{ inputs.role }}
+          ops-token: ${{ steps.hub.outputs.token }}
+          job-status: ${{ needs.agent.result == 'failure' && 'failure' || 'success' }}
+          repo: ${{ env.SUBJECT }}
+          auth-mode: ${{ needs.prep.outputs.auth-mode }}
+          model: ${{ needs.prep.outputs.model }}
+          used-fallback: ${{ needs.prep.outputs.used-fallback }}
+          execution-file: ${{ steps.file.outputs.path }}
+          agent-outcome: ${{ needs.agent.outputs.outcome }}
+          issue-or-pr: ${{ inputs.number }}
+          account: ${{ needs.prep.outputs.account }}
+      - if: inputs.requester != '' && needs.agent.outputs.outcome == 'success'
+        name: Send the requester's new tickets to PO intake (ops identity)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          REQUESTER: ${{ inputs.requester }}
+          SINCE: ${{ needs.prep.outputs.started }}
+          AGENT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || ((vars.SQUADHQ_AGENT_APP_CLIENT_ID != '' || vars.SQUADHQ_TOKEN_BROKER != '') && 'squadhq-agent[bot]') || vars.SQUADHQ_BOT_LOGIN || 'squadhq-ops[bot]' }}
+        run: |
+          [[ "$REQUESTER" =~ ^[A-Za-z0-9-]+$ ]] || exit 0
+          # The requester and their association were verified by this workflow's
+          # trigger; the ticket body is agent-written, so only the exact
+          # "Requested-by: @<requester>" line links a ticket to this run.
+          for repo in $(python -I -c 'import json,os; print(" ".join(p["repo"] for p in json.load(open(os.path.join(os.environ["SQUADHQ_HOME"], "config", "projects.json"))).get("projects", [])))'); do
+            gh api "repos/$repo/issues?state=open&since=$SINCE&per_page=50" \
+              --jq ".[] | select(.pull_request == null and .user.type == \"Bot\" and .user.login == env.AGENT_LOGIN and .created_at >= env.SINCE) | select(.body // \"\" | test(\"(?m)^Requested-by: @$REQUESTER\\\\s*$\")) | .number" 2>/dev/null \
+              | while read -r n; do
+                  gh issue edit "$n" -R "$repo" --add-label agent:shape > /dev/null 2>&1 && echo "sent $repo#$n to PO intake" >> "$GITHUB_STEP_SUMMARY"
+                done
+          done
+      - if: inputs.deliver == 'findings' && needs.prep.outputs.auth-mode != 'skip'
+        name: Deliver findings (the file is data)
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          TARGET_REPO: ${{ env.SUBJECT }}
+          KIND: ${{ inputs.role }}
+          DEDUPE: ${{ inputs.dedupe }}
+          FINDINGS: ${{ runner.temp }}/run/agent-findings.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python -I - <<'PY'
+          import datetime, json, os, subprocess
+          repo, hub, kind = os.environ["TARGET_REPO"], os.environ["SQUADHQ_HUB_REPO"], os.environ["KIND"]
+          run_url, path = os.environ["RUN_URL"], os.environ["FINDINGS"]
+          def sh(args):
+              return subprocess.run(args, capture_output=True, text=True, timeout=120)
+          def note(line):
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                  f.write(line + "\n")
+          def escalate(title, body):
+              sh(["gh", "issue", "create", "-R", hub, "-l", "escalation", "-t", title, "-b", f"{body}\nRun: {run_url}"])
+              note(f"⚠ {title}")
+          try:
+              data = json.load(open(path))
+              findings = data.get("findings", []) if isinstance(data, dict) else []
+          except FileNotFoundError:
+              escalate(f"ESCALATION: {kind} produced no findings file ({repo})", "The agent run did not write /tmp/agent-findings.json.")
+              raise SystemExit(0)
+          except ValueError as e:
+              escalate(f"ESCALATION: {kind} findings file unparseable ({repo})", f"{e!r}")
+              raise SystemExit(0)
+          findings = [f for f in findings if isinstance(f, dict)]
+          suppressed = []
+          if os.environ.get("DEDUPE") == "true":
+              from squadhq import debt_dedupe
+              since = (datetime.datetime.now(datetime.timezone.utc).date()
+                       - datetime.timedelta(days=debt_dedupe.WINDOW_DAYS)).isoformat()
+              closed = []
+              for lab in ("debt", "debt-proposal"):
+                  r = sh(["gh", "issue", "list", "-R", repo, "--state", "closed", "--label", lab, "--limit", "200",
+                          "--search", f"closed:>={since}", "--json", "number,title,body"])
+                  if r.returncode == 0 and r.stdout.strip():
+                      closed += json.loads(r.stdout)
+              kept = []
+              for f in findings:
+                  prior = debt_dedupe.prior_match(f, closed)
+                  (suppressed.append((f, prior)) if prior else kept.append(f))
+              findings = kept
+          from squadhq.policy.findings import allowed_labels, clean_body
+          created = []
+          for f in findings[:5]:
+              # Agent-written: only allowlisted labels, protocol lines/markers stripped.
+              title = " ".join(clean_body(f.get("title", ""), 200).split())
+              body = clean_body(f.get("body", ""))
+              labels = ",".join(allowed_labels(f.get("labels") or []))
+              cmd = ["gh", "issue", "create", "-R", repo, "-t", title, "-b", body]
+              r = sh(cmd + (["-l", labels] if labels else []))
+              if r.returncode != 0 and labels and "not found" in r.stderr.lower():
+                  r = sh(cmd)
+              if r.returncode == 0:
+                  created.append(r.stdout.strip())
+          note(f"**Findings delivered for {repo}:** {len(created)}/{len(findings[:5])}")
+          for url in created:
+              note(f"- {url}")
+          for f, prior in suppressed:
+              note(f"- suppressed (repeats closed #{prior['number']}): {str(f.get('title', ''))[:80]}")
+          PY
+      - *broker-revoke
+
+  deliver:
+    needs: [prep, agent]
+    if: inputs.deliver == 'pr' && needs.agent.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - name: Fresh checkout of the hub
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: hub
+        uses: ./.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          hub-path: .
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: ${{ github.repository }}
+          permission-contents: write
+          permission-pull-requests: write
+          git-credentials: "true"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: squadhq-run-${{ inputs.instance }}
+          path: ${{ runner.temp }}/run
+      - name: Validate and apply the patch, push, open the PR
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          REPO: ${{ github.repository }}
+          PREFIX: ${{ inputs.deliver-prefix }}
+          ALLOWED: ${{ inputs.deliver-allowed }}
+          RUN_DIR: ${{ runner.temp }}/run
+        run: |
+          set -euo pipefail
+          patch="$RUN_DIR/change.patch"
+          if [ ! -s "$patch" ]; then echo "Nothing changed this run" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          [[ "$PREFIX" =~ ^[a-z0-9-]+-$ ]] || { echo "::error::bad branch prefix"; exit 1; }
+          # Paths are data: every one must match the allow-list, and no mode
+          # changes, symlinks, renames or binary blobs are accepted.
+          paths=$(git apply --numstat -z "$patch" | tr '\0' '\n' | awk -F'\t' 'NF==3 {print $3}')
+          [ -n "$paths" ] || { echo "::error::patch lists no paths"; exit 1; }
+          if printf '%s\n' "$paths" | grep -Evq "$ALLOWED"; then
+            echo "::error::the patch touches files outside '$ALLOWED'"; printf '%s\n' "$paths"; exit 1
+          fi
+          if git apply --summary "$patch" | grep -Eq 'mode change|rename|copy|120000|delete mode'; then
+            echo "::error::the patch changes modes, renames/copies, links or deletes files"; exit 1
+          fi
+          if git apply --numstat "$patch" | grep -q '^-'; then echo "::error::binary changes are not accepted"; exit 1; fi
+          default=$(gh repo view "$REPO" --json defaultBranchRef --jq .defaultBranchRef.name)
+          br="${PREFIX}$(date -u +%Y-%m-%d)"
+          git checkout -q -B "$br" "origin/$default"
+          git apply --index "$patch"
+          title=$(head -c 200 "$RUN_DIR/pr-title.txt" 2>/dev/null | tr -d '\r' | head -1)
+          title="${title:-$br}"
+          [ -f "$RUN_DIR/pr-body.md" ] || echo "Proposed by the ${PREFIX%-} agent." > "$RUN_DIR/pr-body.md"
+          git commit -q -m "$title"
+          git push -q origin "HEAD:refs/heads/$br"
+          gh pr create -R "$REPO" -H "$br" -B "$default" -t "$title" -F "$RUN_DIR/pr-body.md" >> "$GITHUB_STEP_SUMMARY"
+      - *broker-revoke

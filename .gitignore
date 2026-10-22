@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+.expo/
+*.tsbuildinfo
+
+# Editors / tools
+.idea/
+.vscode/
+.DS_Store
+.claude/
+
+# Local secrets and runtime data
+.env
+.env.*
+!.env.example
+*.pem
+# Throwaway test keys (generated for unit tests only; never used anywhere)
+!tests/**/fixtures/*.pem
+squadhq.local.yml
+# Written by deploy/install.sh (deploy/.env is covered by .env above)
+deploy/squadhq.yml
+
+# mkdocs output
+site/
+
+# eval run outputs
+evals/results/*
+!evals/results/.gitkeep

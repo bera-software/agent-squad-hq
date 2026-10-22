@@ -1,0 +1,32 @@
+id: support-triage
+name: Support Triage
+summary: >-
+  Triages inbound support tickets (Zendesk, Intercom, email): dedupes against
+  open issues, sets severity, routes bugs and feature requests into the tracker
+  and drafts a holding reply for a human to send. Never promises dates or
+  shares another customer's data.
+phase: business
+tier: pro
+default_enabled: false
+legacy: false
+role: support-triage
+badge: "[Support] "
+trigger:
+  - event: support.ticket.created
+    filter: "tickets from configured support adapters (zendesk | intercom | email)"
+  - schedule: support_triage
+inputs: [support_tickets, tracker, docs, release_history, config]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Bug or feature issue (or a +1 comment on an existing one) linked to the support ticket id"
+  - type: comment
+    description: Draft reply stored as an internal note for a human agent to review and send
+  - type: label
+    labels: [escalation, P1, P2, P3]
+  - type: json
+    description: "Triage record {ticket_id, kind, severity, duplicate_of, issue, draft_reply}"
+requires: [product-owner]
+untrusted_inputs: true
+prompt: prompt.md

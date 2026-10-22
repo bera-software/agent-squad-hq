@@ -1,0 +1,28 @@
+id: security-architect-assessor
+name: Security Architect assessor
+summary: >-
+  Joins the team-thread when a Product Owner proposal touches auth, crypto,
+  PII or payments and posts a short assessment ending in a blocking verdict.
+phase: design
+tier: core
+default_enabled: true
+legacy: false
+badge: "[Security Architect] "
+trigger:
+  - event: issue_comment.created
+    filter: "comment contains '@team-thread' and the proposal matches security keywords (auth, login, session, token, oauth, crypto, encrypt, key, PII, personal data, payment, card, billing, webhook signature)"
+  - command: security-assess
+inputs: [issue, issue_comments, adr, threat_model, repo, flows]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: "Assessment of at most 8 lines on the issue, last line exactly 'blocking: yes' or 'blocking: no'"
+  - type: label
+    labels: [needs-threat-model]
+gate:
+  verdict: "blocking: yes"
+  condition: "'blocking: yes' holds the team-thread consensus; the Product Owner cannot dispatch until an approver resolves it"
+requires: [team-thread-assessor, threat-modeler]
+untrusted_inputs: true
+prompt: prompt.md

@@ -1,0 +1,68 @@
+[
+  {
+    "iid": 5,
+    "title": "Bug",
+    "description": "Broken",
+    "state": "opened",
+    "labels": [
+      "bug",
+      "status:in-progress"
+    ],
+    "author": {
+      "id": 11,
+      "username": "maint"
+    },
+    "web_url": "https://gitlab.com/grp/app/-/issues/5",
+    "created_at": "2026-10-01T10:00:00Z",
+    "updated_at": "2026-10-02T10:00:00Z",
+    "assignees": [
+      {
+        "username": "dev"
+      }
+    ]
+  },
+  {
+    "iid": 6,
+    "title": "Bug",
+    "description": "Broken",
+    "state": "opened",
+    "labels": [
+      "bug",
+      "status:in-progress"
+    ],
+    "author": {
+      "id": 12,
+      "username": "outsider"
+    },
+    "web_url": "https://gitlab.com/grp/app/-/issues/5",
+    "created_at": "2026-10-01T10:00:00Z",
+    "updated_at": "2026-10-02T10:00:00Z",
+    "assignees": [
+      {
+        "username": "dev"
+      }
+    ]
+  },
+  {
+    "iid": 7,
+    "title": "Bug",
+    "description": "Broken",
+    "state": "opened",
+    "labels": [
+      "bug",
+      "status:in-progress"
+    ],
+    "author": {
+      "id": 13,
+      "username": "renovate-bot"
+    },
+    "web_url": "https://gitlab.com/grp/app/-/issues/5",
+    "created_at": "2026-10-01T10:00:00Z",
+    "updated_at": "2026-10-02T10:00:00Z",
+    "assignees": [
+      {
+        "username": "dev"
+      }
+    ]
+  }
+]

@@ -1,0 +1,141 @@
+# Agent Squad HQ — single-VM server mode.
+#
+#   cd deploy && cp .env.example .env   # or: ./install.sh
+#   docker compose up -d                 # api + worker + scheduler + postgres
+#   docker compose --profile ollama up -d   # plus a local model server
+#
+# Put squadhq.yml next to this file (./squadhq.yml); it is mounted read-only.
+# Expose the API through a TLS reverse proxy (Caddy, nginx, a cloud LB); the
+# api service binds to 127.0.0.1 by default.
+name: agent-squad-hq
+
+# Only the `api` service carries `build:` (several services building the same
+# tag race with "image already exists"); the others reuse the image it builds.
+x-squadhq: &squadhq
+  image: ${SQUADHQ_IMAGE:-ghcr.io/OWNER/agent-squad-hq:latest}
+  pull_policy: missing
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    SQUADHQ_DB_URL: ${SQUADHQ_DB_URL:-postgresql://squadhq:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/squadhq}
+    SQUADHQ_CONFIG: /etc/squadhq/squadhq.yml
+    GH_TOKEN: ${SQUADHQ_GITHUB_TOKEN:-}
+  volumes:
+    - ./squadhq.yml:/etc/squadhq/squadhq.yml:ro
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=256m
+  user: "10001:10001"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - backend
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "5"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: squadhq
+      POSTGRES_USER: squadhq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U squadhq -d squadhq"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
+  migrate:
+    <<: *squadhq
+    command: ["migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *squadhq
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile
+    command: ["serve"]
+    ports:
+      - "127.0.0.1:${SQUADHQ_HTTP_PORT:-8080}:8080"
+    networks:
+      - backend
+      - egress  # a non-internal network is required to publish the port
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  worker:
+    <<: *squadhq
+    command: ["worker"]
+    healthcheck:
+      disable: true
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    networks:
+      - backend
+      - egress
+
+  scheduler:
+    <<: *squadhq
+    command: ["scheduler"]
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  backend:
+    internal: true
+  # Outbound traffic (GitHub, trackers, LLM APIs). Restrict it with a host
+  # firewall or an egress proxy: docs/deploy/security-hardening.md
+  egress: {}
+
+volumes:
+  pgdata: {}
+  ollama: {}

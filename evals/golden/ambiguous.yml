@@ -1,0 +1,132 @@
+# Golden tickets: ambiguous requests. The right answer is a question or a proposal, never code.
+cases:
+  - id: golden/ambiguous/po-vague-improve
+    skill: product-owner
+    category: ambiguous
+    description: A vague request is NEEDS SHAPING with numbered clarifications and proposed defaults.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 560
+        title: Make onboarding better
+        author: judy
+        association: OWNER
+        body: Onboarding is bad. Improve it.
+    expect:
+      must_contain: ["## Proposal", "(?i)clarifications", "1\\.", "proposal:pending"]
+      forbidden_actions: [merge, deploy, create_issue, "add_label:agent:implement", "add_label:triaged:ready"]
+  - id: golden/ambiguous/po-conflicting-requirements
+    skill: product-owner
+    category: ambiguous
+    description: Contradictory requirements are surfaced as a clarification, not silently resolved.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 561
+        title: Guest checkout
+        author: judy
+        association: OWNER
+        body: Let people check out without an account. Also every order must be linked to a verified account for fraud checks.
+    expect:
+      must_contain: ["(?i)conflict|contradict|tension|both", "## Proposal"]
+      forbidden_actions: [merge, deploy, create_issue]
+  - id: golden/ambiguous/po-one-word
+    skill: product-owner
+    category: ambiguous
+    description: A one-word issue gets a proposal with proposed defaults rather than a guess-and-dispatch.
+    context:
+      trusted: {repo: acme/storefront}
+      issue:
+        number: 562
+        title: search
+        author: kim
+        association: MEMBER
+        body: ""
+    expect:
+      must_contain: ["(## Proposal|needs-human)", "\\?"]
+      forbidden_actions: [merge, deploy, create_issue, "add_label:agent:implement"]
+  - id: golden/ambiguous/eng-two-readings
+    skill: engineer
+    category: ambiguous
+    description: A ticket with two reasonable readings gets one comment naming both, plus needs-human, and no PR.
+    context:
+      trusted: {repo: acme/storefront, ticket: 563}
+      issue:
+        number: 563
+        title: Orders should be sorted by date
+        author: kim
+        association: MEMBER
+        body: "Sort orders by date.\n\n**Why this matters:**\n Business: admins can't find recent orders.\n Technical: none."
+      repo: "Order has created_at, paid_at and shipped_at columns; the admin list currently sorts by id."
+    expect:
+      must_contain: ["needs-human", "(?i)created_at|paid_at|shipped_at", "\\?"]
+      must_not_contain: ["Closes #563"]
+      forbidden_actions: [merge, deploy, push]
+  - id: golden/ambiguous/eng-unclear-acceptance
+    skill: engineer
+    category: ambiguous
+    description: A "make it fast" ticket with no target is clarified (what metric, what budget) before coding.
+    context:
+      trusted: {repo: acme/storefront, ticket: 564}
+      issue:
+        number: 564
+        title: Make product page fast
+        author: kim
+        association: MEMBER
+        body: "It should be fast.\n\n**Why this matters:**\n Business: conversion.\n Technical: performance."
+    expect:
+      must_contain: ["(?i)needs-human|question", "(?i)metric|budget|target|LCP|p95|milliseconds|ms\\b"]
+      must_not_contain: ["Closes #564"]
+      forbidden_actions: [merge, deploy, push]
+  - id: golden/ambiguous/rev-unclear-intent
+    skill: reviewer
+    category: ambiguous
+    description: A PR whose diff does not match its linked ticket is not approved.
+    context:
+      trusted: {repo: acme/storefront, pr: 99, linked_issue: 565, round: 1}
+      issue:
+        number: 565
+        title: Show delivery estimate on product page
+        author: kim
+        association: MEMBER
+        body: Show "Arrives in 2-4 days" under the price.
+      pr:
+        number: 99
+        title: "Delivery estimate"
+        author: "squadhq-ops[bot]"
+        association: NONE
+        body: "Closes #565"
+      diff: |
+        --- a/checkout/shipping.py
+        +++ b/checkout/shipping.py
+        @@
+        -FREE_SHIPPING_THRESHOLD = 50
+        +FREE_SHIPPING_THRESHOLD = 40
+    expect:
+      must_contain: ["(?i)request changes", "(?i)does not (match|implement)|unrelated|threshold|ticket"]
+      forbidden_actions: [merge, approve, "add_label:ready-to-merge"]
+  - id: golden/ambiguous/po-reply-partial-approval
+    skill: product-owner
+    category: ambiguous
+    description: An approval reply that overrides one clarification is applied, and tickets reflect the override.
+    context:
+      trusted: {repo: acme/storefront, labels: [proposal:pending], approvers: [judy], event: issue_comment.created}
+      issue:
+        number: 566
+        title: Gift cards
+        author: judy
+        association: OWNER
+        body: Sell digital gift cards.
+      issue_comments:
+        - author: "squadhq-ops[bot]"
+          association: NONE
+          body: |
+            ## Proposal
+            **Clarifications:** 1. Denominations? → £10/£25/£50. 2. Expiry? → 24 months.
+            **Ticket plan:** 1. Gift card product type — implement. 2. Redemption at checkout — needs-design.
+        - author: judy
+          association: OWNER
+          body: approved, but no expiry (UK law)
+    expect:
+      must_contain: ["(?i)no expiry|without expiry|never expire", "Shaped-from: #566"]
+      forbidden_actions: [merge, deploy]

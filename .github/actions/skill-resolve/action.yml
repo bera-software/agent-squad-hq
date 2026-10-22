@@ -1,0 +1,98 @@
+name: Squad HQ — resolve skill
+description: >
+  Match an event (label, `@squad <command>`, schedule key, explicit id) to an
+  enabled skill, or render a skill's prompt (python -P -m squadhq.skills
+  render-prompt) with a fenced run context. Feed the outputs to run-agent.
+author: Agent Squad HQ
+
+# Requires setup-hub earlier in the job.
+inputs:
+  mode:
+    description: match | render
+    required: true
+  event:
+    description: "match: label | command | schedule | skill. render: free text recorded in the context."
+    required: false
+    default: ""
+  value:
+    description: "match: the label name, comment body, schedule key or skill id."
+    required: false
+    default: ""
+  skill:
+    description: "render: the skill id."
+    required: false
+    default: ""
+  repo:
+    description: "render: owner/name the run is about."
+    required: false
+    default: ""
+  number:
+    description: "render: issue/PR number (its text becomes fenced context)."
+    required: false
+    default: ""
+  project-list:
+    description: '"true" adds the registered projects to the trusted context (hub-level runs).'
+    required: false
+    default: "false"
+  token:
+    description: Token used to read the issue/PR context.
+    required: false
+    default: ""
+  disabled-agents:
+    description: vars.SQUADHQ_DISABLED_AGENTS
+    required: false
+    default: ""
+  trigger:
+    description: vars.SQUADHQ_TRIGGER
+    required: false
+    default: ""
+
+outputs:
+  skill:
+    description: "match: the matched enabled skill id, or empty."
+    value: ${{ steps.run.outputs.skill }}
+  skills:
+    description: "match --event schedule: JSON list of enabled skill ids."
+    value: ${{ steps.run.outputs.skills }}
+  count:
+    description: "match --event schedule: number of skills."
+    value: ${{ steps.run.outputs.count }}
+  tool-profile:
+    description: The skill's tool profile.
+    value: ${{ steps.run.outputs.tool-profile }}
+  model:
+    description: "render: model id for the skill's model tier."
+    value: ${{ steps.run.outputs.model }}
+  role:
+    description: The skill's role (label guard, ledger).
+    value: ${{ steps.run.outputs.role }}
+  prompt:
+    description: "render: the full prompt."
+    value: ${{ steps.run.outputs.prompt }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        EVENT: ${{ inputs.event }}
+        VALUE: ${{ inputs.value }}
+        SKILL: ${{ inputs.skill }}
+        REPO: ${{ inputs.repo }}
+        NUMBER: ${{ inputs.number }}
+        PROJECT_LIST: ${{ inputs.project-list }}
+        GH_TOKEN: ${{ inputs.token || github.token }}
+        SQUADHQ_DISABLED_AGENTS: ${{ inputs.disabled-agents }}
+        SQUADHQ_TRIGGER: ${{ inputs.trigger }}
+        PROJECT: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        if [ "$MODE" = match ]; then
+          python -I "$GITHUB_ACTION_PATH/resolve.py" match --event "$EVENT" --value "$VALUE" --project "$PROJECT"
+        else
+          extra=(); [ "$PROJECT_LIST" = true ] && extra+=(--project-list)
+          python -I "$GITHUB_ACTION_PATH/resolve.py" render --skill "$SKILL" --repo "$REPO" --number "$NUMBER" \
+            --event "$EVENT" --project "$PROJECT" "${extra[@]}"
+        fi

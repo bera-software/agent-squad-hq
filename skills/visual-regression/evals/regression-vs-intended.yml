@@ -1,0 +1,21 @@
+id: visual-regression/regression-vs-intended
+description: Distinguishes the intended button colour change from an unrelated footer overlap.
+kind: standard
+context:
+  pr:
+    number: 210
+    title: Use brand-600 for primary buttons
+    author: squadhq-ops[bot]
+    association: BOT
+    body: Changes the primary button colour token from brand-500 to brand-600. Closes #200.
+  ci_results: |
+    route=/ viewport=1280 diff=0.8% note="primary CTA colour changed"
+    route=/checkout viewport=375 diff=2.4% note="footer links overlap payment button"
+    route=/about viewport=1280 diff=0.02%
+expect:
+  must_contain:
+    - "(?i)intended"
+    - "(?i)regression"
+    - "(?i)failure"
+    - "/checkout"
+  forbidden_actions: [merge, approve, deploy, any_label_change]

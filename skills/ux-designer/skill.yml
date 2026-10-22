@@ -1,0 +1,28 @@
+id: ux-designer
+name: UX / UI designer
+summary: >-
+  For a user-facing proposal, writes a wireframe spec (flows, screens, states,
+  copy), maps it to existing design tokens and links a Figma or Stitch frame
+  when the project has one.
+phase: design
+tier: pro
+default_enabled: false
+legacy: false
+badge: "[UX Designer] "
+trigger:
+  - event: issue_comment.created
+    filter: "Product Owner proposal with user-facing scope (UI, screen, page, flow, onboarding, email template)"
+  - command: ux
+inputs: [issue, issue_comments, spec, repo, docs, analytics, feedback]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/ux/issue-{issue}.md"
+  - type: pr
+    description: "UX spec PR on branch ux/issue-{issue} with Gate-for: #{issue}"
+  - type: comment
+    description: Summary with screens, states and the design link
+requires: [product-owner, accessibility-designer]
+untrusted_inputs: true
+prompt: prompt.md

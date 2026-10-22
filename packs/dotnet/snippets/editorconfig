@@ -1,0 +1,19 @@
+# .editorconfig defaults seeded by Agent Squad HQ (pack dotnet). Used by the
+# hub's "lint" gate (`dotnet format --verify-no-changes --no-restore`) when the
+# project has none and squadhq.yml sets quality.lint: default.
+root = true
+
+[*]
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.cs]
+indent_size = 4
+csharp_new_line_before_open_brace = all
+csharp_style_namespace_declarations = file_scoped:suggestion
+dotnet_sort_system_directives_first = true
+
+[*.{csproj,props,targets,json,yml,yaml}]
+indent_size = 2

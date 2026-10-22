@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (including prompt injection)
+    url: https://github.com/bera-software/agent-squad-hq/security/advisories/new
+    about: Report privately. Never open a public issue for a security problem.
+  - name: Ask a question
+    url: https://github.com/bera-software/agent-squad-hq/discussions
+    about: Setup and usage questions go to GitHub Discussions.
+  - name: Documentation
+    url: https://github.com/bera-software/agent-squad-hq/tree/main/docs
+    about: Quickstarts, configuration reference, troubleshooting and FAQ.

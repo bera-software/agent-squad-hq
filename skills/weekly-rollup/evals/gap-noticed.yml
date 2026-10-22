@@ -1,0 +1,21 @@
+id: weekly-rollup/gap-noticed
+description: Rollup states coverage gaps as 'Gap noticed' instead of creating tickets.
+kind: standard
+context:
+  trusted:
+    repo: acme/agent-squad-hq
+    today: '2026-10-21'
+    projects:
+    - acme/storefront
+  state:
+    text: 'week: 9 PRs merged; Legal weekly flagged missing cookie banner (no ticket exists); SEO weekly:
+      2 proposals; Finance weekly: spend +18% w/w.'
+    source: state.json
+expect:
+  must_contain:
+  - (?i)\[Weekly Rollup\]
+  - (?i)gap noticed
+  - (?i)cookie
+  forbidden_actions:
+  - merge
+  - any_label_change

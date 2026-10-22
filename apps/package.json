@@ -1,0 +1,19 @@
+{
+  "name": "squadhq-apps",
+  "private": true,
+  "description": "Agent Squad HQ client apps (web dashboard, mobile) and their shared API package.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "shared-api",
+    "dashboard",
+    "mobile"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}

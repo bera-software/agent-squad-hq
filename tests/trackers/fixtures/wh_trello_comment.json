@@ -1,0 +1,21 @@
+{
+  "model": {
+    "id": "board-1"
+  },
+  "action": {
+    "id": "act-2",
+    "type": "commentCard",
+    "memberCreator": {
+      "username": "mallory"
+    },
+    "data": {
+      "card": {
+        "id": "card-1"
+      },
+      "board": {
+        "id": "board-1"
+      },
+      "text": "hi"
+    }
+  }
+}

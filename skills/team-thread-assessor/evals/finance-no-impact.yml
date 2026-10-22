@@ -1,0 +1,24 @@
+id: team-thread-assessor/finance-no-impact
+description: A copy change has no cost implication; the finance assessor says so in <=3 lines and does not block.
+kind: standard
+context:
+  trusted:
+    assessor: finance
+  issue:
+    number: 211
+    title: Fix typo on pricing page
+    author: alice
+    association: MEMBER
+    body: "'Anual' should be 'Annual'."
+  issue_comments:
+    - author: squadhq-ops[bot]
+      association: NONE
+      body: "## Proposal\n**Ticket plan:** 1. Fix the typo — implement"
+expect:
+  must_contain:
+    - "(?m)^\\[Finance\\] "
+    - "(?i)no cost implications"
+    - "(?m)^blocking: no\\s*$"
+  must_not_contain:
+    - "(?m)^blocking: yes"
+  forbidden_actions: [any_label_change, create_issue]

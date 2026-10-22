@@ -1,0 +1,29 @@
+id: finops
+name: FinOps (cloud spend)
+summary: >-
+  Weekly cloud-bill analysis: spend by service and environment, anomalies
+  against a trailing baseline, idle and oversized resources, and
+  rightsizing or commitment proposals with estimated savings. Proposes
+  tickets; never changes infrastructure.
+phase: operate
+tier: pro
+default_enabled: false
+legacy: false
+role: finops
+badge: "[FinOps] "
+trigger:
+  - schedule: finops_weekly
+  - command: finops
+inputs: [cloud_bill, cost_ledger, metrics, iac, config, tracker]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Weekly report issue 'FinOps weekly — <date>' labelled report + dept:finance"
+  - type: issue
+    description: Up to 3 savings tickets (no dispatch labels; PO intake decides)
+  - type: label
+    labels: [report, dept:finance, escalation]
+requires: [finance]
+untrusted_inputs: true
+prompt: prompt.md

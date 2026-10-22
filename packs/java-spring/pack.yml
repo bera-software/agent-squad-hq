@@ -1,0 +1,58 @@
+id: java-spring
+name: Java / Spring Boot
+detect:
+  files: ["pom.xml", "build.gradle", "build.gradle.kts"]
+paths:
+  - "**/*.java"
+  - "**/*.kt"
+  - "pom.xml"
+  - "build.gradle"
+  - "build.gradle.kts"
+  - "settings.gradle*"
+  - "src/main/resources/**"
+root: "."
+ci:
+  setup:
+    kind: java
+    version: "21"
+  install: ""
+  # Gradle: run the build with --continue, then the report, then exit with the
+  # build's own code, so a failing test still produces a coverage report.
+  build: "if [ -f pom.xml ]; then mvn -B verify; else ./gradlew build --continue; rc=$?; ./gradlew jacocoTestReport || true; exit $rc; fi"
+  test: ""
+  # Spotless / Checkstyle, only when the build configures them.
+  lint:
+    command: "if [ -f pom.xml ]; then { ! grep -q spotless-maven-plugin pom.xml || mvn -B -q spotless:check; } && { ! grep -q maven-checkstyle-plugin pom.xml || mvn -B -q checkstyle:check; }; else { ! grep -qs com.diffplug.spotless build.gradle build.gradle.kts || ./gradlew spotlessCheck --no-daemon; } && { ! grep -qsw checkstyle build.gradle build.gradle.kts || ./gradlew checkstyleMain --no-daemon; }; fi"
+    local: "./gradlew spotlessCheck checkstyleMain (Gradle) or mvn -B spotless:check checkstyle:check (Maven), for the plugins the build configures"
+    configs: ["pom.xml:spotless-maven-plugin", "pom.xml:maven-checkstyle-plugin", "build.gradle*:com.diffplug.spotless", "build.gradle*:checkstyle"]
+  coverage:
+    format: jacoco
+    path: "build/reports/jacoco/test/jacocoTestReport.xml"
+    min_overall: 60
+    min_changed: 70
+# ArchUnit rules are JUnit tests (snippets/HexagonalArchitectureTest.java, plus
+# the ArchUnit dependency from snippets/jacoco-archunit*.{xml,gradle}); the arch
+# gate runs just those tests, and the full build runs them again with the rest.
+# Not seeded by onboarding: the test needs the dependency and the root package.
+arch:
+  tool: ArchUnit
+  config: "**/*ArchitectureTest.java"
+  command: "if [ -f pom.xml ]; then mvn -B -q test -Dtest='*ArchitectureTest' -Dsurefire.failIfNoSpecifiedTests=false -Djacoco.skip=true; else ./gradlew test --tests '*ArchitectureTest' --no-daemon; fi"
+  local: "./gradlew test --tests '*ArchitectureTest' (Gradle) or mvn -B test -Dtest='*ArchitectureTest' (Maven)"
+  snippet: HexagonalArchitectureTest.java
+  requires: "ArchUnit test dependency from snippets/jacoco-archunit-maven.xml or jacoco-archunit.gradle, and the test under src/test/java with your root package"
+risk_paths:
+  - "**/security/**"
+  - "**/auth/**"
+  - "**/*Security*Config*.java"
+  - "**/*SecurityConfig*.kt"
+  - "**/db/migration/**"
+  - "**/db/changelog/**"
+  - "**/billing/**"
+  - "**/payment*/**"
+  - "src/main/resources/application*.yml"
+  - "src/main/resources/application*.properties"
+tools:
+  - "Bash(./gradlew *)"
+  - "Bash(mvn *)"
+  - "Bash(java -version)"

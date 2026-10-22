@@ -1,0 +1,86 @@
+{
+  "_generated": "Rendered by `squadhq render` from squadhq.yml. Do not edit by hand: edit squadhq.yml and re-render.",
+  "_docs": {
+    "merge_mode": "Per project, rendered from squadhq.yml (policies.merge.mode / projects[].merge_mode). 'approver': a human in the approver set merges; nothing auto-merges. 'risk_based': the self-merge job merges a bot PR only when squadhq.merge_policy finds it within merge.risk_based (max_risk, passing checks) and outside merge.always_human; otherwise an approver merges. 'auto': the self-merge job merges as soon as the Reviewer applies 'ready-to-merge', leaving branch protection's required checks as the only gate. Never use 'auto' unless the hub's default branch is protected and SAST, SCA and secret scanning are required checks.",
+    "integration_branch": "The branch the Engineer and Architect branch from and target. In a single-branch model it is also the production branch.",
+    "packs": "Stack packs from packs/<id>/ that apply to this project (see packs/README.md). Order does not matter.",
+    "pack_roots": "Optional per-pack working directory, relative to the repo root, when a pack's code does not live at the pack's default root.",
+    "quality": "Quality gates (squadhq.yml projects[].quality): arch auto|required|off, lint auto|default|off, changed_coverage enforce|report|off. Read by `squadhq.packs ci-plan`; see docs/concepts/quality-gates.md.",
+    "frontend_url": "Public URL of the product, used by the SEO and Growth agents. Optional.",
+    "keywords": "Search terms target users would use; used by the SEO and Growth agents.",
+    "markets": "Jurisdictions and audiences; used by the Legal and Growth agents.",
+    "notes": "Plain-language positioning: what the product does, who it is for, what it must never claim. Read by the reporting agents and the Product Owner."
+  },
+  "policies": {
+    "wip_limit": 5,
+    "review_fix_rounds": 2
+  },
+  "projects": [
+    {
+      "name": "Storefront",
+      "repo": "acme/storefront",
+      "merge_mode": "approver",
+      "integration_branch": "main",
+      "frontend_url": "https://acme.example",
+      "staging_url": "https://staging-api.acme.example",
+      "staging_frontend_url": "https://staging.acme.example",
+      "keywords": [
+        "online storefront",
+        "headless commerce"
+      ],
+      "markets": [
+        "UK",
+        "US"
+      ],
+      "notes": "Acme Storefront sells refurbished gadgets. Tone: friendly, concise.",
+      "packs": [
+        "node-next",
+        "python-fastapi"
+      ],
+      "pack_roots": {
+        "node-next": "web",
+        "python-fastapi": "api"
+      },
+      "quality": {
+        "arch": "auto",
+        "lint": "auto",
+        "changed_coverage": "report"
+      },
+      "environments": {
+        "staging": {
+          "url": "https://staging.acme.example",
+          "api_url": "https://staging-api.acme.example",
+          "deploy": "vercel",
+          "approval": "none"
+        },
+        "production": {
+          "url": "https://acme.example",
+          "deploy": "vercel",
+          "approval": "required"
+        }
+      },
+      "merge": {
+        "mode": "approvers",
+        "approvers": [
+          "@acme/leads"
+        ],
+        "always_human": [
+          "auth",
+          "payments",
+          "migrations",
+          "workflows",
+          "infra",
+          "deps-major"
+        ]
+      },
+      "brief_file": "docs/product.md",
+      "agents": {
+        "enabled": [
+          "growth"
+        ],
+        "disabled": []
+      },
+      "budget_usd": 60.0
+    }
+  ]
+}

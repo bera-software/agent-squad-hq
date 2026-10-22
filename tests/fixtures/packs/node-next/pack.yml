@@ -1,0 +1,36 @@
+id: node-next
+name: Node / Next.js
+detect:
+  files: ["package.json", "next.config.*"]
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "package.json"
+root: frontend
+ci:
+  setup:
+    kind: node
+    version: "20"
+  install: "npm ci"
+  build: "npm run build"
+  test: "npm test -- --coverage"
+  lint:
+    command: "npm run lint"
+    configs: ["package.json:\"lint\"", "eslint.config.*"]
+  coverage:
+    format: lcov
+    path: "coverage/lcov.info"
+    min_overall: 60
+    min_changed: 70
+arch:
+  tool: dependency-cruiser
+  config: ".dependency-cruiser.cjs"
+  command: "npx --no-install depcruise --config .dependency-cruiser.cjs ."
+  snippet: dependency-cruiser.cjs
+  requires: "npm install --save-dev dependency-cruiser"
+risk_paths:
+  - "**/middleware.ts"
+  - "**/auth/**"
+tools:
+  - "Bash(npm *)"
+  - "Bash(npx *)"

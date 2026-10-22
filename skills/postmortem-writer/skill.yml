@@ -1,0 +1,31 @@
+id: postmortem-writer
+name: Postmortem Writer
+summary: >-
+  Writes a blameless postmortem from a resolved incident's timeline, thread
+  and linked PRs into docs/postmortems/<date>-<slug>.md, and proposes action
+  items as tickets.
+phase: operate
+tier: pro
+default_enabled: false
+legacy: false
+role: postmortem-writer
+badge: "[Postmortem] "
+trigger:
+  - event: issues.closed
+    filter: "labels contains incident"
+  - command: postmortem
+inputs: [incident, issue_comments, deploy_log, commits, metrics, lessons, repo]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/postmortems/{date}-{slug}.md"
+  - type: pr
+    description: "Postmortem PR 'Postmortem: <incident title>' for human review"
+  - type: issue
+    description: One ticket per agreed action item (max 6), linked to the incident
+  - type: comment
+    description: Link to the postmortem PR on the incident issue
+requires: [sre-incident-responder]
+untrusted_inputs: true
+prompt: prompt.md

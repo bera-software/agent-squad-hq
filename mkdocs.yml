@@ -1,0 +1,120 @@
+site_name: Agent Squad HQ
+site_description: An AI software team that runs in your GitHub org. Shape, design, build, review, secure and ship.
+site_url: https://bera-software.github.io/agent-squad-hq/
+repo_url: https://github.com/bera-software/agent-squad-hq
+repo_name: bera-software/agent-squad-hq
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Bera Software &amp; Consultancy Ltd. Apache-2.0.
+docs_dir: docs
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Requirements: getting-started/requirements.md
+      - Quickstart (Actions mode): getting-started/quickstart-actions-mode.md
+      - Quickstart (server mode): getting-started/quickstart-server-mode.md
+      - Upgrading: getting-started/upgrading.md
+  - Concepts:
+      - Architecture: concepts/architecture.md
+      - Flows and labels: concepts/flows-and-labels.md
+      - Flow diagram (generated): FLOW-DIAGRAM.md
+      - Roles and skills: concepts/roles-and-skills.md
+      - Stack packs: concepts/packs.md
+      - Quality gates: concepts/quality-gates.md
+      - Merge and risk policy: concepts/merge-and-risk-policy.md
+      - Budgets and costs: concepts/budgets-and-costs.md
+      - LLM providers and executors: concepts/providers.md
+      - Trackers: concepts/trackers.md
+      - Notifications: concepts/notifications.md
+  - Configuration:
+      - squadhq.yml reference: configuration/squadhq-yml.md
+      - Variables and secrets: configuration/variables-and-secrets.md
+      - Schedules and time zones: configuration/schedules-and-timezones.md
+      - Engineering conventions: architecture/CONVENTIONS.md
+  - Skills:
+      - Catalogue: skills/CATALOGUE.md
+      - Authoring skills: skills/authoring-skills.md
+      - Agent evals: skills/evals.md
+  - Self-hosting:
+      - Docker Compose: deploy/docker-compose.md
+      - Kubernetes (Helm): deploy/kubernetes.md
+      - Managed cloud runtimes: deploy/cloud.md
+      - Security hardening: deploy/security-hardening.md
+      - Upgrades and backups: deploy/upgrade-and-backup.md
+  - Client apps (preview):
+      - Web dashboard: apps/dashboard.md
+      - Mobile app: apps/mobile.md
+  - Security:
+      - Security model: security/security-model.md
+      - Threat model: security/threat-model.md
+      - SSDLC: security/ssdlc.md
+      - Supply chain: security/supply-chain.md
+  - Operations:
+      - Troubleshooting: operations/troubleshooting.md
+      - Observability: operations/observability.md
+      - Releases: operations/releases.md
+      - FAQ: operations/faq.md
+  - Architecture decisions:
+      - adr/index.md
+      - ADR-0001 Python control plane: adr/0001-python-control-plane.md
+      - ADR-0002 flows.yml is the state machine: adr/0002-flows-yml-state-machine.md
+      - ADR-0003 One user-facing config file: adr/0003-single-config-file.md
+      - ADR-0004 Neutral execution result: adr/0004-neutral-execution-result.md
+      - ADR-0005 No merge or deploy for agents: adr/0005-agents-never-merge-or-deploy.md
+      - ADR-0006 Deterministic risk floor: adr/0006-deterministic-risk-floor.md
+      - ADR-0007 Untrusted input and code-decided triggers: adr/0007-untrusted-input.md
+      - ADR-0008 Pluggable state store: adr/0008-pluggable-state-store.md
+      - ADR-0009 Release and pinning: adr/0009-releases-and-pinning.md
+      - ADR-0010 Open-core licensing boundary: adr/0010-open-core-boundary.md
+      - ADR-0011 Token-broker mode: adr/0011-token-broker-mode.md
+  - Editions: editions.md
+  - Roadmap: ROADMAP.md

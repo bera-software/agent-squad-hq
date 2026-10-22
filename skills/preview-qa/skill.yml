@@ -1,0 +1,29 @@
+id: preview-qa
+name: Preview QA
+summary: >-
+  Deterministic Playwright smoke test against a successful preview deployment
+  (deployment_status event); posts a pass/fail comment with the preview URL.
+  No model involved. Skips when no frontend files changed or no e2e suite exists.
+phase: verify
+tier: core
+default_enabled: true
+legacy: true
+trigger:
+  event: deployment_status
+  filter: "state == success and environment contains 'Preview'"
+inputs: [preview_url, pr, diff]
+tool_profile: comment
+model_tier: none
+deterministic: true
+entrypoint: "workflow:router.yml#qa-preview"
+outputs:
+  - type: check
+    description: Playwright smoke result as a check run
+  - type: comment
+    description: "Preview QA (Playwright smoke): passed|failed — <preview url>"
+gate:
+  check: qa-preview
+  condition: "Informational by default; projects may make it required for frontend PRs"
+requires: []
+untrusted_inputs: false
+prompt: null

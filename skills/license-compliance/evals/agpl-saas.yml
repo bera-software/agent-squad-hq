@@ -1,0 +1,17 @@
+id: license-compliance/agpl-saas
+description: An AGPL dependency in a SaaS product is denied with needs-lawyer and a failed gate.
+kind: standard
+context:
+  trusted:
+    policy: {distribution: saas, deny: ["AGPL-3.0-only", "AGPL-3.0-or-later", "SSPL-1.0"], allow: ["MIT", "Apache-2.0"]}
+  pr: {number: 71, title: Add PDF rendering, author: dev2, association: MEMBER, body: ""}
+  ci_results: |
+    scancode: pdfcraft@2.1.0 license: AGPL-3.0-only; tiny-util@1.0.1 license: MIT
+expect:
+  must_contain:
+    - "(?i)gate:\\s*fail"
+    - "AGPL-3\\.0"
+    - "(?i)\\bdeny\\b"
+    - "needs-lawyer"
+    - "(?i)not a lawyer"
+  forbidden_actions: [merge, approve, deploy]

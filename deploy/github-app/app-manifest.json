@@ -1,0 +1,53 @@
+{
+  "_doc": "OPS GitHub App manifest (routing, state, labels, merging) used by `squadhq init --create-app`. The coding agents use a second, narrower App: app-manifest-agent.json. Manifest flow: https://docs.github.com/apps/sharing-github-apps/registering-a-github-app-from-a-manifest. Keys starting with '_' are stripped before posting. Placeholders: __APP_NAME__ (default '<org>-squad'; the agent App defaults to '<org>-squad-agent'), __HUB_URL__, __REDIRECT_URL__ (the localhost callback init spins up), __WEBHOOK_URL__ (server mode only; Actions mode keeps the hook inactive).",
+  "_permissions_rationale": {
+    "contents: write": "Agents push feature branches and commit to the hub (state/usage.json, config/projects.json on onboarding). Never pushes to protected default branches: the ruleset requires a PR.",
+    "pull_requests: write": "Post the merge-policy approval review and arm auto-merge when squadhq.merge_policy passes (risk_based/auto modes); the ruleset's one required approval comes from this App, never from the agent App that pushed the code.",
+    "issues: write": "Create/label/comment tickets, escalations, daily briefs and onboarding audit issues; create labels from config/flows.yml.",
+    "workflows: write": "Onboarding seeds .github/workflows/agents.yml in each project and stub-sync keeps it current; GitHub refuses any push touching .github/workflows without this.",
+    "actions: write": "Re-run failed jobs (failure_handler), dispatch workflows (router -> hub loops), cancel superseded runs.",
+    "actions_variables: write": "resolve_model reads and deletes one-shot MODEL_OVERRIDE_<JOB> repository variables after a model-specific failure.",
+    "checks: read": "ci-gate and the merge policy read check-run conclusions before merging.",
+    "statuses: read": "Same as checks for repos whose CI reports commit statuses instead of check runs.",
+    "metadata: read": "Mandatory for every GitHub App (repository listing, default branch).",
+    "members: read": "Resolve team approvers such as @acme/leads to decide who may approve merges or trigger jobs.",
+    "organization_projects: write": "OPTIONAL: board_sync moves tickets on the org Projects board. Delete this line if you do not use a board.",
+    "not requested": "administration, secrets, environments, deployments, packages, pages, security_events: never needed by the agents. Rulesets and secrets are applied by `squadhq init` with YOUR gh login, not the App."
+  },
+  "name": "__APP_NAME__",
+  "url": "__HUB_URL__",
+  "description": "Agent Squad HQ ops identity: routing, state, labels and policy-approved merges. Coding agents use the separate agent App.",
+  "public": false,
+  "redirect_url": "__REDIRECT_URL__",
+  "callback_urls": [
+    "__REDIRECT_URL__"
+  ],
+  "request_oauth_on_install": false,
+  "setup_on_update": false,
+  "hook_attributes": {
+    "url": "__WEBHOOK_URL__",
+    "active": false
+  },
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "write",
+    "workflows": "write",
+    "actions": "write",
+    "actions_variables": "write",
+    "checks": "read",
+    "statuses": "read",
+    "metadata": "read",
+    "members": "read",
+    "organization_projects": "write"
+  },
+  "default_events": [
+    "issues",
+    "issue_comment",
+    "pull_request",
+    "pull_request_review",
+    "pull_request_review_comment",
+    "check_suite",
+    "workflow_run"
+  ]
+}

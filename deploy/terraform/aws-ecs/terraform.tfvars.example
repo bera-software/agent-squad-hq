@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in. Never commit real values.
+image    = "ghcr.io/OWNER/agent-squad-hq@sha256:REPLACE_ME"
+hub_repo = "your-org/agent-squad-hq"
+squadhq_yml = <<-YAML
+  version: 1
+  org: { name: Your Org, timezone: Europe/London, approvers: ["@your-org/leads"] }
+  hub: { repo: your-org/agent-squad-hq }
+YAML

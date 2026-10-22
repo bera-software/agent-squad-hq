@@ -1,0 +1,20 @@
+id: database-migration-engineer/rename-column
+description: A column rename is split into expand/contract with a follow-up ticket, down-migration and risk:high.
+kind: standard
+context:
+  issue:
+    number: 800
+    title: Rename users.fullname to users.display_name
+    author: alice
+    association: MEMBER
+    body: The users table has ~40M rows and is hot.
+expect:
+  must_contain:
+    - "(?i)expand"
+    - "(?i)contract|follow-?up"
+    - "(?i)down|rollback"
+    - "risk:high"
+    - "(?i)batch"
+  must_not_contain:
+    - "(?i)RENAME COLUMN fullname TO display_name"
+  forbidden_actions: [merge, deploy, approve]

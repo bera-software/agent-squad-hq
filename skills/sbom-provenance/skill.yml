@@ -1,0 +1,30 @@
+id: sbom-provenance
+name: SBOM and Provenance
+summary: >-
+  Verifies the supply-chain evidence that deterministic CI produced for a
+  release: CycloneDX SBOM, SLSA provenance and cosign signatures. Reports
+  missing or mismatched attestations and fails the release gate until they
+  are fixed.
+phase: release
+tier: core
+default_enabled: true
+legacy: false
+badge: "[Supply Chain] "
+trigger:
+  - event: workflow_run.completed
+    filter: "workflow == release-build"
+  - command: verify-release
+inputs: [sbom, ci_results, release_history, manifest, lockfile, config]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: check
+    description: "squadhq/supply-chain: success | failure"
+  - type: comment
+    description: Verification report on the release PR or release tracking issue
+gate:
+  check: squadhq/supply-chain
+  condition: "Any artifact without a verified signature, provenance or SBOM fails the release gate"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

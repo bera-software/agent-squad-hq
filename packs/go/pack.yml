@@ -1,0 +1,56 @@
+id: go
+name: Go
+detect:
+  files: ["go.mod"]
+paths:
+  - "**/*.go"
+  - "go.mod"
+  - "go.sum"
+  - "migrations/**"
+root: "."
+ci:
+  setup:
+    kind: go
+    version: "1.23"
+  install: "go mod download"
+  build: "go vet ./... && go build ./..."
+  # Go's native profile is converted to Cobertura for the coverage gate.
+  # golangci-lint when configured; the config's `version` picks v1 or v2.
+  lint:
+    command: "if grep -qsE '^[[:space:]]*[\"]?version[\"]?[[:space:]]*[:=][[:space:]]*[\"]?2' .golangci.yml .golangci.yaml .golangci.toml .golangci.json; then GOTOOLCHAIN=auto go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...; else go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run ./...; fi"
+    local: "go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./..."
+    configs: [".golangci.yml", ".golangci.yaml", ".golangci.toml", ".golangci.json"]
+    snippet: golangci.yml
+    snippet_path: ".golangci.yml"
+  test: "go test -race -coverprofile=coverage.out ./... && go run github.com/boumenot/gocover-cobertura@v1.3.0 < coverage.out > coverage.xml"
+  coverage:
+    format: cobertura
+    path: "coverage.xml"
+    min_overall: 60
+    min_changed: 70
+arch:
+  tool: arch-go
+  config: "arch-go.yml"
+  command: "go run github.com/arch-go/arch-go@v1.7.0 --color no"
+  snippet: arch-go.yml
+risk_paths:
+  - "**/auth/**"
+  - "**/middleware/**"
+  - "**/security/**"
+  - "**/crypto/**"
+  - "**/billing/**"
+  - "**/payment*/**"
+  - "migrations/**"
+  - "**/migrations/**"
+  - "internal/config/**"
+tools:
+  - "Bash(go build *)"
+  - "Bash(go test *)"
+  - "Bash(go vet *)"
+  - "Bash(go mod tidy)"
+  - "Bash(go mod download)"
+  - "Bash(gofmt *)"
+  - "Bash(golangci-lint run*)"
+  - "Bash(govulncheck *)"
+  - "Bash(go run github.com/arch-go/arch-go@v1.7.0*)"
+  - "Bash(go run github.com/golangci/golangci-lint/*)"

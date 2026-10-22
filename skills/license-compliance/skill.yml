@@ -1,0 +1,32 @@
+id: license-compliance
+name: License Compliance
+summary: >-
+  Checks licences of new and changed dependencies (and vendored code) with
+  ScanCode/licensee against the allowlist policy in config; blocks denied
+  licences and routes unknown or conditional ones to an approver.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+role: license-compliance
+badge: "[License Compliance] "
+trigger:
+  - event: pull_request.synchronize
+    filter: "manifest/lockfile change, new vendored directory, or new LICENSE/COPYING file"
+  - command: license-check
+inputs: [pr, diff, manifest, lockfile, sbom, ci_results, policy, config]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: Licence delta table with allow/deny/review decisions
+  - type: json
+    description: "Per-package decisions {package, version, license_spdx, decision, reason}"
+  - type: label
+    labels: [needs-lawyer, needs-human]
+gate:
+  check: squadhq/license
+  condition: "Fails when any new dependency has a denied licence, or an unknown/review licence without an approver exception in policy"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

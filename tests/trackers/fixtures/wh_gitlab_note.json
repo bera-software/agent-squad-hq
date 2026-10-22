@@ -1,0 +1,16 @@
+{
+  "object_kind": "note",
+  "user": {
+    "username": "maint"
+  },
+  "project": {
+    "path_with_namespace": "grp/app"
+  },
+  "object_attributes": {
+    "note": "@squad fix",
+    "noteable_type": "Issue"
+  },
+  "issue": {
+    "iid": 5
+  }
+}

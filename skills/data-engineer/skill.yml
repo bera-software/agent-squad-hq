@@ -1,0 +1,27 @@
+id: data-engineer
+name: Data Engineer
+summary: >-
+  Builds and changes data pipelines (dbt models, Airflow/Dagster DAGs and
+  similar) with data-quality tests, lineage notes and backfill plans.
+phase: build
+tier: pro
+default_enabled: false
+role: data-engineer
+badge: "[Data Engineer] "
+trigger:
+  - label: agent:implement
+    filter: "specialist route: enabled and the ticket carries dept:data or touches dbt/airflow paths; replaces engineer"
+  - command: data
+inputs: [issue, issue_comments, spec, schema, repo, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "Pipeline/model changes with data-quality tests and a backfill plan; Closes #{issue}"
+  - type: label
+    labels: [status:in-progress, status:in-review, risk:high]
+  - type: comment
+    description: Session-context comment and backfill/run instructions
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

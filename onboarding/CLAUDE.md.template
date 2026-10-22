@@ -1,0 +1,95 @@
+# __PROJECT__ — project rules
+
+Read together with the hub's organisation rules (`org/CLAUDE-org.md` in the
+Agent Squad HQ hub; `.squadhq/org/CLAUDE-org.md` inside agent runs). Where
+they conflict, this file wins for this project, except for the hub's safety
+rules. Other coding tools: `AGENTS.md`, if present, points here.
+
+> **Starter file.** Onboarding pre-filled it from the detected stack packs.
+> Every `TODO(owner)` is yours to replace with this project's real rules;
+> delete pre-filled lines that do not apply. Agents treat everything here as
+> binding, so a wrong default is worse than a missing one.
+
+## Layout & stack
+<!-- TODO(owner): one line per deployable or top-level directory. -->
+- `<dir>/` — <stack and framework>, <what it is>. Pack: `<pack id>`.
+- `docs/adr/` — binding architecture decisions. `docs/lessons.md` — project lessons.
+
+Stack packs detected at onboarding (their rules apply on top of this file;
+the selection lives in the hub's `config/projects.json`):
+__PACKS__
+
+## Architecture overview
+<!-- TODO(owner): the main components, how a request or job flows through
+them, and where state lives. Three to ten lines. Link the ADR that records
+the baseline (the next one after docs/adr/0001). -->
+- TODO(owner): <component> — <responsibility>
+
+## Layering rules
+<!-- TODO(owner): the dependency directions agents must respect. Keep this in
+step with the architecture config the hub's `arch` gate runs. -->
+- TODO(owner): <e.g. "api -> services -> domain; the domain imports no framework or infrastructure code">
+- No circular dependencies between modules.
+- Production code never imports test code, mocks or fixtures.
+
+How the rules are enforced (the `arch` gate, part of `hub / ci-gate`):
+__LAYERING__
+
+## Commands
+Run these locally before pushing; CI runs the same ones.
+__COMMANDS__
+<!-- TODO(owner): correct any command that differs for this repo. -->
+
+## Coding standards
+<!-- TODO(owner): project conventions beyond the pack defaults: naming,
+error handling, logging, dependency injection, data access, UI patterns.
+The lines below are the pack defaults, pre-filled; keep, edit or delete. -->
+__STANDARDS__
+
+## Test policy
+- Every change ships with tests that would fail without it. Refactors change
+  no behaviour and no tests.
+- Changed lines and overall coverage at or above the pack thresholds
+  (`min_changed` / `min_overall`) unless overridden here:
+  TODO(owner): <overrides, or "pack defaults">.
+- TODO(owner): <test layers this project uses: unit, integration, e2e; where
+  fixtures live; what must never be mocked>.
+
+## Do not
+<!-- TODO(owner): add the project's own red lines. -->
+- Do not create or modify files under `.github/workflows/` (CI runs from the hub).
+- Do not commit secrets, `.env` files with real values, or personal data in fixtures.
+- Do not weaken or suppress an architecture rule, lint rule or coverage
+  threshold to make a check pass; change the rule in a reviewed PR instead.
+- Do not edit an applied database migration; add a new one.
+__DO_NOT__
+
+## Security & privacy
+- Never commit secrets; configuration comes from <secret store / env vars>.
+- Personal data handled by this project: <categories, or "none">. Never log it.
+- Sensitive areas (risk ≥ high, always a human merge): <e.g. auth, billing,
+  migrations>.
+
+## CI topology
+Build, tests, lint, architecture checks, coverage and review run centrally
+from the hub through the `.github/workflows/agents.yml` stub; they do not
+appear as workflow files here. Never create or modify files under
+`.github/workflows/` to add CI. If a CI gap exists, raise it as a hub change
+request (approved by the owner or approvers). App-level build config (linter
+and architecture configs included) is allowed; it is app config, not CI.
+
+## Branching
+- Single-branch model: one long-lived branch, `__BRANCH__`. Agents branch
+  from it (`agent/*`, `design/*`, short-lived) and open PRs against it.
+  Merging into it may be a production release; there is no promotion step.
+  If this section is blank, agents use the repository default branch.
+
+## Codebase navigation
+<!-- optional: if you adopt a code knowledge graph, name the tool, its pinned
+version and how to query it. Otherwise delete this section. -->
+
+## Project specifics
+<!-- TODO(owner): fill these in. -->
+- Domain glossary: <terms agents must use correctly>
+- Do-not-touch areas: <e.g. a module pending redesign>
+- Environments: production = <url>, preview = <how>, or DISABLED

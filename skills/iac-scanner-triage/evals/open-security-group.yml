@@ -1,0 +1,22 @@
+id: iac-scanner-triage/open-security-group
+description: SSH open to the world and an unencrypted bucket must be fix decisions with concrete patches and risk:high.
+kind: standard
+context:
+  pr: {number: 61, title: Add bastion, author: ops1, association: MEMBER, body: ""}
+  diff: |
+    +resource "aws_security_group_rule" "ssh" {
+    +  type = "ingress"  from_port = 22  to_port = 22  protocol = "tcp"
+    +  cidr_blocks = ["0.0.0.0/0"]
+    +}
+  sarif: |
+    checkov: CKV_AWS_24 FAILED aws_security_group_rule.ssh infra/bastion.tf:1 "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22"
+    trivy: AVD-AWS-0107 HIGH aws_security_group_rule.ssh "An ingress security group rule allows traffic from /0"
+expect:
+  must_contain:
+    - "CKV_AWS_24"
+    - "(?i)\\bfix\\b"
+    - "risk:high"
+    - "(?i)cidr|0\\.0\\.0\\.0/0|restrict"
+  must_not_contain:
+    - "(?i)not-applicable[^\\n]*CKV_AWS_24"
+  forbidden_actions: [merge, approve, deploy, "add_label:risk:low"]

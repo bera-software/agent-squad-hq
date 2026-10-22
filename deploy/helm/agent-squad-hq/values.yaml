@@ -1,0 +1,220 @@
+# Agent Squad HQ — Helm values. Every key is documented; defaults are the
+# hardened single-tenant setup (byo-compute mode, external Postgres).
+
+image:
+  # -- Image repository (build: deploy/docker/Dockerfile)
+  repository: ghcr.io/OWNER/agent-squad-hq
+  # -- Tag; defaults to the chart appVersion. Prefer `digest` in production.
+  tag: ""
+  # -- Immutable digest (sha256:...). Wins over `tag` when set.
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Values exported as SQUADHQ_* env vars (non-secret). See deploy/.env.example.
+config:
+  hubRepo: "your-org/agent-squad-hq"
+  org: ""
+  botLogin: "squadhq-ops[bot]"
+  # -- byo-compute (workflow_dispatch to GitHub runners) | worker (sandboxed containers; needs a container runtime the worker can reach)
+  mode: byo-compute
+  dispatchWorkflow: squadhq-agent.yml
+  dispatchRef: main
+  logLevel: INFO
+  logFormat: json
+  metricsPublic: false
+  # -- Serve /docs and /openapi.json (SQUADHQ_API_DOCS). Off by default.
+  apiDocs: false
+  maxBodyBytes: 1048576
+  webhookMaxBodyBytes: 5242880
+  # -- Author associations allowed to trigger agent work (SQUADHQ_TRUSTED_ASSOCIATIONS, same as Actions mode).
+  trustedAssociations: "OWNER,MEMBER,COLLABORATOR"
+  # -- Deprecated alias of trustedAssociations; used only when that is empty.
+  allowedAssociations: ""
+  # -- Checks that must be present and green on the pinned head commit before a merge (comma list).
+  requiredChecks: "hub / ci-gate"
+  # -- App slug that must have produced the required checks (GitHub), and the workflow file ("" = any).
+  requiredChecksApp: github-actions
+  requiredChecksWorkflow: .github/workflows/agents.yml
+  # -- Allow merging PRs whose head lives in a fork (off: fork PRs are never merged by the server).
+  allowForkMerges: false
+  trustedActors: ""
+  trelloCallbackUrl: ""
+  otelEnabled: false
+  # -- Extra plain env vars for every component
+  extraEnv: {}
+
+# -- squadhq.yml content, mounted at /etc/squadhq/squadhq.yml. Leave empty and
+# set `existingConfigMap` to manage it yourself (key: squadhq.yml).
+squadhqYml: |
+  version: 1
+  org:
+    name: Your Org
+    timezone: UTC
+  hub:
+    repo: your-org/agent-squad-hq
+existingConfigMap: ""
+
+secrets:
+  # -- Name of an existing Secret holding the keys below (recommended:
+  # External Secrets Operator / Vault / cloud secret manager). When empty the
+  # chart creates one from `secrets.values` (dev only: values land in Helm state).
+  existingSecret: ""
+  # -- Keys read from the Secret (all optional except SQUADHQ_DB_URL).
+  keys:
+    - SQUADHQ_DB_URL
+    - SQUADHQ_API_TOKENS
+    - SQUADHQ_WEBHOOK_SECRET_GITHUB
+    - SQUADHQ_WEBHOOK_SECRET_JIRA
+    - SQUADHQ_WEBHOOK_SECRET_LINEAR
+    - SQUADHQ_WEBHOOK_SECRET_TRELLO
+    - SQUADHQ_WEBHOOK_SECRET_GITLAB
+    - SQUADHQ_GITHUB_TOKEN
+    - GH_TOKEN
+    - ANTHROPIC_API_KEY
+    - OPENAI_API_KEY
+    - JIRA_BASE_URL
+    - JIRA_EMAIL
+    - JIRA_API_TOKEN
+    - LINEAR_API_KEY
+    - TRELLO_API_KEY
+    - TRELLO_TOKEN
+  # -- Only used when existingSecret is empty.
+  values: {}
+    # SQUADHQ_DB_URL: postgresql://squadhq:password@postgres:5432/squadhq
+    # SQUADHQ_API_TOKENS: admin:admin:<sha256 of token>
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}   # e.g. eks.amazonaws.com/role-arn, iam.gke.io/gcp-service-account
+  automountToken: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container securityContext (Pod Security Standard "restricted").
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop: ["ALL"]
+
+api:
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 192Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+worker:
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  # -- Seconds to finish the current job on shutdown (leases expire and are re-claimed otherwise)
+  terminationGracePeriodSeconds: 120
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+scheduler:
+  # -- Replicas are safe: leader election runs through the database lock.
+  replicas: 2
+  resources:
+    requests: {cpu: 20m, memory: 96Mi}
+    limits: {cpu: 250m, memory: 256Mi}
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+migrations:
+  # -- Run `migrate` as a pre-install/pre-upgrade hook Job.
+  enabled: true
+  backoffLimit: 3
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt
+    # nginx.ingress.kubernetes.io/proxy-body-size: 5m
+  hosts:
+    - host: hq.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: hq-tls
+    #   hosts: [hq.example.com]
+
+networkPolicy:
+  enabled: true
+  # -- Namespaces/pods allowed to reach the API (ingress controller, Prometheus).
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+  # -- Egress allowed to the database (adjust to your Postgres location).
+  databaseEgress:
+    - ipBlock:
+        cidr: 10.0.0.0/8
+      ports:
+        - port: 5432
+          protocol: TCP
+  # -- Outbound HTTPS (GitHub, trackers, LLM APIs). Narrow with an egress
+  # gateway/FQDN policy where your CNI supports it (Cilium, Calico Enterprise).
+  httpsEgress:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.169.254/32]
+      ports:
+        - port: 443
+          protocol: TCP
+
+metrics:
+  # -- Add prometheus.io scrape annotations to the API pods (metrics need a viewer token unless config.metricsPublic).
+  annotations: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    # -- Secret with a viewer token for scraping (key: token)
+    bearerTokenSecret: {name: "", key: token}

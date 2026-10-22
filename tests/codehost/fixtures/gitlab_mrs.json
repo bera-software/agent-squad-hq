@@ -1,0 +1,51 @@
+[
+  {
+    "iid": 12,
+    "title": "Draft: refactor",
+    "description": "body",
+    "state": "opened",
+    "author": {
+      "username": "project_42_bot",
+      "bot": true
+    },
+    "source_branch": "agent/12",
+    "target_branch": "main",
+    "labels": [
+      "status:in-review"
+    ],
+    "draft": true,
+    "web_url": "https://gitlab.com/acme/app/-/merge_requests/12"
+  },
+  {
+    "iid": 13,
+    "title": "Draft: refactor",
+    "description": "body",
+    "state": "merged",
+    "author": {
+      "username": "bob"
+    },
+    "source_branch": "agent/12",
+    "target_branch": "main",
+    "labels": [
+      "status:in-review"
+    ],
+    "draft": false,
+    "web_url": "https://gitlab.com/acme/app/-/merge_requests/12"
+  },
+  {
+    "iid": 14,
+    "title": "Draft: refactor",
+    "description": "body",
+    "state": "closed",
+    "author": {
+      "username": "carol"
+    },
+    "source_branch": "agent/12",
+    "target_branch": "main",
+    "labels": [
+      "status:in-review"
+    ],
+    "draft": true,
+    "web_url": "https://gitlab.com/acme/app/-/merge_requests/12"
+  }
+]

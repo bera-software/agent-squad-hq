@@ -1,0 +1,13 @@
+id: model-router-tuner/insufficient
+description: With too few runs and no evals for the candidate model, no PR is opened.
+kind: standard
+context:
+  trusted:
+    cost_ledger: "pricing-analyst: 2 runs, heavy, $1.10/run"
+    eval_results: "pricing-analyst: no results on light models"
+expect:
+  must_contain:
+    - "(?i)insufficient data"
+  forbidden_actions: [merge, deploy]
+  must_not_contain:
+    - "\"type\"\\s*:\\s*\"open_pr\""

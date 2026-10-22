@@ -1,0 +1,7 @@
+{
+  "type": "file",
+  "path": "state/capacity.json",
+  "sha": "abc123",
+  "encoding": "base64",
+  "content": "eyJwYXVzZWRfdW50aWwiOiAiIn0K\n"
+}

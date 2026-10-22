@@ -1,0 +1,30 @@
+id: documentation-gardener
+name: Documentation Gardener
+summary: >-
+  Weekly sweep of a repo's docs for broken links, stale citations, commands
+  and config keys that no longer exist, and orphaned pages; fixes mechanical
+  issues in one docs-only PR and files tickets for the rest.
+phase: business
+tier: core
+default_enabled: true
+legacy: false
+role: documentation-gardener
+badge: "[Docs Gardener] "
+trigger:
+  - schedule: docs_gardener
+  - command: garden-docs
+inputs: [repo, docs, config, changelog, web]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: "Docs-only PR on branch docs/garden-{date}, never touching code"
+  - type: issue
+    description: Ticket for each non-mechanical doc defect (content is wrong, not just a link)
+  - type: label
+    labels: [report, dept:engineering]
+  - type: report
+    description: Link-check summary in the PR body
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

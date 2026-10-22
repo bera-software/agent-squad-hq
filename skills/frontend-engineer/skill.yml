@@ -1,0 +1,31 @@
+id: frontend-engineer
+name: Frontend Engineer
+summary: >-
+  Implements UI tickets through the project's component library: reusable
+  components with stories, accessibility, and visual-regression baselines,
+  opened as a PR that closes the ticket.
+phase: build
+tier: core
+default_enabled: false
+role: frontend-engineer
+badge: "[Frontend Engineer] "
+trigger:
+  - label: agent:implement
+    filter: "specialist route: enabled and the ticket carries dept:frontend; replaces engineer for this run"
+  - command: frontend
+inputs: [issue, issue_comments, spec, design_doc, repo, preview_url, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "Component, story and test changes; body says Closes #{issue} and lists new/changed stories"
+  - type: label
+    labels: [status:in-progress, status:in-review]
+  - type: comment
+    description: Session-context comment on the PR
+gate:
+  blocking_label: needs-design
+  condition: "UI tickets with a ux-designer spec pending, or needs-design present, are not implemented"
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

@@ -1,0 +1,23 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "squadhq.fullname" . }}
+  labels:
+    {{- include "squadhq.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "squadhq.selector" (dict "root" . "component" "api") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      {{- with .Values.metrics.serviceMonitor.bearerTokenSecret.name }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ . }}
+          key: {{ $.Values.metrics.serviceMonitor.bearerTokenSecret.key }}
+      {{- end }}
+{{- end }}

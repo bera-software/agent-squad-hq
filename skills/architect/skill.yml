@@ -1,0 +1,31 @@
+id: architect
+name: Architect / Designer
+summary: >-
+  Turns a ticket labelled needs-design into ADRs and a design doc on a design
+  PR (Gate-for: #<n>); implementation waits until the design merges.
+phase: design
+tier: core
+default_enabled: true
+legacy: true
+role: architect
+badge: "[Architect] "
+trigger:
+  - label: needs-design
+inputs: [issue, issue_comments, adr, design_doc, repo, flows, lessons]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/adr/{seq}-{slug}.md"
+  - type: artifact
+    path: "docs/design/issue-{issue}.md"
+  - type: pr
+    description: "Design PR titled 'Design: <title>' with Gate-for: #{issue}, never Closes"
+  - type: comment
+    description: Five-line summary on the source issue linking the design PR
+gate:
+  blocking_label: needs-design
+  condition: "Implementation is blocked until the design PR carrying Gate-for: #<n> merges"
+requires: []
+untrusted_inputs: true
+prompt: ../../prompts/design.md

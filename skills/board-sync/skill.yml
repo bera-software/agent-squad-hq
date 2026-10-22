@@ -1,0 +1,24 @@
+id: board-sync
+name: Board Sync
+summary: >-
+  Deterministic sync of ticket state to the project board (todo,
+  in_progress, in_review, done); discover, single-ticket sync and backfill
+  modes.
+phase: operate
+tier: core
+default_enabled: true
+legacy: true
+deterministic: true
+trigger:
+  - event: issues.labeled
+  - manual: true
+inputs: [tracker, flows]
+tool_profile: comment
+model_tier: none
+outputs:
+  - type: report
+    description: Board column moves performed
+requires: []
+untrusted_inputs: false
+prompt: null
+entrypoint: "python -m squadhq.board_sync"

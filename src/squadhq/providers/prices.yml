@@ -1,0 +1,121 @@
+# Model catalogue for hub-loop LLM providers: prices, capabilities and the
+# per-model request tweaks that keep "single prompt -> plain JSON" calls cheap.
+#
+# Prices are USD per million tokens. Refreshed by Ecosystem Watch; verify any
+# entry against the provider's pricing page before relying on it for billing.
+# ``input`` prices *uncached* input tokens (adapters normalise Usage so
+# input_tokens excludes cache reads). ``long_context`` re-prices the WHOLE
+# request once input_tokens exceeds ``threshold``. A provider-level ``"*"``
+# model entry is a wildcard (local runtimes are free).
+#
+# Unknown model -> price() returns None and logs one warning; never a crash.
+version: 1
+as_of: "2026-10-10"
+providers:
+  anthropic:
+    defaults:
+      capabilities: [tools, web_search, thinking]
+    models:
+      # Sources: config/models.json _notes (platform.claude.com, 2026-10-10).
+      # cache_read = 0.1x input, cache_write = 1.25x input (5-minute cache).
+      claude-haiku-5-5:
+        input: 0.10
+        output: 0.50
+        cache_read: 0.01
+        cache_write: 0.125
+        long_context: {threshold: 100000, input: 0.50, output: 2.50}
+        # Adaptive thinking is on by default and eats max_tokens (#46).
+        thinking_off: {type: disabled}
+      claude-sonnet-5-5:
+        input: 2.0
+        output: 10.0
+        cache_read: 0.2
+        cache_write: 2.5
+        # "disabled" is a 400 on Sonnet 5.5; between_tools is its lowest setting.
+        thinking_off: {type: between_tools}
+      claude-sonnet-5:
+        input: 2.0
+        output: 10.0
+        cache_read: 0.2
+        cache_write: 2.5
+        thinking_off: {type: disabled}
+      claude-sonnet-4-6:
+        input: 3.0
+        output: 15.0
+        cache_read: 0.3
+        cache_write: 3.75
+      claude-haiku-4-5-20251001:
+        input: 1.0
+        output: 5.0
+        cache_read: 0.1
+        cache_write: 1.25
+  openai:
+    defaults:
+      capabilities: [tools, web_search, json_mode]
+    models:
+      gpt-5:
+        {input: 1.25, output: 10.0, cache_read: 0.125, reasoning_off: minimal, capabilities: [tools, web_search, json_mode, thinking]}
+      gpt-5-mini:
+        {input: 0.25, output: 2.0, cache_read: 0.025, reasoning_off: minimal, capabilities: [tools, web_search, json_mode, thinking]}
+      gpt-5-nano:
+        {input: 0.05, output: 0.40, cache_read: 0.005, reasoning_off: minimal, capabilities: [tools, json_mode, thinking]}
+      gpt-4.1: {input: 2.0, output: 8.0, cache_read: 0.5}
+      gpt-4.1-mini: {input: 0.40, output: 1.60, cache_read: 0.10}
+      gpt-4o: {input: 2.50, output: 10.0, cache_read: 1.25}
+      gpt-4o-mini: {input: 0.15, output: 0.60, cache_read: 0.075}
+      o4-mini:
+        {input: 1.10, output: 4.40, cache_read: 0.275, reasoning_off: low, capabilities: [tools, web_search, json_mode, thinking]}
+  azure_openai:
+    # Deployment names are user-chosen: price lookup falls back to the openai
+    # table via AZURE_OPENAI_DEPLOYMENT_MODELS ("deploy=model,...") or the
+    # same name. Add explicit entries here for negotiated prices.
+    defaults:
+      capabilities: [tools, json_mode]
+    models: {}
+  gemini:
+    defaults:
+      capabilities: [tools, web_search, json_mode, thinking]
+    models:
+      gemini-2.5-pro:
+        input: 1.25
+        output: 10.0
+        cache_read: 0.31
+        long_context: {threshold: 200000, input: 2.50, output: 15.0}
+        # Pro cannot turn thinking off; 128 is its minimum budget.
+        thinking_off: {thinkingBudget: 128}
+      gemini-2.5-flash:
+        {input: 0.30, output: 2.50, cache_read: 0.075, thinking_off: {thinkingBudget: 0}}
+      gemini-2.5-flash-lite:
+        {input: 0.10, output: 0.40, cache_read: 0.025, thinking_off: {thinkingBudget: 0}}
+  bedrock:
+    # Anthropic model ids on Bedrock ("anthropic.claude-...-v1:0", optionally
+    # with a "us."/"eu."/"global." inference-profile prefix) fall back to the
+    # anthropic table after stripping prefix and version suffix.
+    defaults:
+      capabilities: [tools]
+    models:
+      amazon.nova-pro-v1:0: {input: 0.80, output: 3.20}
+      amazon.nova-lite-v1:0: {input: 0.06, output: 0.24}
+      amazon.nova-micro-v1:0: {input: 0.035, output: 0.14}
+  openai_compatible:
+    defaults:
+      capabilities: [json_mode]
+    models: {}
+  ollama:
+    defaults: {capabilities: [json_mode]}
+    models:
+      "*": {input: 0, output: 0}
+  vllm:
+    defaults: {capabilities: [json_mode]}
+    models:
+      "*": {input: 0, output: 0}
+  lmstudio:
+    defaults: {capabilities: [json_mode]}
+    models:
+      "*": {input: 0, output: 0}
+  openrouter:
+    defaults: {capabilities: [tools, json_mode]}
+    models: {}
+  together:
+    defaults: {capabilities: [tools, json_mode]}
+    models: {}

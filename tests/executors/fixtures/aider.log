@@ -1,0 +1,13 @@
+Aider v0.86.1
+Main model: anthropic/claude-sonnet-5-5 with diff edit format, infinite output
+Weak model: anthropic/claude-haiku-5-5
+Git repo: .git with 120 files
+Repo-map: using 4096 tokens, auto refresh
+
+Applied edit to src/pager.py
+Commit 1a2b3c4 fix: off-by-one in pager
+Tokens: 8.1k sent, 512 received. Cost: $0.02 message, $0.02 session.
+
+Applied edit to tests/test_pager.py
+Commit 5d6e7f8 test: cover last page
+Tokens: 12k sent, 1.2k received. Cost: $0.05 message, $0.07 session.

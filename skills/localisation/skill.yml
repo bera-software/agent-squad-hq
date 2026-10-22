@@ -1,0 +1,29 @@
+id: localisation
+name: Localisation
+summary: >-
+  Extracts hard-coded user-facing strings into the i18n catalogue and opens
+  translation PRs for configured locales, marking machine translations for
+  review and never auto-translating legal or regulated text.
+phase: build
+tier: pro
+default_enabled: false
+role: localisation
+badge: "[Localisation] "
+trigger:
+  - schedule: weekly_localisation
+  - command: l10n
+  - event: pull_request.closed
+    filter: "merged == true and the diff adds or changes source-locale catalogue strings"
+inputs: [diff, repo, config, docs, flows]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: "Branch l10n/<date>: extracted keys and translations, one PR per run"
+  - type: issue
+    description: Review tickets for legal/regulated strings needing a professional translator
+  - type: label
+    labels: [needs-human]
+requires: [engineer]
+untrusted_inputs: true
+prompt: prompt.md

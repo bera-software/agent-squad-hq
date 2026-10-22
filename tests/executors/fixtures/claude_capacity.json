@@ -1,0 +1,5 @@
+[
+  {"type": "system", "subtype": "init", "model": "claude-sonnet-5-5"},
+  {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Claude AI usage limit reached|1760000000"}]}},
+  {"type": "result", "subtype": "success", "is_error": true, "duration_ms": 900, "num_turns": 1, "result": "You've hit your session limit · resets 3pm (UTC)", "session_id": "s4", "total_cost_usd": 0, "usage": {"input_tokens": 0, "output_tokens": 0}}
+]

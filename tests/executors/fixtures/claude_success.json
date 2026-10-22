@@ -1,0 +1,6 @@
+[
+  {"type": "system", "subtype": "init", "session_id": "sess-1", "model": "claude-sonnet-5-5", "tools": ["Read", "Edit", "Bash"], "cwd": "/home/runner/work/app/app", "permissionMode": "default"},
+  {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "I'll read the failing test first."}]}, "session_id": "sess-1"},
+  {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}, "session_id": "sess-1"},
+  {"type": "result", "subtype": "success", "is_error": false, "duration_ms": 312450, "duration_api_ms": 290000, "num_turns": 23, "result": "Opened PR #57 fixing the null check.", "session_id": "sess-1", "total_cost_usd": 1.2345678, "usage": {"input_tokens": 152340, "cache_creation_input_tokens": 2048, "cache_read_input_tokens": 90000, "output_tokens": 8123}, "permission_denials": []}
+]

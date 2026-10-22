@@ -1,0 +1,22 @@
+id: architect-quarterly
+name: Architect quarterly review
+summary: >-
+  Quarterly read of ADRs, module boundaries and threat models that reports
+  architecture drift, top risks and concrete ADR proposals as one finding.
+phase: design
+tier: core
+default_enabled: true
+legacy: true
+role: architect
+badge: "[Architect] "
+trigger:
+  - schedule: architect_quarterly
+inputs: [adr, repo, threat_model, tracker, commits]
+tool_profile: read-only
+model_tier: heavy
+outputs:
+  - type: json
+    description: "One findings entry {title, body, labels} appended to the run's findings file; code creates the issue"
+requires: [architect]
+untrusted_inputs: true
+prompt: ../../prompts/quarterly-review.md

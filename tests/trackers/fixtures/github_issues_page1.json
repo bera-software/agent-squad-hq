@@ -1,0 +1,61 @@
+[
+  {
+    "number": 42,
+    "title": "Add login",
+    "body": "Please add login",
+    "state": "open",
+    "labels": [
+      {
+        "name": "triaged:ready"
+      },
+      {
+        "name": "P2"
+      }
+    ],
+    "user": {
+      "login": "octocat",
+      "type": "User"
+    },
+    "author_association": "MEMBER",
+    "html_url": "https://github.com/acme/app/issues/42",
+    "created_at": "2026-10-01T10:00:00Z",
+    "updated_at": "2026-10-02T10:00:00Z",
+    "assignees": [
+      {
+        "login": "dev1"
+      }
+    ],
+    "state_reason": null
+  },
+  {
+    "number": 43,
+    "title": "PR",
+    "body": "Please add login",
+    "state": "open",
+    "labels": [
+      {
+        "name": "triaged:ready"
+      },
+      {
+        "name": "P2"
+      }
+    ],
+    "user": {
+      "login": "octocat",
+      "type": "User"
+    },
+    "author_association": "MEMBER",
+    "html_url": "https://github.com/acme/app/issues/42",
+    "created_at": "2026-10-01T10:00:00Z",
+    "updated_at": "2026-10-02T10:00:00Z",
+    "assignees": [
+      {
+        "login": "dev1"
+      }
+    ],
+    "state_reason": null,
+    "pull_request": {
+      "url": "x"
+    }
+  }
+]

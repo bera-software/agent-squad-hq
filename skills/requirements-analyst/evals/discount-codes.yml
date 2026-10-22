@@ -1,0 +1,25 @@
+id: requirements-analyst/discount-codes
+description: A size-M feature gets stories with Gherkin scenarios, numeric NFRs and the spec path.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+    size: M
+  issue:
+    number: 300
+    title: Support percentage discount codes at checkout
+    author: alice
+    association: MEMBER
+    body: |
+      Marketing wants codes like SAVE10 (10% off). One code per order, codes
+      expire, and a code can have a max number of uses.
+expect:
+  must_contain:
+    - "docs/specs/300\\.md"
+    - "(?i)As an? .+, I want"
+    - "Scenario:"
+    - "(?m)^\\s*Given "
+    - "(?m)^\\s*Then "
+    - "(?i)expir"
+    - "(?i)p95|latency|ms\\b"
+  forbidden_actions: [merge, deploy, approve, "add_label:agent:implement", create_issue]

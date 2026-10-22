@@ -1,0 +1,392 @@
+name: Squad HQ — prepare agent run
+description: >
+  Runs in the PREP job, which holds the bookkeeping token and executes no
+  untrusted code. Resolves the capacity breaker and the model, builds the tool
+  allowlist and the prompt, mints the agent's repo-scoped token (plus a
+  hub-read token), and hands everything to the agent job as an artifact: the
+  tokens AES-256 encrypted. The bundle key is never an output: the agent and
+  post jobs derive it (HKDF-SHA256, handoff-key.sh) from a secret they hold.
+  The agent job never sees an App private key or the bookkeeping token.
+  Tokens are minted through squadhq-token: App keys, or the token broker when
+  SQUADHQ_TOKEN_BROKER is set (ADR-0011; the prep job needs id-token: write).
+author: Agent Squad HQ
+
+# Requires setup-hub earlier in the job (SQUADHQ_HOME on env), and the hub
+# checked out at .squadhq (every caller uses ./.squadhq/.github/actions/agent-prep;
+# the nested squadhq-token action is addressed by that path).
+inputs:
+  role:
+    description: Job key (models.json, ledger, capacity breaker).
+    required: true
+  prompt:
+    description: Static prompt text.
+    required: false
+    default: ""
+  skill:
+    description: Catalogue skill id whose prompt is rendered and prepended (sets profile/model/guard role).
+    required: false
+    default: ""
+  skill-event:
+    description: Event text recorded in the skill's trusted context.
+    required: false
+    default: ""
+  project-list:
+    description: '"true" adds the registered projects to a rendered skill context.'
+    required: false
+    default: "false"
+  pack-role:
+    description: implement | review | design | debt | "".
+    required: false
+    default: ""
+  label-guard-role:
+    description: Role whose labels the agent may apply.
+    required: false
+    default: ""
+  tool-profile:
+    description: read-only | comment | edit-test | edit-test-push (a rendered skill's profile wins).
+    required: false
+    default: read-only
+  extra-tools:
+    description: Extra allowlist entries, comma separated.
+    required: false
+    default: ""
+  webfetch-domains:
+    description: Comma list; when set, WebFetch is allowed only to these domains.
+    required: false
+    default: ""
+  push-branches:
+    description: 'Push targets: "agent/" prefix, exact branch, or "none".'
+    required: false
+    default: agent/
+  model:
+    description: Model id; empty = config/models.json.
+    required: false
+    default: ""
+  allowed-bots:
+    description: Bot actors allowed to trigger the executor.
+    required: false
+    default: ""
+  subject-repo:
+    description: owner/name the run is about (issue context, packs). Default this repository.
+    required: false
+    default: ""
+  number:
+    description: Issue/PR number.
+    required: false
+    default: ""
+  comment-on-skip:
+    description: '"true": comment when the capacity breaker skips.'
+    required: false
+    default: "false"
+  fail-on-skip:
+    description: '"true": the agent job fails when the breaker skips (a review that did not happen).'
+    required: false
+    default: "false"
+  session-resumed:
+    description: Ledger field passed through (session-context notes were found).
+    required: false
+    default: ""
+  risk-floor:
+    description: Deterministic path risk floor, passed through for the review verdict.
+    required: false
+    default: ""
+  run:
+    description: '"false" prepares nothing and tells the agent job to skip.'
+    required: false
+    default: "true"
+  ops-token:
+    description: Bookkeeping token (breaker state, model override).
+    required: true
+  app-client-id:
+    description: GitHub App client id (empty in token-broker mode).
+    required: false
+    default: ""
+  app-private-key:
+    description: GitHub App private key (empty in token-broker mode).
+    required: false
+    default: ""
+  agent-app-client-id:
+    description: Agent App client id (vars.SQUADHQ_AGENT_APP_CLIENT_ID). Empty = single-App install (ops App mints agent tokens).
+    required: false
+    default: ""
+  agent-app-private-key:
+    description: Agent App private key (secrets.SQUADHQ_AGENT_APP_PRIVATE_KEY).
+    required: false
+    default: ""
+  handoff-key:
+    description: secrets.SQUADHQ_HANDOFF_KEY (optional key material for the hand-off).
+    required: false
+    default: ""
+  anthropic-api-key:
+    description: >-
+      secrets.ANTHROPIC_API_KEY — hand-off key material when auth is api and no handoff-key is set.
+      With an account pool set SQUADHQ_HANDOFF_KEY: prep never sees the pool credentials.
+    required: false
+    default: ""
+  claude-code-oauth-token:
+    description: secrets.CLAUDE_CODE_OAUTH_TOKEN — hand-off key material otherwise.
+    required: false
+    default: ""
+  agent-repositories:
+    description: Agent token scope (owner/name list). Default the subject repository; "@projects" = hub + registered projects.
+    required: false
+    default: ""
+  permission-contents:
+    description: Agent token contents permission.
+    required: false
+    default: read
+  permission-issues:
+    description: Agent token issues permission.
+    required: false
+    default: write
+  permission-pull-requests:
+    description: Agent token pull-requests permission.
+    required: false
+    default: write
+  hub-read:
+    description: '"true" also mints a contents:read token for the hub checkout in the agent job.'
+    required: false
+    default: "true"
+  artifact-name:
+    description: Hand-off artifact name (unique per run). Default squadhq-prep-<job id>.
+    required: false
+    default: ""
+
+outputs:
+  single-app:
+    description: '"true" when no Agent App is configured (agent tokens come from the ops App). Never in token-broker mode.'
+    value: ${{ steps.mode.outputs.single_app }}
+  run:
+    description: '"true" when the agent job should run.'
+    value: ${{ steps.seal.outputs.run || 'false' }}
+  auth-mode:
+    description: api | subscription | skip
+    value: ${{ steps.gate.outputs.auth_mode }}
+  account:
+    description: Pool account id the run uses ("" = the single credential). A slug, not a secret.
+    value: ${{ steps.gate.outputs.account }}
+  auth-secret:
+    description: >-
+      Secret NAME (never the value) holding that account's credential; the agent job maps it to
+      the secret with a static expression. "" = the single credential for auth-mode.
+    value: ${{ steps.gate.outputs.auth_secret }}
+  model:
+    description: Resolved model.
+    value: ${{ steps.plan.outputs.model }}
+  used-fallback:
+    description: A one-shot model override was consumed.
+    value: ${{ steps.model.outputs.used_fallback }}
+  role:
+    description: Ledger role.
+    value: ${{ inputs.role }}
+  session-resumed:
+    description: Passed through for the ledger.
+    value: ${{ inputs.session-resumed }}
+  risk-floor:
+    description: Passed through for review-post.
+    value: ${{ inputs.risk-floor }}
+
+runs:
+  using: composite
+  steps:
+    - id: mode
+      name: Token source
+      shell: bash
+      env:
+        AGENT_APP: ${{ inputs.agent-app-client-id }}
+      run: |
+        broker="${SQUADHQ_TOKEN_BROKER:-}"
+        single=false
+        [ -z "$AGENT_APP" ] && [ -z "$broker" ] && single=true
+        { echo "broker=$broker"; echo "single_app=$single"; } >> "$GITHUB_OUTPUT"
+
+    - id: gate
+      if: inputs.run == 'true'
+      name: Auth and capacity breaker
+      shell: bash
+      env:
+        JOB: ${{ inputs.role }}
+        GH_TOKEN: ${{ inputs.ops-token }}
+        REPO: ${{ inputs.subject-repo || github.repository }}
+        ISSUE_OR_PR: ${{ inputs.number }}
+        COMMENT_ON_SKIP: ${{ inputs.comment-on-skip }}
+      run: python -P -m squadhq.capacity_gate resolve || true
+
+    - id: skill
+      if: inputs.run == 'true' && inputs.skill != ''
+      name: Render the skill prompt
+      shell: bash
+      env:
+        SKILL: ${{ inputs.skill }}
+        EVENT: ${{ inputs.skill-event }}
+        REPO: ${{ inputs.subject-repo || github.repository }}
+        NUMBER: ${{ inputs.number }}
+        PROJECT_LIST: ${{ inputs.project-list }}
+        GH_TOKEN: ${{ inputs.ops-token }}
+        PROJECT: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        extra=(); [ "$PROJECT_LIST" = true ] && extra+=(--project-list)
+        python -I "$GITHUB_ACTION_PATH/../skill-resolve/resolve.py" render --skill "$SKILL" --repo "$REPO" \
+          --number "$NUMBER" --event "$EVENT" --project "$PROJECT" "${extra[@]}"
+
+    - id: model
+      if: inputs.run == 'true'
+      name: Resolve model
+      shell: bash
+      env:
+        JOB: ${{ inputs.role }}
+        GH_TOKEN: ${{ inputs.ops-token }}
+        RUN_REPO: ${{ github.repository }}
+        MODEL_IN: ${{ inputs.model || steps.skill.outputs.model }}
+      run: |
+        if [ -n "$MODEL_IN" ]; then
+          { echo "resolved_model=$MODEL_IN"; echo "used_fallback=false"; } >> "$GITHUB_OUTPUT"
+        else
+          CONFIG_PATH="$SQUADHQ_HOME/config/models.json" python -P -m squadhq.resolve_model
+        fi
+
+    - id: plan
+      if: inputs.run == 'true'
+      name: Tool allowlist, prompt and plan
+      shell: bash
+      env:
+        ROLE: ${{ inputs.role }}
+        PROFILE: ${{ steps.skill.outputs.tool-profile || inputs.tool-profile }}
+        EXTRA: ${{ inputs.extra-tools }}
+        WEBFETCH_DOMAINS: ${{ inputs.webfetch-domains }}
+        REPO: ${{ inputs.subject-repo || github.repository }}
+        PACK_ROLE: ${{ inputs.pack-role }}
+        SKILL_PROMPT: ${{ steps.skill.outputs.prompt }}
+        PROMPT_STATIC: ${{ inputs.prompt }}
+        PLAN_DIR: ${{ runner.temp }}/squadhq-prep
+        MODEL: ${{ steps.model.outputs.resolved_model }}
+        AUTH_MODE: ${{ steps.gate.outputs.auth_mode }}
+        ACCOUNT: ${{ steps.gate.outputs.account }}
+        USED_FALLBACK: ${{ steps.model.outputs.used_fallback }}
+        GUARD_ROLE: ${{ steps.skill.outputs.role || inputs.label-guard-role }}
+        PUSH_BRANCHES: ${{ inputs.push-branches }}
+        ALLOWED_BOTS: ${{ inputs.allowed-bots }}
+        FAIL_ON_SKIP: ${{ inputs.fail-on-skip }}
+        NUMBER: ${{ inputs.number }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$PLAN_DIR"
+        tools_out="$RUNNER_TEMP/squadhq-tools.env"; : > "$tools_out"
+        TOOLS_OUT="$tools_out" bash "$GITHUB_ACTION_PATH/../run-agent/tools.sh"
+        PROMPT_IN=$(printf '%s\n%s' "$SKILL_PROMPT" "$PROMPT_STATIC") PROMPT_FILE="$PLAN_DIR/prompt.md" \
+          bash "$GITHUB_ACTION_PATH/../run-agent/prompt.sh"
+        TOOLS_OUT="$tools_out" python -I - <<'PY'
+        import json, os
+        E = os.environ.get
+        out = {}
+        for line in open(os.environ["TOOLS_OUT"], encoding="utf-8"):
+            if "=" in line:
+                k, v = line.rstrip("\n").split("=", 1)
+                out[k] = v
+        plan = {
+            "role": E("ROLE"), "tool_profile": E("PROFILE"), "allowed": out.get("allowed", ""),
+            "disallowed": out.get("disallowed", ""), "model": E("MODEL"), "auth_mode": E("AUTH_MODE") or "subscription",
+            "used_fallback": E("USED_FALLBACK") or "false", "label_guard_role": E("GUARD_ROLE") or "",
+            "push_branches": E("PUSH_BRANCHES") or "none", "allowed_bots": E("ALLOWED_BOTS") or "",
+            "fail_on_skip": E("FAIL_ON_SKIP") == "true", "number": E("NUMBER") or "",
+            "account": E("ACCOUNT") or "",
+        }
+        with open(os.path.join(os.environ["PLAN_DIR"], "plan.json"), "w", encoding="utf-8") as f:
+            json.dump(plan, f)
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"model={plan['model']}\n")
+        PY
+
+    - id: scope
+      if: inputs.run == 'true' && inputs.agent-repositories == '@projects'
+      name: Agent token scope (hub + registered projects)
+      shell: bash
+      run: |
+        list=$(python -I - <<'PY'
+        import json, os
+        names = [os.environ.get("SQUADHQ_HUB_REPO", "")]
+        try:
+            for p in json.load(open(os.path.join(os.environ["SQUADHQ_HOME"], "config", "projects.json"))).get("projects", []):
+                if p.get("repo") and p["repo"] not in names:
+                    names.append(p["repo"])
+        except OSError:
+            pass
+        print(",".join(n for n in names if n))
+        PY
+        )
+        echo "list=$list" >> "$GITHUB_OUTPUT"
+
+    - id: agent-token
+      if: inputs.run == 'true' && steps.gate.outputs.auth_mode != 'skip'
+      name: Mint the agent token (repo-scoped, least permissions)
+      uses: ./.squadhq/.github/actions/squadhq-token
+      with:
+        # The Agent App: its identity is never trusted for markers or merges.
+        identity: agent
+        purpose: ${{ inputs.role }}
+        app-client-id: ${{ inputs.agent-app-client-id || inputs.app-client-id }}
+        app-private-key: ${{ inputs.agent-app-client-id != '' && inputs.agent-app-private-key || inputs.app-private-key }}
+        repositories: ${{ steps.scope.outputs.list || (inputs.agent-repositories != '@projects' && inputs.agent-repositories) || inputs.subject-repo || github.repository }}
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-issues: ${{ inputs.permission-issues }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        # Must outlive this job: the agent job uses it and the post job
+        # revokes it (DELETE /installation/token); it expires within the hour.
+        skip-token-revoke: "true"
+
+    - id: hub-token
+      # Both modes: contents:read on the hub only (the broker narrows to the same set).
+      if: inputs.run == 'true' && steps.gate.outputs.auth_mode != 'skip' && inputs.hub-read == 'true'
+      name: Mint a hub read token
+      uses: ./.squadhq/.github/actions/squadhq-token
+      with:
+        identity: ops
+        app-client-id: ${{ inputs.app-client-id }}
+        app-private-key: ${{ inputs.app-private-key }}
+        repositories: ${{ env.SQUADHQ_HUB_REPO }}
+        permission-contents: read
+        # Revoked by the post job.
+        skip-token-revoke: "true"
+
+    - id: seal
+      name: Seal the hand-off
+      shell: bash
+      env:
+        RUN_IN: ${{ inputs.run }}
+        AUTH_MODE: ${{ steps.gate.outputs.auth_mode }}
+        ACCOUNT: ${{ steps.gate.outputs.account }}
+        AGENT_TOKEN: ${{ steps.agent-token.outputs.token }}
+        HUB_TOKEN: ${{ steps.hub-token.outputs.token }}
+        PLAN_DIR: ${{ runner.temp }}/squadhq-prep
+        SINGLE_APP: ${{ steps.mode.outputs.single_app }}
+        IKM_HANDOFF: ${{ inputs.handoff-key }}
+        IKM_LLM: ${{ steps.gate.outputs.auth_mode == 'api' && inputs.anthropic-api-key || inputs.claude-code-oauth-token }}
+        SALT: ${{ github.run_id }}:${{ inputs.artifact-name || format('squadhq-prep-{0}', github.job) }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$PLAN_DIR"
+        if [ "$RUN_IN" != true ]; then echo "run=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+        if [ "$SINGLE_APP" = true ]; then
+          echo "::warning::Single-App install: agent tokens come from the ops App and automatic merging is disabled. Configure SQUADHQ_AGENT_APP_CLIENT_ID / SQUADHQ_AGENT_APP_PRIVATE_KEY."
+          echo "⚠ Single-App install: agents use the ops App; automatic merges are disabled." >> "$GITHUB_STEP_SUMMARY"
+        fi
+        # A capacity skip still runs the agent job (it records the skip and,
+        # for a review, fails it), but without any token.
+        if [ -n "${AGENT_TOKEN:-}" ]; then
+          # Never transmitted: HKDF-SHA256 over a secret the agent and post
+          # jobs also hold, salted with the run id and the artifact name.
+          key=$(bash "$GITHUB_ACTION_PATH/handoff-key.sh")
+          printf '%s\n%s\n' "${AGENT_TOKEN:-}" "${HUB_TOKEN:-}" \
+            | KEY="$key" openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:KEY -out "$PLAN_DIR/tokens.enc"
+        fi
+        echo "run=true" >> "$GITHUB_OUTPUT"
+        echo "Prepared: auth=${AUTH_MODE:-subscription}${ACCOUNT:+ account=$ACCOUNT}" >> "$GITHUB_STEP_SUMMARY"
+
+    - if: steps.seal.outputs.run == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name || format('squadhq-prep-{0}', github.job) }}
+        path: ${{ runner.temp }}/squadhq-prep/
+        retention-days: 1
+        if-no-files-found: error

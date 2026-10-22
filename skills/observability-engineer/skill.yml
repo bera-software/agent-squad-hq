@@ -1,0 +1,29 @@
+id: observability-engineer
+name: Observability Engineer
+summary: >-
+  Reviews a feature or service for logging, metrics and tracing coverage
+  against an SLO-driven checklist, and opens a PR with instrumentation plus
+  dashboards and alerts as code.
+phase: operate
+tier: pro
+default_enabled: false
+legacy: false
+role: observability-engineer
+badge: "[Observability] "
+trigger:
+  - command: observability
+  - event: pull_request.opened
+    filter: "adds a new service, endpoint or queue consumer (detected by pack paths)"
+inputs: [issue, pr, diff, repo, design_doc, metrics, logs, traces, incident]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: comment
+    description: Observability checklist comment (pass/gap per item)
+  - type: pr
+    description: "Instrumentation + dashboards/alerts as code on branch observability/<slug>"
+  - type: artifact
+    path: "observability/{service}/"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

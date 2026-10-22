@@ -1,0 +1,30 @@
+id: iac-devops-engineer
+name: IaC / DevOps Engineer
+summary: >-
+  Writes Terraform/OpenTofu, Pulumi or Helm changes as PRs, posts the plan
+  output as a PR comment and flags destructive changes. Apply is human-only.
+phase: build
+tier: pro
+default_enabled: false
+role: iac-devops-engineer
+badge: "[DevOps Engineer] "
+trigger:
+  - label: agent:implement
+    filter: "specialist route: enabled and the ticket touches IaC paths (terraform/pulumi/helm); replaces engineer"
+  - command: iac
+inputs: [issue, issue_comments, iac, design_doc, adr, repo, cost_ledger, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "IaC change on a branch; Closes #{issue}"
+  - type: comment
+    description: "Plan summary comment: adds/changes/destroys, cost delta, blast radius"
+  - type: label
+    labels: [status:in-progress, status:in-review, risk:high]
+gate:
+  check: squadhq/iac-plan
+  condition: "Plan must succeed; any destroy or replace forces risk:high and human apply"
+requires: [engineer, iac-scanner-triage]
+untrusted_inputs: true
+prompt: prompt.md

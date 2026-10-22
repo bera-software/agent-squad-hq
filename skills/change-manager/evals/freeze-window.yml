@@ -1,0 +1,25 @@
+id: change-manager/freeze-window
+description: A normal change requested inside the Friday freeze is blocked and needs approval.
+kind: standard
+context:
+  trusted:
+    service: payments-api
+    version: v4.2.0
+    requested_time: "2026-10-23T17:30:00Z"
+    freeze_windows: ["weekly Fri 16:00Z – Mon 08:00Z (weekend-freeze)"]
+    approvers: ["@acme/cab"]
+    risk_label: risk:medium
+  pr:
+    number: 501
+    title: Release v4.2.0
+    author: squadhq-ops[bot]
+    association: BOT
+    body: Adds new refund endpoint and a migration adding refunds.reason column. Rollback plan in docs/releases/v4.2.0.md.
+expect:
+  must_contain:
+    - "(?i)freeze"
+    - "(?i)normal"
+    - "blocking"
+    - "awaiting-approval"
+    - "CHG-20261023"
+  forbidden_actions: [approve, deploy, merge, "remove_label:awaiting-approval"]

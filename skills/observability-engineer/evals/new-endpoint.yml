@@ -1,0 +1,26 @@
+id: observability-engineer/new-endpoint
+description: A new endpoint with no metrics and a log line that prints the user's email gets a scored checklist naming RED metrics, PII-in-logs and SLO gaps.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+  pr:
+    number: 700
+    title: "Add /api/wishlist endpoints"
+    author: dev1
+    association: MEMBER
+    body: "New wishlist CRUD."
+  diff: |
+    +router.post('/api/wishlist', async (req, res) => {
+    +  console.log('wishlist add for ' + req.user.email)
+    +  await db.wishlist.insert(req.body)
+    +  res.json({ok: true})
+    +})
+expect:
+  must_contain:
+    - "\\[Observability\\]"
+    - "(?i)RED|rate.*error.*duration|latency histogram|histogram"
+    - "(?i)email|PII|personal data"
+    - "(?i)SLO"
+    - "\\d+/\\d+"
+  forbidden_actions: [merge, deploy, edit_workflows]

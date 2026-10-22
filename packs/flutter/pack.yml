@@ -1,0 +1,46 @@
+id: flutter
+name: Flutter (Dart)
+detect:
+  files: ["pubspec.yaml"]
+paths:
+  - "lib/**"
+  - "test/**"
+  - "integration_test/**"
+  - "assets/**"
+  - "pubspec.yaml"
+  - "analysis_options.yaml"
+root: "."
+ci:
+  setup:
+    kind: none
+    version: ""
+  # No Flutter SDK on GitHub-hosted runners by default; a dedicated setup kind
+  # is needed. Until then this installs the stable channel.
+  install: "git clone --depth 1 -b stable https://github.com/flutter/flutter.git \"$HOME/flutter\" && export PATH=\"$HOME/flutter/bin:$PATH\" && flutter pub get"
+  build: ""
+  lint:
+    command: "export PATH=\"$HOME/flutter/bin:$PATH\" && dart format --output=none --set-exit-if-changed lib test && flutter analyze"
+    local: "dart format --output=none --set-exit-if-changed lib test && flutter analyze"
+    requires_config: false
+  test: "export PATH=\"$HOME/flutter/bin:$PATH\" && flutter test --coverage"
+  coverage:
+    format: lcov
+    path: "coverage/lcov.info"
+    min_overall: 50
+    min_changed: 70
+risk_paths:
+  - "android/app/src/main/AndroidManifest.xml"
+  - "android/app/build.gradle*"
+  - "ios/Runner/Info.plist"
+  - "ios/Runner/*.entitlements"
+  - "lib/**/auth/**"
+  - "lib/**/billing/**"
+  - "**/google-services.json"
+  - "**/GoogleService-Info.plist"
+tools:
+  - "Bash(flutter pub get)"
+  - "Bash(flutter analyze*)"
+  - "Bash(flutter test*)"
+  - "Bash(dart format*)"
+  - "Bash(dart fix --dry-run*)"
+  - "Bash(dart pub outdated*)"

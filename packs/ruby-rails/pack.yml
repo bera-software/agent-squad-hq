@@ -1,0 +1,51 @@
+id: ruby-rails
+name: Ruby on Rails
+detect:
+  files: ["config.ru"]
+paths:
+  - "app/**"
+  - "config/**"
+  - "db/**"
+  - "lib/**"
+  - "spec/**"
+  - "test/**"
+  - "Gemfile"
+root: "."
+ci:
+  setup:
+    kind: ruby
+    version: "3.3"
+  # Coverage needs simplecov + simplecov-cobertura configured in the
+  # spec/test helper, writing coverage/coverage.xml.
+  install: "bundle install --jobs 4 --retry 3"
+  build: "{ ! bundle info brakeman >/dev/null 2>&1 || bundle exec brakeman -q --no-pager; }"
+  lint:
+    command: "{ ! bundle info rubocop >/dev/null 2>&1 || bundle exec rubocop --parallel; }"
+    local: "bundle exec rubocop"
+    configs: [".rubocop.yml", "Gemfile.lock:rubocop", "Gemfile:rubocop"]
+  test: "if [ -d spec ]; then bundle exec rspec; else bin/rails test; fi"
+  coverage:
+    format: cobertura
+    path: "coverage/coverage.xml"
+    min_overall: 60
+    min_changed: 70
+risk_paths:
+  - "app/controllers/application_controller.rb"
+  - "app/controllers/**/sessions_controller.rb"
+  - "app/policies/**"
+  - "config/initializers/**"
+  - "config/routes.rb"
+  - "config/credentials*"
+  - "config/environments/production.rb"
+  - "db/migrate/**"
+  - "db/schema.rb"
+  - "db/structure.sql"
+  - "app/**/billing/**"
+tools:
+  - "Bash(bundle install*)"
+  - "Bash(bundle exec rspec*)"
+  - "Bash(bundle exec rubocop*)"
+  - "Bash(bundle exec brakeman*)"
+  - "Bash(bundle exec bundle-audit*)"
+  - "Bash(bin/rails test*)"
+  - "Bash(bin/rails routes*)"

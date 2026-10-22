@@ -1,0 +1,13 @@
+{
+  "response": "Refactored the parser and updated tests.",
+  "stats": {
+    "models": {
+      "gemini-2.5-pro": {
+        "api": {"totalRequests": 4, "totalErrors": 0, "totalLatencyMs": 15234},
+        "tokens": {"prompt": 18234, "candidates": 900, "total": 19434, "cached": 1200, "thoughts": 300, "tool": 0}
+      }
+    },
+    "tools": {"totalCalls": 6, "totalSuccess": 6, "totalFail": 0, "totalDurationMs": 800},
+    "files": {"totalLinesAdded": 40, "totalLinesRemoved": 12}
+  }
+}

@@ -1,0 +1,32 @@
+id: product-owner
+name: Product Owner
+summary: >-
+  Shapes every new issue and reply: classifies it as SHAPED or NEEDS SHAPING,
+  posts a proposal with a ticket plan, requests team input, and cuts tickets
+  once an approver agrees. Ends every intake with exactly one verdict.
+phase: plan
+tier: core
+default_enabled: true
+legacy: true
+role: product-owner
+badge: "[Product Owner] "
+trigger:
+  - event: issues.opened
+  - event: issue_comment.created
+    filter: "issue has proposal:pending or a Product Owner question; author is not the bot"
+  - label: agent:shape
+  - label: agent:continue
+inputs: [issue, issue_comments, repo, adr, okrs, lessons, tracker, flows]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: "Clear-as-written note or a ## Proposal comment, then the verdict"
+  - type: label
+    labels: [triaged:ready, proposal:pending, needs-design, agent:implement, needs-human,
+             "verdict:proceed", "verdict:backlog", "verdict:decline", P1, P2, P3]
+  - type: issue
+    description: Tickets cut from an approved proposal's ticket plan
+requires: [team-thread-assessor]
+untrusted_inputs: true
+prompt: ../../prompts/product-owner.md

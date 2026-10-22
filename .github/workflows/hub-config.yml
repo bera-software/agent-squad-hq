@@ -1,0 +1,56 @@
+name: Hub Config CI
+# Every hub change: squadhq.yml is valid, generated files (config/*.json and
+# workflow crons) are up to date, and flows, packs and the skill catalogue
+# validate. Ships with every hub `squadhq init` scaffolds; no secrets, no
+# model calls.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+concurrency:
+  group: hub-config-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      SQUADHQ_HOME: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install the hub (as setup-hub does)
+        run: |
+          python -P -m pip install --disable-pip-version-check --quiet --require-hashes -r requirements/actions.lock
+          python -P -m pip install --disable-pip-version-check --quiet --no-deps .
+      - name: squadhq.yml
+        run: |
+          if [ -f squadhq.yml ]; then squadhq validate; else squadhq validate squadhq.example.yml; fi
+      - name: Generated files are up to date (crons, config/*.json)
+        run: |
+          if [ -f squadhq.yml ]; then squadhq render --check; else squadhq render --check --config squadhq.example.yml; fi
+      - name: flows.yml (and the router's trivial-paths mirror)
+        run: python -P -m squadhq.flow_reader validate --strict
+      - name: Packs
+        run: python -P -m squadhq.packs validate
+      - name: Skills catalogue
+        run: python -P -m squadhq.skills validate
+      - name: Skill evals (dry run, no model calls)
+        run: python -P -m squadhq.skills.evals run --dry-run --no-write

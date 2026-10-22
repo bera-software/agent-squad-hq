@@ -1,0 +1,55 @@
+# Worker mode on a single host: coding jobs run as sandboxed containers.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.worker-mode.yml up -d
+#
+# The worker never sees the raw docker socket: it talks to a socket proxy that
+# only allows container create/start/inspect/wait/kill/delete. Executor
+# containers attach to the "squadhq-egress" network; restrict its egress with
+# a firewall or proxy (docs/deploy/security-hardening.md).
+services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      IMAGES: 1
+      NETWORKS: 0
+      VOLUMES: 0
+      EXEC: 0
+      BUILD: 0
+      SWARM: 0
+      SYSTEM: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+
+  worker:
+    # its own tag: sharing the api image tag with a different build target would race / overwrite
+    image: ${SQUADHQ_WORKER_IMAGE:-agent-squad-hq-worker:local}
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile
+      target: worker-mode
+    environment:
+      SQUADHQ_MODE: worker
+      DOCKER_HOST: tcp://docker-proxy:2375
+      # bind-mount sources are resolved by the docker host: use the same path on both sides
+      SQUADHQ_SANDBOX_WORKDIR: /var/lib/squadhq-jobs
+    volumes:
+      - ./squadhq.yml:/etc/squadhq/squadhq.yml:ro
+      - /var/lib/squadhq-jobs:/var/lib/squadhq-jobs
+    networks:
+      - backend
+      - egress
+      - squadhq-egress
+    depends_on:
+      docker-proxy:
+        condition: service_started
+
+networks:
+  squadhq-egress:
+    name: squadhq-egress

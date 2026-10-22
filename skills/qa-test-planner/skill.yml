@@ -1,0 +1,31 @@
+id: qa-test-planner
+name: QA / Test Planner
+summary: >-
+  Writes a risk-based test plan per feature (docs/test-plans/<n>.md) mapped to
+  the acceptance criteria, then runs an exploratory session against the
+  preview deployment and reports defects as tickets.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+badge: "[QA] "
+trigger:
+  - label: agent:implement
+  - event: deployment_status.success
+    filter: "environment contains Preview"
+  - command: test-plan
+inputs: [issue, issue_comments, spec, pr, diff, preview_url, ci_results, repo]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: artifact
+    path: "docs/test-plans/{issue}.md"
+  - type: pr
+    description: "Test plan PR on branch test-plans/issue-{issue}; never Closes the ticket"
+  - type: comment
+    description: Exploratory-session result on the PR (pass/fail per charter)
+  - type: issue
+    description: One defect ticket per reproducible bug found on the preview
+requires: [requirements-analyst]
+untrusted_inputs: true
+prompt: prompt.md

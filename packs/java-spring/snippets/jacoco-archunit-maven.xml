@@ -1,0 +1,19 @@
+<!-- Add inside <build><plugins> of pom.xml (or backend/pom.xml) -->
+<plugin>
+  <groupId>org.jacoco</groupId>
+  <artifactId>jacoco-maven-plugin</artifactId>
+  <version>0.8.12</version>
+  <executions>
+    <execution><goals><goal>prepare-agent</goal></goals></execution>
+    <execution><id>report</id><phase>verify</phase><goals><goal>report</goal></goals></execution>
+  </executions>
+</plugin>
+<!-- Add inside <dependencies>: -->
+<!--
+<dependency>
+  <groupId>com.tngtech.archunit</groupId>
+  <artifactId>archunit-junit5</artifactId>
+  <version>1.3.0</version>
+  <scope>test</scope>
+</dependency>
+-->

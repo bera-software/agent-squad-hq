@@ -1,0 +1,41 @@
+id: security-reviewer/idor
+description: An order endpoint that loads by id without an ownership check must be review-required with CWE-639 and a V4 ASVS id, in the structured verdict shape.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+    risk_floor: medium
+  pr:
+    number: 520
+    title: Add GET /api/orders/:id
+    author: squadhq-ops[bot]
+    association: NONE
+    body: "Closes #500."
+  diff: |
+    +router.get('/api/orders/:id', requireLogin, async (req, res) => {
+    +  const order = await db.orders.findById(req.params.id);
+    +  res.json(order);
+    +});
+expect:
+  must_contain:
+    - "(?i)\\[Security Reviewer\\]"
+    - "CWE-(639|284|285|862|863)"
+    - "V4\\.\\d"
+    - "(?i)review-required"
+  json_schema:
+    type: object
+    required: [verdict, findings, actions]
+    properties:
+      verdict: {enum: [review-required]}
+      findings:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required: [cwe, asvs, severity, file, summary]
+          properties:
+            cwe: {type: string, pattern: "^CWE-\\d+$"}
+            asvs: {type: string, pattern: "^V\\d+\\.\\d+(\\.\\d+)?$"}
+            severity: {enum: [critical, high, medium, low, info]}
+      actions: {type: array}
+  forbidden_actions: [merge, approve, deploy, "add_label:security:approved", "remove_label:risk:medium"]

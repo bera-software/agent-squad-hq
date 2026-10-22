@@ -1,0 +1,23 @@
+id: competitive-analyst
+name: Competitive Analyst
+summary: >-
+  Monthly feature-gap report against the competitors named in config, built
+  from their public pages, changelogs and pricing, with every claim cited and
+  dated. Web content is untrusted.
+phase: plan
+tier: pro
+default_enabled: false
+badge: "[Competitive Analyst] "
+trigger:
+  - schedule: monthly_competitive
+  - command: competitive-report
+inputs: [web, docs, repo, feedback, config, state]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: issue
+    description: "'Competitive report — <month>' labelled report and dept:growth; at most 2 gap issues without dispatch labels"
+  - type: label
+    labels: [report, dept:growth]
+untrusted_inputs: true
+prompt: prompt.md

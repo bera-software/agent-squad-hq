@@ -1,0 +1,759 @@
+name: Squad HQ agent job
+# BYO-compute target for the self-hosted server: the server dispatches a
+# coding job (role + ticket) into the project's Actions, the role runs through
+# setup-hub + run-agent, and the normalized execution result is reported back
+# with POST $SQUADHQ_SERVER_URL/api/v1/runs. Projects carry the thin
+# onboarding/optional/squadhq-agent.yml.stub, which calls this workflow.
+on:
+  workflow_call:
+    inputs:
+      role:
+        type: string
+        required: true
+      ticket:
+        type: string
+        required: true
+      tracker:
+        type: string
+        required: false
+        default: github
+      project:
+        type: string
+        required: true
+      squadhq_job:
+        type: string
+        required: true
+      hub_repo:
+        type: string
+        required: false
+        default: ""
+      hub_ref:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      SQUADHQ_APP_PRIVATE_KEY:
+        required: true
+      SQUADHQ_AGENT_APP_PRIVATE_KEY:
+        required: false
+      SQUADHQ_HANDOFF_KEY:
+        required: false
+      SQUADHQ_SERVER_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY_1:
+        required: false
+      ANTHROPIC_API_KEY_2:
+        required: false
+      ANTHROPIC_API_KEY_3:
+        required: false
+      ANTHROPIC_API_KEY_4:
+        required: false
+      ANTHROPIC_API_KEY_5:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_1:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_2:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_3:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_4:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN_5:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+      TEAMS_WEBHOOK_URL:
+        required: false
+      DISCORD_WEBHOOK_URL:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      SQUADHQ_WEBHOOK_URL:
+        required: false
+      SQUADHQ_WEBHOOK_SECRET:
+        required: false
+  workflow_dispatch:
+    inputs:
+      role:
+        description: Role or skill id (implement, design, review-fix, review, or a catalogue skill)
+        required: true
+      ticket:
+        description: Ticket key (issue number for github)
+        required: true
+      tracker:
+        description: github | jira | linear | trello | gitlab
+        required: false
+        default: github
+      project:
+        description: owner/name of the project repository
+        required: true
+      squadhq_job:
+        description: Server job id
+        required: true
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  PYTHONSAFEPATH: "1"
+  BOT_LOGIN: ${{ vars.SQUADHQ_BOT_LOGIN || 'squadhq-ops[bot]' }}
+  HUB_REPO_IN: ${{ inputs.hub_repo || vars.SQUADHQ_HUB_REPO || format('{0}/agent-squad-hq', github.repository_owner) }}
+  HUB_REF_IN: ${{ inputs.hub_ref || vars.SQUADHQ_HUB_REF || 'main' }}
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    outputs:
+      run: ${{ steps.prep.outputs.run }}
+      auth-mode: ${{ steps.prep.outputs.auth-mode }}
+      model: ${{ steps.prep.outputs.model }}
+      used-fallback: ${{ steps.prep.outputs.used-fallback }}
+      role: ${{ steps.prep.outputs.role }}
+      number: ${{ steps.in.outputs.number }}
+      account: ${{ steps.prep.outputs.account }}
+      auth-secret: ${{ steps.prep.outputs.auth-secret }}
+    steps:
+      - id: in
+        name: Validate inputs
+        env:
+          ROLE: ${{ inputs.role }}
+          TICKET: ${{ inputs.ticket }}
+          TRACKER: ${{ inputs.tracker }}
+          PROJECT: ${{ inputs.project }}
+          JOB: ${{ inputs.squadhq_job }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          [[ "$ROLE" =~ ^[a-z0-9-]{1,64}$ ]] || { echo "::error::invalid role"; exit 1; }
+          [[ "$TICKET" =~ ^[A-Za-z0-9_.#-]{1,64}$ ]] || { echo "::error::invalid ticket"; exit 1; }
+          [[ "$TRACKER" =~ ^[a-z]{1,20}$ ]] || { echo "::error::invalid tracker"; exit 1; }
+          [[ "$JOB" =~ ^[A-Za-z0-9_-]{1,64}$ ]] || { echo "::error::invalid squadhq_job"; exit 1; }
+          # The agent token only ever covers the repository this run lives in.
+          [ "$PROJECT" = "$THIS_REPO" ] || { echo "::error::project ($PROJECT) must be this repository ($THIS_REPO)"; exit 1; }
+          number=""; [ "$TRACKER" = github ] && [[ "$TICKET" =~ ^[0-9]+$ ]] && number="$TICKET"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          case "$ROLE" in
+            implement|design|review-fix|mention) profile=edit-test-push; kind=prompt ;;
+            review) profile=comment; kind=prompt ;;
+            *) profile=""; kind=skill ;;
+          esac
+          case "$ROLE" in design) push=design/ ;; *) push=agent/ ;; esac
+          { echo "profile=$profile"; echo "kind=$kind"; echo "push=$push"; } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: ops
+        if: env.SQUADHQ_TOKEN_BROKER == ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.repository }},${{ env.HUB_REPO_IN }}
+          permission-contents: write
+          permission-issues: write
+          permission-actions: write
+          permission-actions-variables: write
+      - id: ops-broker
+        if: env.SQUADHQ_TOKEN_BROKER != ''
+        name: Mint bookkeeping token (token broker)
+        env:
+          TOKEN_IDENTITY: ops
+          TOKEN_REPOSITORIES: ${{ github.repository }},${{ env.HUB_REPO_IN }}
+          TOKEN_PURPOSE: ${{ github.job }}
+          TOKEN_PERMISSIONS: contents=write,issues=write,actions=write,actions-variables=write
+        # Verbatim copy of .github/actions/squadhq-token/broker.py: nothing of the
+        # hub is on disk yet (tests/test_token_broker.py keeps the copies equal).
+        run: &broker-token |
+          python3 -I - token <<'PY'
+          """squadhq-token broker client (ADR-0011): exchange this job's GitHub Actions
+          OIDC token for a GitHub App installation token at SQUADHQ_TOKEN_BROKER.
+
+              python3 -I broker.py token   # TOKEN_IDENTITY, TOKEN_REPOSITORIES, TOKEN_PERMISSIONS,
+                                           # TOKEN_PURPOSE, TOKEN_SKIP_REVOKE
+              python3 -I broker.py usage   # USAGE_JOB, USAGE_OUTCOME, USAGE_RESULT (best effort)
+
+          Standard library only: it runs on the runner's system python, before
+          setup-python. The OIDC JWT and the minted token are masked the moment they are
+          read and never printed; broker errors are reported by code and detail only.
+          TOKEN_PERMISSIONS ("contents=read,pull-requests=write", empty levels skipped)
+          narrows the token exactly like create-github-app-token's permission-* inputs.
+          Unless TOKEN_SKIP_REVOKE is "true", the token is listed in
+          $RUNNER_TEMP/squadhq-broker-tokens for the job's final revoke step
+          (DELETE /installation/token, as create-github-app-token does at job end).
+          router.yml and squadhq-agent.yml carry a verbatim copy (they mint before the
+          hub is checked out); tests/test_token_broker.py keeps the copies identical.
+          """
+          import json
+          import os
+          import re
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          URL_RE = re.compile(r"https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~%/-]*)?")
+          NAME_RE = re.compile(r"[A-Za-z0-9_.-]{1,100}")
+          TOKEN_RE = re.compile(r"[A-Za-z0-9_]{20,255}")
+          LOGIN_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,33}\[bot\]")
+          RETRY = (429, 500, 502, 503, 504)
+          PERM_RE = re.compile(r"[a-z][a-z_-]{0,49}")
+          MAX_AGENT_REPOS = 25
+          LEVEL = "error"  # "warning" in usage mode: reporting never fails a run
+
+
+          class _NoRedirect(urllib.request.HTTPRedirectHandler):
+              # A redirect would carry the bearer JWT to another URL: refuse it.
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+
+          OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+          def esc(text):
+              return str(text).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")[:500]
+
+
+          def mask(secret):
+              for line in str(secret).splitlines() or [""]:
+                  if line.strip():
+                      print(f"::add-mask::{line.strip()}", flush=True)
+
+
+          def fail(msg):
+              print(f"::{LEVEL} title=squadhq-token::{esc(msg)}", flush=True)
+              sys.exit(1 if LEVEL == "error" else 0)
+
+
+          def _json(raw):
+              try:
+                  data = json.loads(raw or b"{}")
+              except ValueError:
+                  return {}
+              return data if isinstance(data, dict) else {}
+
+
+          def call(req, tries=3):
+              """(status, JSON object) — status 0 when the host was unreachable."""
+              for attempt in range(tries):
+                  try:
+                      with OPENER.open(req, timeout=30) as resp:
+                          return resp.status, _json(resp.read())
+                  except urllib.error.HTTPError as e:
+                      status, data = e.code, _json(e.read())
+                      if status not in RETRY or attempt == tries - 1:
+                          return status, data
+                  except (urllib.error.URLError, OSError) as e:
+                      if attempt == tries - 1:
+                          return 0, {"error": "unreachable", "detail": esc(getattr(e, "reason", e))}
+                  time.sleep(2 * (attempt + 1) ** 2)
+              return 0, {}
+
+
+          def broker_url():
+              url = os.environ.get("SQUADHQ_TOKEN_BROKER", "").strip().rstrip("/")
+              if not URL_RE.fullmatch(url):
+                  fail("SQUADHQ_TOKEN_BROKER must be an https URL (https://host[:port][/path])")
+              return url
+
+
+          def oidc(broker):
+              req_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+              req_tok = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+              if not req_url or not req_tok:
+                  fail("no GitHub OIDC token in this job: token-broker mode needs `permissions: id-token: write` "
+                       "on the job (and on the caller job of a reusable workflow)")
+              mask(req_tok)
+              audience = os.environ.get("SQUADHQ_TOKEN_BROKER_AUDIENCE", "").strip() or broker
+              sep = "&" if "?" in req_url else "?"
+              req = urllib.request.Request(  # noqa: S310 - the runner's https OIDC endpoint
+                  f"{req_url}{sep}audience={urllib.parse.quote(audience, safe='')}",
+                  headers={"Authorization": f"bearer {req_tok}", "Accept": "application/json"})
+              status, data = call(req)
+              jwt = data.get("value")
+              if isinstance(jwt, str) and jwt:
+                  mask(jwt)
+              if status != 200 or not isinstance(jwt, str) or not jwt:
+                  fail(f"GitHub did not issue an OIDC token (HTTP {status})")
+              return jwt
+
+
+          def post(url, jwt, body):
+              req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={  # noqa: S310 - https checked
+                  "Authorization": f"Bearer {jwt}", "Content-Type": "application/json",
+                  "Accept": "application/json", "User-Agent": "squadhq-token"})
+              return call(req)
+
+
+          def refusal(status, data):
+              code = data.get("error") if isinstance(data.get("error"), str) else "unknown"
+              detail = data.get("detail") if isinstance(data.get("detail"), str) else ""
+              return f"HTTP {status} {code}" + (f": {detail}" if detail else "")
+
+
+          def repositories(raw, owner):
+              names = []
+              for entry in re.split(r"[,\s]+", raw):
+                  if not entry:
+                      continue
+                  own, _, name = entry.rpartition("/")
+                  if own and own.lower() != owner.lower():
+                      fail(f"repository {entry} is outside {owner}: broker tokens cover the installation owner only")
+                  if not NAME_RE.fullmatch(name):
+                      fail(f"invalid repository name {entry!r}")
+                  if name not in names:
+                      names.append(name)
+              return names
+
+
+          def permissions(raw):
+              perms = {}
+              for entry in re.split(r"[,\s]+", raw):
+                  name, _, level = entry.partition("=")
+                  if not name or not level:
+                      continue
+                  if not PERM_RE.fullmatch(name) or level not in ("read", "write", "admin"):
+                      fail(f"invalid permission {entry!r} (name=read|write|admin)")
+                  perms[name.replace("-", "_")] = level
+              return perms
+
+
+          def remember(tok):
+              if os.environ.get("TOKEN_SKIP_REVOKE", "").strip().lower() == "true":
+                  return
+              temp = os.environ.get("RUNNER_TEMP", "")
+              if not temp:
+                  print("::warning title=squadhq-token::RUNNER_TEMP unset: the token is not revoked at job end")
+                  return
+              path = os.path.join(temp, "squadhq-broker-tokens")
+              fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+              with os.fdopen(fd, "a", encoding="utf-8") as f:
+                  f.write(tok + "\n")
+
+
+          def output(**values):
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+                  for k, v in values.items():
+                      f.write(f"{k}={v}\n")
+
+
+          def token():
+              broker = broker_url()
+              identity = os.environ.get("TOKEN_IDENTITY", "ops").strip() or "ops"
+              if identity not in ("ops", "agent"):
+                  fail(f"identity must be ops or agent, not {identity!r}")
+              repos = repositories(os.environ.get("TOKEN_REPOSITORIES", ""), os.environ.get("GITHUB_REPOSITORY_OWNER", ""))
+              if identity == "agent" and len(repos) > MAX_AGENT_REPOS:
+                  fail(f"an agent token covers at most {MAX_AGENT_REPOS} repositories, {len(repos)} requested")
+              perms = permissions(os.environ.get("TOKEN_PERMISSIONS", ""))
+              purpose = os.environ.get("TOKEN_PURPOSE", "").strip() or os.environ.get("GITHUB_JOB", "")
+              body = {"identity": identity, "purpose": re.sub(r"[^A-Za-z0-9_.:-]", "-", purpose)[:100]}
+              if repos:
+                  body["repositories"] = repos
+              if perms:
+                  body["permissions"] = perms
+              status, data = post(f"{broker}/v1/broker/token", oidc(broker), body)
+              tok = data.get("token")
+              if isinstance(tok, str) and tok:
+                  mask(tok)
+              if status != 200:
+                  fail(f"token broker refused the {identity} token ({refusal(status, data)})")
+              if not isinstance(tok, str) or not TOKEN_RE.fullmatch(tok):
+                  fail("token broker answered 200 without a usable token")
+              remember(tok)
+              login = data.get("login") if isinstance(data.get("login"), str) else ""
+              login = login if LOGIN_RE.fullmatch(login) else ""
+              expires = data.get("expires_at") if isinstance(data.get("expires_at"), str) else ""
+              output(token=tok, login=login, **{"app-slug": login[: -len("[bot]")] if login else "",
+                                                "expires-at": re.sub(r"[^0-9A-Za-z:.+-]", "", expires)[:40]})
+              print(f"squadhq-token: {identity} token from the token broker"
+                    + (f" for {', '.join(repos)}" if repos else "") + (f" as {login}" if login else ""))
+
+
+          OUTCOMES = {"success": "success", "cancelled": "cancelled", "skipped": "cancelled"}
+
+
+          def usage():
+              global LEVEL
+              LEVEL = "warning"
+              broker = broker_url()
+              body = {"run_id": os.environ.get("GITHUB_RUN_ID", ""),
+                      "job": re.sub(r"[^A-Za-z0-9_.:-]", "-", os.environ.get("USAGE_JOB", "") or os.environ.get("GITHUB_JOB", ""))[:100],
+                      "outcome": OUTCOMES.get(os.environ.get("USAGE_OUTCOME", "").strip().lower(), "failure")}
+              try:
+                  with open(os.environ.get("USAGE_RESULT", "") or os.devnull, encoding="utf-8") as f:
+                      result = _json(f.read().encode())
+              except OSError:
+                  result = {}
+              for key, kind in (("cost_usd", float), ("input_tokens", int), ("output_tokens", int)):
+                  v = result.get(key)
+                  if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0:
+                      body[key] = kind(v)
+              pr = result.get("pr_url") or (result.get("extra") or {}).get("pr_url")
+              if isinstance(pr, str) and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+", pr):
+                  body["pr_url"] = pr
+              status, data = post(f"{broker}/v1/broker/usage", oidc(broker), body)
+              if 200 <= status < 300:
+                  print(f"squadhq-token: usage reported ({body['job']}: {body['outcome']})")
+              else:
+                  fail(f"usage report not accepted ({refusal(status, data)})")
+
+
+          if __name__ == "__main__":
+              mode = sys.argv[1] if len(sys.argv) > 1 else "token"
+              if mode == "usage":
+                  usage()
+              elif mode == "token":
+                  token()
+              else:
+                  fail(f"unknown mode {mode!r} (token | usage)")
+          PY
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.HUB_REPO_IN }}
+          ref: ${{ env.HUB_REF_IN }}
+          path: .squadhq
+          token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          persist-credentials: false
+      - uses: ./.squadhq/.github/actions/setup-hub
+        with:
+          token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          hub-repo: ${{ env.HUB_REPO_IN }}
+          hub-ref: ${{ env.HUB_REF_IN }}
+          bot-login: ${{ env.BOT_LOGIN }}
+      - id: prep
+        uses: ./.squadhq/.github/actions/agent-prep
+        with:
+          role: ${{ inputs.role }}
+          skill: ${{ steps.in.outputs.kind == 'skill' && inputs.role || '' }}
+          skill-event: server:${{ inputs.tracker }}
+          pack-role: ${{ contains(fromJSON('["implement","design","review"]'), inputs.role) && inputs.role || (inputs.role == 'review-fix' && 'implement' || '') }}
+          tool-profile: ${{ steps.in.outputs.profile || 'read-only' }}
+          push-branches: ${{ steps.in.outputs.push }}
+          permission-contents: ${{ steps.in.outputs.profile == 'edit-test-push' && 'write' || 'read' }}
+          number: ${{ steps.in.outputs.number }}
+          ops-token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          agent-app-client-id: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+          agent-app-private-key: ${{ secrets.SQUADHQ_AGENT_APP_PRIVATE_KEY }}
+          handoff-key: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            AUTOMATED UNATTENDED RUN dispatched by the Squad HQ server (job ${{ inputs.squadhq_job }}). Nobody will answer questions.
+            Ticket: ${{ inputs.tracker }} ${{ inputs.ticket }} for ${{ github.repository }}.
+            ${{ steps.in.outputs.kind == 'prompt' && format('Read .squadhq/prompts/{0}.md and follow it exactly for this ticket.', inputs.role == 'review-fix' && 'implement' || inputs.role) || '' }}
+      - &broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"
+
+  run:
+    needs: [prep]
+    if: needs.prep.outputs.run == 'true'
+    concurrency:
+      group: squadhq-job-${{ inputs.project }}-${{ inputs.ticket }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      outcome: ${{ steps.agent.outputs.outcome }}
+      cost-usd: ${{ steps.metrics.outputs.cost-usd }}
+      duration-ms: ${{ steps.metrics.outputs.duration-ms }}
+      turns: ${{ steps.metrics.outputs.turns }}
+      is-error: ${{ steps.metrics.outputs.is-error }}
+      error-text: ${{ steps.metrics.outputs.error-text }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: squadhq-prep-prep
+          path: ${{ runner.temp }}/squadhq-prep
+      - id: tok
+        name: Unseal the agent's tokens (key derived here, never transmitted)
+        env:
+          IKM_HANDOFF: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+          IKM_LLM: ${{ needs.prep.outputs.auth-mode == 'api' && secrets.ANTHROPIC_API_KEY || secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SALT: ${{ github.run_id }}:squadhq-prep-prep
+          PLAN_DIR: ${{ runner.temp }}/squadhq-prep
+        run: |
+          set -euo pipefail
+          if [ ! -f "$PLAN_DIR/tokens.enc" ]; then { echo "agent="; echo "hub="; } >> "$GITHUB_OUTPUT"; exit 0; fi
+          KEY=$(/usr/bin/python3 -I -c '
+          import hashlib, hmac, os, sys
+          ikm = (os.environ.get("IKM_HANDOFF") or os.environ.get("IKM_LLM") or "").encode()
+          if not ikm:
+              sys.exit("hand-off: no key material")
+          prk = hmac.new(os.environ["SALT"].encode(), ikm, hashlib.sha256).digest()
+          print(hmac.new(prk, b"squadhq-handoff-v1\x01", hashlib.sha256).hexdigest())
+          ')
+          export KEY
+          mapfile -t t < <(/usr/bin/openssl enc -d -aes-256-cbc -pbkdf2 -pass env:KEY -in "$PLAN_DIR/tokens.enc")
+          unset KEY
+          rm -f "$PLAN_DIR/tokens.enc"
+          for x in "${t[@]}"; do [ -n "$x" ] && echo "::add-mask::$x"; done
+          { echo "agent=${t[0]:-}"; echo "hub=${t[1]:-}"; } >> "$GITHUB_OUTPUT"
+      - if: steps.tok.outputs.hub != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.HUB_REPO_IN }}
+          ref: ${{ env.HUB_REF_IN }}
+          path: .squadhq
+          token: ${{ steps.tok.outputs.hub }}
+          persist-credentials: false
+      - if: steps.tok.outputs.hub != ''
+        uses: ./.squadhq/.github/actions/setup-hub
+        with:
+          token: ${{ steps.tok.outputs.hub }}
+          hub-repo: ${{ env.HUB_REPO_IN }}
+          hub-ref: ${{ env.HUB_REF_IN }}
+          bot-login: ${{ env.BOT_LOGIN }}
+      - id: agent
+        if: steps.tok.outputs.agent != ''
+        uses: ./.squadhq/.github/actions/run-agent
+        with:
+          plan-dir: ${{ runner.temp }}/squadhq-prep
+          agent-token: ${{ steps.tok.outputs.agent }}
+          anthropic-api-key: >-
+            ${{ needs.prep.outputs.auth-mode == 'api' && (
+            needs.prep.outputs.auth-secret == 'ANTHROPIC_API_KEY_1' && secrets.ANTHROPIC_API_KEY_1 ||
+            needs.prep.outputs.auth-secret == 'ANTHROPIC_API_KEY_2' && secrets.ANTHROPIC_API_KEY_2 ||
+            needs.prep.outputs.auth-secret == 'ANTHROPIC_API_KEY_3' && secrets.ANTHROPIC_API_KEY_3 ||
+            needs.prep.outputs.auth-secret == 'ANTHROPIC_API_KEY_4' && secrets.ANTHROPIC_API_KEY_4 ||
+            needs.prep.outputs.auth-secret == 'ANTHROPIC_API_KEY_5' && secrets.ANTHROPIC_API_KEY_5 ||
+            (needs.prep.outputs.auth-secret == '' || needs.prep.outputs.auth-secret == 'ANTHROPIC_API_KEY') && secrets.ANTHROPIC_API_KEY) || '' }}
+          claude-code-oauth-token: >-
+            ${{ needs.prep.outputs.auth-mode != 'api' && (
+            needs.prep.outputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_1' && secrets.CLAUDE_CODE_OAUTH_TOKEN_1 ||
+            needs.prep.outputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_2' && secrets.CLAUDE_CODE_OAUTH_TOKEN_2 ||
+            needs.prep.outputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_3' && secrets.CLAUDE_CODE_OAUTH_TOKEN_3 ||
+            needs.prep.outputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_4' && secrets.CLAUDE_CODE_OAUTH_TOKEN_4 ||
+            needs.prep.outputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN_5' && secrets.CLAUDE_CODE_OAUTH_TOKEN_5 ||
+            (needs.prep.outputs.auth-secret == '' || needs.prep.outputs.auth-secret == 'CLAUDE_CODE_OAUTH_TOKEN') && secrets.CLAUDE_CODE_OAUTH_TOKEN) || '' }}
+          executor: ${{ vars.SQUADHQ_EXECUTOR || 'claude-code' }}
+          debug-transcripts: ${{ vars.SQUADHQ_DEBUG_TRANSCRIPTS }}
+      # ---- after the agent: one hardened shell step, no actions, no secrets ----
+      - id: metrics
+        if: always()
+        name: Summarise the run (data only)
+        shell: /usr/bin/env -u BASH_ENV -u ENV -u LD_PRELOAD -u LD_LIBRARY_PATH -u PYTHONPATH -u PYTHONHOME /usr/bin/bash --noprofile --norc -e {0}
+        env:
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution-file }}
+        run: |
+          export PATH=/usr/bin:/bin
+          /usr/bin/python3 -I -S - <<'PY'
+          import json, os, re
+          data = []
+          try:
+              data = json.loads(open(os.environ.get("EXECUTION_FILE") or "", encoding="utf-8", errors="replace").read(20_000_000))
+          except (OSError, ValueError):
+              pass
+          items = data if isinstance(data, list) else [data]
+          res = next((x for x in reversed(items) if isinstance(x, dict) and x.get("type") == "result"), {}) or {}
+          def num(v, cast):
+              return cast(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else 0
+          text = str(res.get("result") or "") if res.get("is_error") else ""
+          out = {"cost-usd": f"{num(res.get('total_cost_usd'), float):.6f}", "duration-ms": str(num(res.get("duration_ms"), int)),
+                 "turns": str(num(res.get("num_turns"), int)), "is-error": "true" if res.get("is_error") else "false",
+                 "error-text": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", text)[:300]}
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for k, v in out.items():
+                  f.write(f"{k}={v}\n")
+          PY
+
+  post:
+    needs: [prep, run]
+    if: always() && needs.prep.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - id: ops
+        if: env.SQUADHQ_TOKEN_BROKER == ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.repository }},${{ env.HUB_REPO_IN }}
+          permission-contents: write
+          permission-issues: write
+          permission-actions: write
+          permission-actions-variables: write
+      - id: ops-broker
+        if: env.SQUADHQ_TOKEN_BROKER != ''
+        name: Mint bookkeeping token (token broker)
+        env:
+          TOKEN_IDENTITY: ops
+          TOKEN_REPOSITORIES: ${{ github.repository }},${{ env.HUB_REPO_IN }}
+          TOKEN_PURPOSE: ${{ github.job }}
+          TOKEN_PERMISSIONS: contents=write,issues=write,actions=write,actions-variables=write
+        run: *broker-token
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.HUB_REPO_IN }}
+          ref: ${{ env.HUB_REF_IN }}
+          path: .squadhq
+          token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          persist-credentials: false
+      - uses: ./.squadhq/.github/actions/setup-hub
+        with:
+          token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          hub-repo: ${{ env.HUB_REPO_IN }}
+          hub-ref: ${{ env.HUB_REF_IN }}
+          bot-login: ${{ env.BOT_LOGIN }}
+      - name: Fetch the sealed hand-off (to revoke and delete it)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: squadhq-prep-prep
+          path: ${{ runner.temp }}/squadhq-prep
+      - name: Revoke the agent's tokens and delete the hand-off artifact
+        continue-on-error: true
+        env:
+          IKM_HANDOFF: ${{ secrets.SQUADHQ_HANDOFF_KEY }}
+          IKM_LLM: ${{ needs.prep.outputs.auth-mode == 'api' && secrets.ANTHROPIC_API_KEY || secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SALT: ${{ github.run_id }}:squadhq-prep-prep
+          PLAN_DIR: ${{ runner.temp }}/squadhq-prep
+          GH_TOKEN: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ -f "$PLAN_DIR/tokens.enc" ]; then
+            KEY=$(bash .squadhq/.github/actions/agent-prep/handoff-key.sh) && export KEY
+            mapfile -t t < <(openssl enc -d -aes-256-cbc -pbkdf2 -pass env:KEY -in "$PLAN_DIR/tokens.enc" 2>/dev/null)
+            unset KEY
+            for x in "${t[@]}"; do
+              [ -n "$x" ] || continue
+              echo "::add-mask::$x"
+              curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $x" -H "Accept: application/vnd.github+json" https://api.github.com/installation/token
+            done
+          fi
+          for id in $(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq '.artifacts[] | select(.name == "squadhq-prep-prep") | .id'); do
+            gh api -X DELETE "repos/$REPO/actions/artifacts/$id" > /dev/null
+          done
+          exit 0
+      - id: file
+        name: Execution result (rebuilt from the agent job's bounded outputs)
+        env:
+          COST: ${{ needs.run.outputs.cost-usd }}
+          DURATION: ${{ needs.run.outputs.duration-ms }}
+          TURNS: ${{ needs.run.outputs.turns }}
+          IS_ERROR: ${{ needs.run.outputs.is-error }}
+          ERROR_TEXT: ${{ needs.run.outputs.error-text }}
+        run: |
+          python -I - <<'PY'
+          import json, os, re
+          def num(v, cast):
+              try:
+                  return max(cast(v), 0)
+              except (TypeError, ValueError):
+                  return 0
+          is_error = os.environ.get("IS_ERROR") == "true"
+          rec = {"type": "result", "subtype": "error_during_execution" if is_error else "success",
+                 "is_error": is_error, "total_cost_usd": num(os.environ.get("COST"), float),
+                 "duration_ms": num(os.environ.get("DURATION"), int), "num_turns": num(os.environ.get("TURNS"), int),
+                 "result": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", os.environ.get("ERROR_TEXT") or "")[:300]}
+          path = os.path.join(os.environ["RUNNER_TEMP"], "execution.json")
+          json.dump([rec], open(path, "w"))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"path={path}\n")
+          PY
+      - id: book
+        uses: ./.squadhq/.github/actions/agent-post
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          SQUADHQ_WEBHOOK_URL: ${{ secrets.SQUADHQ_WEBHOOK_URL }}
+          SQUADHQ_WEBHOOK_SECRET: ${{ secrets.SQUADHQ_WEBHOOK_SECRET }}
+        with:
+          notify-targets: ${{ vars.SQUADHQ_NOTIFY_ESCALATIONS }}
+          job: ${{ inputs.role }}
+          ops-token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
+          job-status: ${{ (needs.prep.result == 'failure' || needs.run.result == 'failure') && 'failure' || 'success' }}
+          auth-mode: ${{ needs.prep.outputs.auth-mode }}
+          model: ${{ needs.prep.outputs.model }}
+          used-fallback: ${{ needs.prep.outputs.used-fallback }}
+          execution-file: ${{ steps.file.outputs.path }}
+          agent-outcome: ${{ needs.run.outputs.outcome }}
+          issue-or-pr: ${{ needs.prep.outputs.number }}
+          account: ${{ needs.prep.outputs.account }}
+      - if: vars.SQUADHQ_SERVER_URL != ''
+        name: Report the run to the server
+        env:
+          SERVER_URL: ${{ vars.SQUADHQ_SERVER_URL }}
+          SERVER_TOKEN: ${{ secrets.SQUADHQ_SERVER_TOKEN }}
+          RESULT: ${{ runner.temp }}/execution-result.json
+          OUTCOME: ${{ needs.run.outputs.outcome }}
+          ROLE: ${{ inputs.role }}
+          PROJECT: ${{ github.repository }}
+          TICKET: ${{ inputs.ticket }}
+          TRACKER: ${{ inputs.tracker }}
+          JOB: ${{ inputs.squadhq_job }}
+          MODEL: ${{ needs.prep.outputs.model }}
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          case "$SERVER_URL" in https://*) ;; *) echo "::error::SQUADHQ_SERVER_URL must be https"; exit 1 ;; esac
+          [ -n "$SERVER_TOKEN" ] || { echo "::error::secrets.SQUADHQ_SERVER_TOKEN is not set"; exit 1; }
+          python -I - > "$RUNNER_TEMP/run.json" <<'PY'
+          import json, os
+          E = os.environ.get
+          try:
+              r = json.load(open(E("RESULT") or ""))
+          except (OSError, ValueError):
+              r = {}
+          if not isinstance(r, dict):
+              r = {}
+          outcome = r.get("outcome") if r.get("outcome") in ("success", "failure", "skipped") else \
+              {"success": "success", "skipped": "skipped"}.get(E("OUTCOME") or "", "failure")
+          def num(k, t):
+              v = r.get(k)
+              return t(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else t(0)
+          print(json.dumps({
+              "project": E("PROJECT"), "role": E("ROLE"), "outcome": outcome,
+              "executor": str(r.get("executor") or "claude-code")[:64], "model": str(r.get("model") or E("MODEL") or "")[:128],
+              "cost_usd": num("cost_usd", float), "duration_s": num("duration_s", float),
+              "input_tokens": num("input_tokens", int), "output_tokens": num("output_tokens", int),
+              "error_class": str(r.get("error_class") or ("none" if outcome == "success" else "unknown"))[:32],
+              "run_id": E("RUN_ID"), "job_id": E("JOB"),
+              "extra": {"squadhq_job": E("JOB"), "ticket": E("TICKET"), "tracker": E("TRACKER"), "run_url": E("RUN_URL"),
+                        "execution_result": r},
+          }))
+          PY
+          curl -fsS --retry 3 --max-time 30 -X POST "${SERVER_URL%/}/api/v1/runs" \
+            -H "Authorization: Bearer $SERVER_TOKEN" -H "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/run.json" -o /dev/null
+          echo "Reported job \`$JOB\` to the server" >> "$GITHUB_STEP_SUMMARY"
+      - *broker-revoke

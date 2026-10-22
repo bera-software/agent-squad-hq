@@ -1,0 +1,100 @@
+name: Onboard Project
+# Actions tab -> Onboard Project -> Run workflow.
+#   audit: read-only readiness report (an issue in this repo)
+#   apply: labels + onboarding PR on the project (stub + memory files) + audit
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: Project repo (owner/name)
+        required: true
+      project_name:
+        description: Project display name
+        required: true
+      mode:
+        description: audit (check only) or apply (set up + check)
+        required: true
+        default: audit
+        type: choice
+        options: [audit, apply]
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Token-broker mode (ADR-0011): App tokens come from this broker via OIDC.
+  SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}
+  SQUADHQ_TOKEN_BROKER_AUDIENCE: ${{ vars.SQUADHQ_TOKEN_BROKER_AUDIENCE }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+jobs:
+  onboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write  # token broker (squadhq-token, ADR-0011)
+    steps:
+      - name: Validate inputs
+        env:
+          REPO_IN: ${{ inputs.repo }}
+          NAME_IN: ${{ inputs.project_name }}
+        run: |
+          [[ "$REPO_IN" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::repo must be owner/name"; exit 1; }
+          [[ "$NAME_IN" =~ ^[[:alnum:][:space:]._-]{1,60}$ ]] || { echo "::error::project name: letters, digits, space . _ - (max 60)"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: hub
+        uses: ./.github/actions/setup-hub
+        with:
+          app-client-id: ${{ vars.SQUADHQ_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}
+          hub-repo: ${{ github.repository }}
+          hub-path: .
+          bot-login: ${{ vars.SQUADHQ_BOT_LOGIN }}
+          repositories: ${{ github.repository }},${{ inputs.repo }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+          permission-workflows: write
+      - name: Run onboarding
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          MODE: ${{ inputs.mode }}
+          REPO_IN: ${{ inputs.repo }}
+          NAME_IN: ${{ inputs.project_name }}
+          SQUADHQ_STUB_REF: ${{ vars.SQUADHQ_HUB_REF || 'main' }}
+        run: python -P -m squadhq.onboard "$MODE" "$REPO_IN" "$NAME_IN"
+      - if: always()
+        uses: ./.github/actions/agent-post
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          SQUADHQ_WEBHOOK_URL: ${{ secrets.SQUADHQ_WEBHOOK_URL }}
+          SQUADHQ_WEBHOOK_SECRET: ${{ secrets.SQUADHQ_WEBHOOK_SECRET }}
+        with:
+          notify-targets: ${{ vars.SQUADHQ_NOTIFY_ESCALATIONS }}
+          job: onboard
+          ops-token: ${{ steps.hub.outputs.token }}
+          job-status: ${{ job.status }}
+          repo: ${{ inputs.repo }}
+          failure-mode: cron
+          ledger: "false"
+          summary: "false"
+      - id: broker-revoke
+        if: always() && env.SQUADHQ_TOKEN_BROKER != ''
+        name: Revoke this job's token-broker tokens (App-key mode revokes at job end too)
+        continue-on-error: true
+        run: |
+          f="$RUNNER_TEMP/squadhq-broker-tokens"
+          [ -f "$f" ] || exit 0
+          while IFS= read -r t; do
+            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+          done < "$f"
+          rm -f "$f"

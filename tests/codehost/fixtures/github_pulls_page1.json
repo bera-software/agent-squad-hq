@@ -1,0 +1,49 @@
+[
+  {
+    "number": 7,
+    "title": "feat: add widget",
+    "body": "Closes #3",
+    "state": "open",
+    "merged_at": null,
+    "user": {
+      "login": "squadhq-ops[bot]",
+      "type": "Bot"
+    },
+    "head": {
+      "ref": "agent/7-widget"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "status:in-review"
+      },
+      {
+        "name": "risk:low"
+      }
+    ],
+    "draft": false,
+    "html_url": "https://github.com/acme/app/pull/7"
+  },
+  {
+    "number": 8,
+    "title": "feat: add widget",
+    "body": null,
+    "state": "open",
+    "merged_at": null,
+    "user": {
+      "login": "alice",
+      "type": "User"
+    },
+    "head": {
+      "ref": "agent/7-widget"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [],
+    "draft": true,
+    "html_url": "https://github.com/acme/app/pull/7"
+  }
+]

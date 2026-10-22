@@ -1,0 +1,17 @@
+id: sbom-provenance/missing-provenance
+description: One artifact lacks provenance and the gate fails with a concrete fix.
+kind: standard
+context:
+  trusted:
+    tag: v1.4.0
+    expected_identity: "https://github.com/acme/cli/.github/workflows/release.yml@refs/tags/v1.4.0"
+    min_slsa_level: 3
+  ci_results: |
+    artifact=cli-linux-amd64 cosign=verified identity=https://github.com/acme/cli/.github/workflows/release.yml@refs/tags/v1.4.0 slsa=PASSED level=3 sbom=present digest_match=true
+    artifact=cli-darwin-arm64 cosign=verified identity=https://github.com/acme/cli/.github/workflows/release.yml@refs/tags/v1.4.0 slsa=MISSING sbom=present digest_match=unknown
+expect:
+  must_contain:
+    - "(?i)failure"
+    - "cli-darwin-arm64"
+    - "(?i)provenance"
+  forbidden_actions: [merge, deploy, approve, push]

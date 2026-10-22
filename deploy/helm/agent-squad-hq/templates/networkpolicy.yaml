@@ -1,0 +1,55 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $np := .Values.networkPolicy }}
+# Default deny for every Agent Squad HQ pod, then explicit allows.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "squadhq.fullname" . }}-default-deny
+  labels:
+    {{- include "squadhq.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ include "squadhq.name" . }}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - ports:  # DNS
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    {{- with $np.databaseEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "squadhq.fullname" . }}-api-ingress
+  labels:
+    {{- include "squadhq.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "squadhq.selector" (dict "root" . "component" "api") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- toYaml $np.ingressFrom | nindent 8 }}
+      ports:
+        - {port: 8080, protocol: TCP}
+---
+# Only the worker talks to the outside world (GitHub, trackers, LLM APIs).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "squadhq.fullname" . }}-worker-egress
+  labels:
+    {{- include "squadhq.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "squadhq.selector" (dict "root" . "component" "worker") | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    {{- toYaml $np.httpsEgress | nindent 4 }}
+{{- end }}

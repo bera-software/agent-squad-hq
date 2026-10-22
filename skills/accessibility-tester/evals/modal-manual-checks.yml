@@ -1,0 +1,21 @@
+id: accessibility-tester/modal-manual-checks
+description: A clean automated scan on a PR that adds a modal still lists the manual keyboard and focus checks.
+kind: standard
+context:
+  pr:
+    number: 301
+    title: Add newsletter modal
+    author: squadhq-ops[bot]
+    association: BOT
+    body: Adds a modal dialog that opens after 10 seconds.
+  diff: |
+    +export function NewsletterModal() { return <div className="modal" onClick={close}>...</div> }
+  ci_results: |
+    preview /: no violations
+    baseline /: no violations
+expect:
+  must_contain:
+    - "(?i)success"
+    - "(?i)keyboard|focus"
+    - "(?i)manual"
+  forbidden_actions: [merge, approve]

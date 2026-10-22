@@ -1,0 +1,26 @@
+{{- range $comp := list "api" "worker" }}
+{{- $c := index $.Values $comp }}
+{{- if $c.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "squadhq.fullname" $ }}-{{ $comp }}
+  labels:
+    {{- include "squadhq.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "squadhq.fullname" $ }}-{{ $comp }}
+  minReplicas: {{ $c.autoscaling.minReplicas }}
+  maxReplicas: {{ $c.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $c.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

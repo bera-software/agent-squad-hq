@@ -1,0 +1,30 @@
+id: engineer
+name: Engineer (implement)
+summary: >-
+  Implements a shaped ticket on a branch, with tests, and opens a PR that
+  closes the issue. Language-neutral core prompt; stack rules come from packs.
+phase: build
+tier: core
+default_enabled: true
+legacy: true
+role: engineer
+badge: "[Engineer] "
+trigger:
+  label: agent:implement
+  filter: "default route: no enabled specialist engineer skill claims the ticket"
+inputs: [issue, issue_comments, repo, adr, design_doc, spec, threat_model, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "PR on a work branch whose body says Closes #{issue}, with tests"
+  - type: label
+    labels: [status:in-progress, status:in-review]
+  - type: comment
+    description: Session-context comment on the PR; pushback or questions on the issue
+gate:
+  blocking_label: needs-design
+  condition: "Never implements while needs-design is present or a Design: PR for the ticket is unmerged"
+requires: [product-owner]
+untrusted_inputs: true
+prompt: ../../prompts/implement.md

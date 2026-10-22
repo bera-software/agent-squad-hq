@@ -1,0 +1,222 @@
+name: Squad HQ — after agent
+description: >
+  Bookkeeping in the POST job, on a fresh runner with a fresh hub checkout:
+  normalizes the agent job's execution file (downloaded as an artifact and
+  parsed strictly as data), then the capacity trip check, the cost ledger line,
+  a run summary and the failure handler. Never runs in a job where an agent or
+  untrusted code ran.
+author: Agent Squad HQ
+
+inputs:
+  job:
+    description: Job key (same as run-agent's role).
+    required: true
+  ops-token:
+    description: Bookkeeping token (hub issues/contents, project actions).
+    required: true
+  job-status:
+    description: Pass `job.status` — the failure handler runs only on failure.
+    required: true
+  auth-mode:
+    description: run-agent's auth-mode output. Empty for jobs without an agent.
+    required: false
+    default: ""
+  model:
+    description: Model the run used (or a placeholder for no-LLM jobs).
+    required: false
+    default: ""
+  used-fallback:
+    description: run-agent's used-fallback output.
+    required: false
+    default: "false"
+  execution-file:
+    description: The agent's execution file (downloaded artifact; untrusted data).
+    required: false
+    default: ""
+  agent-outcome:
+    description: run-agent's outcome output.
+    required: false
+    default: ""
+  account:
+    description: Pool account id the run used (prep's account output; "" = single credential).
+    required: false
+    default: ""
+  issue-or-pr:
+    description: Issue or PR number the run worked on.
+    required: false
+    default: ""
+  repo:
+    description: Subject repository (default this repository).
+    required: false
+    default: ""
+  failure-mode:
+    description: "ci (agent jobs, classifies the execution file) or cron (deterministic jobs)."
+    required: false
+    default: ci
+  ledger:
+    description: '"false" skips the cost-ledger line.'
+    required: false
+    default: "true"
+  summary:
+    description: '"false" skips the artifacts summary.'
+    required: false
+    default: "true"
+  session-resumed:
+    description: Ledger field — session-context notes were found.
+    required: false
+    default: ""
+  auto-merged:
+    description: Ledger field — the job armed auto-merge.
+    required: false
+    default: ""
+  review-skipped:
+    description: Ledger field — the trivial tier skipped review.
+    required: false
+    default: ""
+  notify-targets:
+    description: vars.SQUADHQ_NOTIFY_ESCALATIONS — notify these targets when the job failed. Empty = off.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - id: norm
+      if: inputs.execution-file != ''
+      name: Normalize the execution result (data only)
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ inputs.execution-file }}
+        ROLE: ${{ inputs.job }}
+        MODEL: ${{ inputs.model }}
+        ACCOUNT: ${{ inputs.account }}
+      run: |
+        out="$RUNNER_TEMP/execution-result.json"
+        if [ -f "$EXECUTION_FILE" ]; then
+          python -P -m squadhq.executors.normalize --executor claude-code --input "$EXECUTION_FILE" \
+            --output "$out" --role "$ROLE" --model "$MODEL" --account "$ACCOUNT" || true
+        fi
+        [ -f "$out" ] && echo "path=$out" >> "$GITHUB_OUTPUT"
+        exit 0
+
+    - if: inputs.auth-mode != ''
+      name: Capacity trip check
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.ops-token }}
+        AUTH_MODE: ${{ inputs.auth-mode }}
+        ACCOUNT: ${{ inputs.account }}
+        EXECUTION_FILE: ${{ inputs.execution-file }}
+        EXECUTION_RESULT: ${{ steps.norm.outputs.path }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        JOB: ${{ inputs.job }}
+        WORKFLOW: ${{ github.workflow }}
+      run: python -P -m squadhq.capacity_gate check-trip || true
+
+    - if: inputs.ledger == 'true'
+      name: Record cost
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.ops-token }}
+        REPO: ${{ inputs.repo || github.repository }}
+        WORKFLOW: ${{ github.workflow }}
+        JOB: ${{ inputs.job }}
+        EVENT: ${{ github.event_name }}
+        ISSUE_OR_PR: ${{ inputs.issue-or-pr }}
+        MODEL: ${{ inputs.model || 'none' }}
+        MODEL_FALLBACK: ${{ inputs.used-fallback }}
+        AUTH_MODE: ${{ inputs.auth-mode }}
+        EXECUTION_FILE: ${{ inputs.execution-file }}
+        EXECUTION_RESULT: ${{ steps.norm.outputs.path }}
+        SESSION_RESUMED: ${{ inputs.session-resumed }}
+        AUTO_MERGED: ${{ inputs.auto-merged }}
+        REVIEW_SKIPPED: ${{ inputs.review-skipped }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_ATTEMPT: ${{ github.run_attempt }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: python -P -m squadhq.cost_ledger || true
+
+    - if: inputs.summary == 'true'
+      name: Run summary
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.ops-token }}
+        REPO: ${{ inputs.repo || github.repository }}
+        JOB: ${{ inputs.job }}
+        EVENT: ${{ github.event_name }}
+        NUMBER: ${{ inputs.issue-or-pr }}
+        OUTCOME: ${{ inputs.agent-outcome }}
+      run: |
+        since=$(date -u -d '15 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+        {
+          echo "## $JOB — $REPO"
+          echo
+          echo "- Event: $EVENT"
+          [ -n "$NUMBER" ] && echo "- Issue/PR: #$NUMBER"
+          echo "- Agent outcome: ${OUTCOME:-n/a}"
+          echo
+          echo "**PRs updated in the last 15 minutes:**"
+          gh pr list -R "$REPO" --json number,title,url,updatedAt --limit 50 \
+            --jq ".[] | select(.updatedAt >= \"$since\") | \"- [#\(.number) \(.title)](\(.url))\"" 2>/dev/null \
+            | grep . || echo "- none detected"
+          echo
+          echo "**Issues created in the last 15 minutes:**"
+          gh issue list -R "$REPO" --search "created:>=$since" --limit 50 \
+            --json number,title,url --jq ".[] | \"- [#\(.number) \(.title)](\(.url))\"" 2>/dev/null \
+            | grep . || echo "- none detected"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - if: inputs.job-status == 'failure'
+      name: Failure handler
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.ops-token }}
+        RUN_REPO: ${{ github.repository }}
+        REPO: ${{ inputs.repo || github.repository }}
+        WORKFLOW: ${{ github.workflow }}
+        JOB: ${{ inputs.job }}
+        EVENT: ${{ github.event_name }}
+        ISSUE_OR_PR: ${{ inputs.issue-or-pr }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_ATTEMPT: ${{ github.run_attempt }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        EXECUTION_FILE: ${{ inputs.execution-file }}
+        EXECUTION_RESULT: ${{ steps.norm.outputs.path }}
+        AGENT_OUTCOME: ${{ inputs.agent-outcome }}
+        ACCOUNT: ${{ inputs.account }}
+        CURRENT_MODEL: ${{ inputs.model }}
+        MODE: ${{ inputs.failure-mode }}
+      run: CONFIG_PATH="$SQUADHQ_HOME/config/models.json" python -P -m squadhq.failure_handler "$MODE" || true
+
+    - if: inputs.job-status == 'failure' && inputs.notify-targets != ''
+      name: Notify (escalations)
+      shell: bash
+      continue-on-error: true
+      env:
+        TARGETS: ${{ inputs.notify-targets }}
+        JOB: ${{ inputs.job }}
+        REPO: ${{ inputs.repo || github.repository }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # Webhook URLs (SLACK_WEBHOOK_URL, TEAMS_WEBHOOK_URL, ...) come from the
+      # caller's step env; this runs only in bookkeeping jobs.
+      run: |
+        printf 'Job `%s` failed in %s.\n\nRun: %s\n' "$JOB" "$REPO" "$RUN_URL" \
+          | python -P -m squadhq.notify send --targets "$TARGETS" --kind escalation --severity warning \
+              --title "Squad HQ: $JOB failed ($REPO)" --body-file - --url "$RUN_URL" \
+              --dedupe-key "$REPO:$JOB" --project "$REPO" || true
+
+    - if: env.SQUADHQ_TOKEN_BROKER != '' && (inputs.auth-mode != '' || inputs.execution-file != '')
+      name: Report usage to the token broker (best effort)
+      shell: bash
+      continue-on-error: true
+      env:
+        USAGE_JOB: ${{ inputs.job }}
+        USAGE_OUTCOME: ${{ inputs.agent-outcome || inputs.job-status }}
+        USAGE_RESULT: ${{ steps.norm.outputs.path }}
+      # Same OIDC auth as the token request (the post job has id-token: write);
+      # never fails the run, whatever the broker answers.
+      run: python3 -I "$GITHUB_ACTION_PATH/../squadhq-token/broker.py" usage || true

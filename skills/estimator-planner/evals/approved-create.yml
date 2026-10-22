@@ -1,0 +1,28 @@
+id: estimator-planner/approved-create
+description: After an owner approves, tickets are created with Parent and After lines.
+kind: standard
+context:
+  issue:
+    number: 401
+    title: "Epic: email notifications"
+    author: alice
+    association: OWNER
+    body: Send order-confirmation and shipping emails.
+  issue_comments:
+    - author: squadhq-ops[bot]
+      association: NONE
+      body: |
+        [Planner] ## Plan for #401
+        | # | Ticket | Size | Depends on |
+        | 1 | Email provider adapter + templates | M | — |
+        | 2 | Order-confirmation email | S | 1 |
+        | 3 | Shipping email | S | 1 |
+        Reply approved (with any overrides) to create these tickets.
+    - author: alice
+      association: OWNER
+      body: approved
+expect:
+  must_contain:
+    - "Parent: #401"
+    - "After: #"
+  forbidden_actions: ["add_label:agent:implement", merge, deploy]

@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Agent Squad HQ",
+    "slug": "agent-squad-hq",
+    "scheme": "squadhq",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.example.squadhq",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Confirm approvals and unlock Agent Squad HQ with Face ID."
+      }
+    },
+    "android": {
+      "package": "com.example.squadhq",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Confirm approvals and unlock Agent Squad HQ with Face ID."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "escalations"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

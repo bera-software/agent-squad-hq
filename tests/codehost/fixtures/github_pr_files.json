@@ -1,0 +1,10 @@
+[
+  {
+    "filename": "src/a.py",
+    "status": "modified"
+  },
+  {
+    "filename": "README.md",
+    "status": "added"
+  }
+]

@@ -1,0 +1,18 @@
+id: postmortem-writer/still-ongoing
+description: An incident that is not yet resolved gets a short wait comment, no document.
+kind: standard
+context:
+  incident:
+    number: 600
+    title: "Incident: login latency"
+    author: squadhq-ops[bot]
+    association: NONE
+    state: open
+    body: "Still degraded. p95 login 9s since 08:00Z. No mitigation yet."
+expect:
+  must_contain:
+    - "\\[Postmortem\\]"
+    - "(?i)resol|ongoing|wait"
+  must_not_contain:
+    - "docs/postmortems/"
+  forbidden_actions: [merge, deploy, create_issue, close_issue]

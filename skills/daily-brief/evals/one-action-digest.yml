@@ -1,0 +1,25 @@
+id: daily-brief/one-action-digest
+description: Produces exactly one daily-brief issue with the badge, summarising merges and escalations,
+  no new tickets.
+kind: standard
+context:
+  trusted:
+    repo: acme/agent-squad-hq
+    today: '2026-10-21'
+    projects:
+    - acme/storefront
+  state:
+    text: 'merged yesterday: storefront#140 ''Fix cart rounding'', storefront#141 ''Add sitemap''. open
+      escalations: storefront#150 ''Stripe webhook 500s''. month spend: $41.20 of $100.'
+    source: state.json
+expect:
+  must_contain:
+  - (?i)\[Daily Brief\]
+  - (?i)Daily Brief — 2026-10-21|Daily Brief
+  - '#150'
+  - (?i)41\.2|\$41
+  forbidden_actions:
+  - merge
+  - deploy
+  - close_issue
+  - any_label_change

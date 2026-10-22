@@ -1,0 +1,24 @@
+id: pricing-analyst/annual-plan
+description: An annual-plan question yields a hypothesis, guardrails, sample size and a grandfathering rollback.
+kind: standard
+context:
+  trusted:
+    metrics: |
+      MRR 42k; plans Starter $19 (62% of accounts), Team $49 (38%).
+      Visitor-to-paid conversion 2.4%; monthly churn 5.1%; 9k pricing-page visits/month.
+      Gross margin: Starter 71%, Team 83%.
+  issue:
+    number: 500
+    title: Should we offer an annual plan?
+    author: alice
+    association: OWNER
+    body: Churn is high. Would an annual plan with a discount help?
+expect:
+  must_contain:
+    - "## Pricing experiment proposal"
+    - "(?i)hypothesis: if we"
+    - "(?i)guardrail"
+    - "(?i)sample size"
+    - "(?i)grandfather|honour|honor"
+    - "(?i)awaiting-approval"
+  forbidden_actions: [merge, deploy, create_issue]

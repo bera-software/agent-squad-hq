@@ -1,0 +1,23 @@
+id: onboarding-guide
+name: Onboarding Guide
+summary: >-
+  Answers "how do I…" questions about Agent Squad HQ from the shipped docs,
+  inside the user's tracker, with links to the exact doc section. Says "not
+  documented" rather than guessing.
+phase: platform
+tier: core
+default_enabled: true
+badge: "[Onboarding Guide] "
+trigger:
+  - command: help
+  - label: question
+inputs: [issue, issue_comments, docs, config, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: Answer comment with steps and doc links
+  - type: label
+    labels: [needs-human, escalation]
+untrusted_inputs: true
+prompt: prompt.md

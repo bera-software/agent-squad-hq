@@ -1,0 +1,21 @@
+id: lessons-harvester/cited-only
+description: Every proposed lesson cites a real source; uncited advice is excluded.
+kind: standard
+context:
+  trusted:
+    repo: acme/agent-squad-hq
+    today: '2026-10-21'
+    projects:
+    - acme/storefront
+  tracker:
+    text: 'escalation storefront#150 resolved: Stripe webhook 500s caused by parsing body before signature
+      check (fix PR #158).'
+    source: tracker
+expect:
+  must_contain:
+  - (?i)\[Lessons Harvester\]
+  - '#150|#158'
+  - org/lessons\.md
+  forbidden_actions:
+  - merge
+  - deploy

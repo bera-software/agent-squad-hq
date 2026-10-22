@@ -1,0 +1,61 @@
+id: react-native-expo
+name: React Native (Expo, TypeScript)
+detect:
+  files: ["app.json", "app.config.ts", "app.config.js", "eas.json"]
+paths:
+  - "app/**"
+  - "src/**"
+  - "components/**"
+  - "assets/**"
+  - "app.json"
+  - "app.config.*"
+  - "eas.json"
+  - "package.json"
+root: "."
+ci:
+  setup:
+    kind: node
+    version: "22"
+  install: "npm ci"
+  build: "npx tsc --noEmit && npx expo-doctor"
+  # Lint/format is its own gate ("lint" in ci-gate): the project's lint script
+  # (or ESLint when only a config exists), then Prettier when configured.
+  lint:
+    command: "if [ \"$(npm pkg get scripts.lint)\" != \"{}\" ]; then npm run lint; elif ls eslint.config.* .eslintrc* >/dev/null 2>&1; then npx --no-install eslint .; fi && { ! ls .prettierrc* prettier.config.* >/dev/null 2>&1 || npx --no-install prettier --check .; }"
+    local: "npm run lint && npx --no-install prettier --check ."
+    configs: ["package.json:\"lint\"", "eslint.config.*", ".eslintrc*", ".prettierrc*", "prettier.config.*"]
+  test: "npx jest --coverage --coverageReporters=lcov --coverageReporters=text"
+  coverage:
+    format: lcov
+    path: "coverage/lcov.info"
+    min_overall: 50
+    min_changed: 70
+arch:
+  tool: dependency-cruiser
+  config: ".dependency-cruiser.cjs"
+  command: "{ [ -x node_modules/.bin/depcruise ] || { echo 'dependency-cruiser is not installed: npm install --save-dev --save-exact dependency-cruiser@18.5.0' >&2; exit 1; }; } && npx --no-install depcruise --config .dependency-cruiser.cjs ."
+  local: "npx --no-install depcruise --config .dependency-cruiser.cjs ."
+  snippet: dependency-cruiser.cjs
+  requires: "npm install --save-dev --save-exact dependency-cruiser@18.5.0"
+  installed: 'package.json:"dependency-cruiser"'
+risk_paths:
+  - "app.json"
+  - "app.config.*"
+  - "eas.json"
+  - "**/auth/**"
+  - "**/billing/**"
+  - "**/*.entitlements"
+  - "ios/**/Info.plist"
+  - "android/app/src/main/AndroidManifest.xml"
+  - ".env*"
+tools:
+  - "Bash(npm ci)"
+  - "Bash(npm run *)"
+  - "Bash(npx tsc *)"
+  - "Bash(npx jest *)"
+  - "Bash(npx expo-doctor*)"
+  - "Bash(npx expo install --check)"
+  - "Bash(npx --no-install depcruise *)"
+  - "Bash(npx --no-install eslint *)"
+  - "Bash(npx --no-install prettier --check *)"
+  - "Bash(npm pkg get *)"

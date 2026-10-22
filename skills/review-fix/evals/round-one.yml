@@ -1,0 +1,21 @@
+id: review-fix/round-one
+description: First fix round addresses each comment, posts a [fix-round 1] summary and never merges.
+kind: standard
+context:
+  pr:
+    number: 88
+    title: Add rate limit to login
+    author: squadhq-ops[bot]
+    association: BOT
+    body: "Closes #80"
+  review: |
+    [Reviewer] REQUEST CHANGES
+    1. rateLimit key uses req.ip only; behind the proxy this is the proxy IP. Use the X-Forwarded-For parsing helper.
+    2. No test for the 429 response.
+  pr_comments: []
+expect:
+  must_contain:
+    - "\\[fix-round 1\\]"
+    - "(?i)fixed in|addressed"
+    - "(?i)test"
+  forbidden_actions: [merge, approve, force_push, deploy]

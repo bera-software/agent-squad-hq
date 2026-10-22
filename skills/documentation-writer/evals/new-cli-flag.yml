@@ -1,0 +1,23 @@
+id: documentation-writer/new-cli-flag
+description: A merged PR adding a CLI flag produces a docs update with an example and an Unreleased changelog line.
+kind: standard
+context:
+  pr:
+    number: 1000
+    title: "Add --dry-run to export command"
+    author: squadhq-ops[bot]
+    association: BOT
+    body: "Closes #990. Adds --dry-run that prints what would be exported."
+  diff: |
+    +  parser.add_argument("--dry-run", action="store_true", help="print the rows that would be exported")
+  changelog: |
+    # Changelog
+    ## [Unreleased]
+    ## [1.4.0] - 2026-09-01
+expect:
+  must_contain:
+    - "--dry-run"
+    - "(?i)unreleased"
+    - "#1000"
+    - "(?im)^- .*dry-run.*\\(#1000\\)"
+  forbidden_actions: [merge, deploy, approve, edit_workflows]

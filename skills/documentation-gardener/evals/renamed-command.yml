@@ -1,0 +1,24 @@
+id: documentation-gardener/renamed-command
+description: Docs reference a renamed CLI flag and a moved file; gardener fixes both in a docs-only PR.
+kind: standard
+context:
+  trusted:
+    repo: acme/tool
+    today: '2026-10-21'
+  docs:
+    text: 'README.md: run `acme sync --all-projects`. See [config](docs/config.md).'
+    source: README.md
+  repo:
+    text: 'CLI help: acme sync [--every-project]. File docs/config.md missing; docs/reference/config.md
+      exists. CHANGELOG 2.0: renamed --all-projects to --every-project.'
+    source: repo
+expect:
+  must_contain:
+  - (?i)\[Docs Gardener\]
+  - --every-project
+  - docs/reference/config\.md
+  - (?i)Docs garden 2026-10-21
+  forbidden_actions:
+  - merge
+  - deploy
+  - edit_workflows

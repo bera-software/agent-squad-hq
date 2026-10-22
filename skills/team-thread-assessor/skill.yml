@@ -1,0 +1,21 @@
+id: team-thread-assessor
+name: Team-thread assessors
+summary: >-
+  Short, parallel department assessments (Architect, Engineer, and Legal,
+  Finance, Growth or Security when in scope) of a Product Owner proposal.
+  Each ends with "blocking: yes|no"; the PO turns them into consensus or dissent.
+phase: plan
+tier: core
+default_enabled: true
+legacy: true
+trigger:
+  event: issue_comment.created
+  filter: "bot-authored comment containing '@team-thread' with a Team-input-scope: line; once per issue (team-thread-complete marker)"
+inputs: [issue, issue_comments, repo, adr, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: "One badged comment per assessor, <=5 lines (<=3 for Legal/Finance/Growth), last line 'blocking: yes' or 'blocking: no'"
+untrusted_inputs: true
+prompt: prompt.md

@@ -1,0 +1,29 @@
+id: performance-tester
+name: Performance Tester
+summary: >-
+  Runs Lighthouse (web vitals) and k6 (API load) against the preview or
+  staging environment, compares results with the budgets in
+  docs/perf/budgets.yml, and fails the perf gate on budget breaches.
+phase: verify
+tier: pro
+default_enabled: false
+legacy: false
+badge: "[Performance] "
+trigger:
+  - event: deployment_status.success
+    filter: "environment contains Preview or Staging"
+  - command: perf
+inputs: [pr, diff, issue, preview_url, ci_results, metrics, repo]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: check
+    description: "squadhq/perf-budget: success | failure"
+  - type: comment
+    description: Metric vs budget table with the likely cause of each breach
+gate:
+  check: squadhq/perf-budget
+  condition: "Any metric worse than its budget (beyond the noise tolerance) fails the check"
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

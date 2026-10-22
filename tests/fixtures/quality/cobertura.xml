@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
+<coverage line-rate="0.5" branch-rate="0" version="7.6" timestamp="1">
+  <sources><source>/home/runner/work/app/app/api</source></sources>
+  <packages>
+    <package name="app.services" line-rate="0.5">
+      <classes>
+        <class name="orders.py" filename="app/services/orders.py" line-rate="0.5">
+          <methods/>
+          <lines>
+            <line number="1" hits="1"/>
+            <line number="5" hits="1"/>
+            <line number="6" hits="0"/>
+            <line number="7" hits="0"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

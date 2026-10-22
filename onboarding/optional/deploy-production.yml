@@ -1,0 +1,104 @@
+name: Deploy Production
+# Optional template, copied into a project by onboarding. Production ships
+# only when a GitHub Release is published, after the `production` environment
+# approval (configure required reviewers in Settings -> Environments).
+#
+# Repository variables:
+#   SQUADHQ_PRODUCTION_ENABLED  "true" to enable this workflow
+#   SQUADHQ_DEPLOY_TARGET       vercel | railway | fly | custom
+#   SQUADHQ_DEPLOY_DIR          working directory to deploy from (default ".")
+#   SQUADHQ_DEPLOY_SERVICE      railway service / fly app name
+#   SQUADHQ_DEPLOY_COMMAND      custom: the command to run (e.g. ./deploy.sh)
+#   SQUADHQ_HEALTH_URLS         space-separated URLs that must answer 2xx afterwards
+# Environment secrets (production): VERCEL_TOKEN, VERCEL_ORG_ID,
+# VERCEL_PROJECT_ID | RAILWAY_TOKEN | FLY_API_TOKEN | DEPLOY_TOKEN (custom).
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions: {}
+
+env:
+  SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
+  SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # The checkout never shadows Python modules (CWD is not put on sys.path).
+  PYTHONSAFEPATH: "1"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.SQUADHQ_PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+    env:
+      TARGET: ${{ vars.SQUADHQ_DEPLOY_TARGET }}
+      SERVICE: ${{ vars.SQUADHQ_DEPLOY_SERVICE }}
+    defaults:
+      run:
+        working-directory: ${{ vars.SQUADHQ_DEPLOY_DIR || '.' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: vars.SQUADHQ_DEPLOY_TARGET == 'vercel' || vars.SQUADHQ_DEPLOY_TARGET == 'railway'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # No automatic package cache: a poisoned cache would reach later runs.
+          package-manager-cache: false
+          node-version: "22"
+      - if: vars.SQUADHQ_DEPLOY_TARGET == 'vercel'
+        name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm install --global --ignore-scripts vercel@65.0.0
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          vercel build --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+      - if: vars.SQUADHQ_DEPLOY_TARGET == 'railway'
+        name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          [ -n "$SERVICE" ] || { echo "::error::set vars.SQUADHQ_DEPLOY_SERVICE"; exit 1; }
+          npm install --global @railway/cli@5.71.0
+          railway up --service "$SERVICE" --environment production --ci
+      - if: vars.SQUADHQ_DEPLOY_TARGET == 'fly'
+        name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          v=0.4.120
+          curl -sSfL -o "$RUNNER_TEMP/flyctl.tgz" "https://github.com/superfly/flyctl/releases/download/v$v/flyctl_${v}_Linux_x86_64.tar.gz"
+          echo "ef9b938ff3af2b28fad961a676e5ac2295124ad0b892ffb1c5f16a03bd4ee378  $RUNNER_TEMP/flyctl.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/flyctl.tgz" -C "$RUNNER_TEMP" flyctl
+          "$RUNNER_TEMP/flyctl" deploy --remote-only ${SERVICE:+--app "$SERVICE"}
+      - if: vars.SQUADHQ_DEPLOY_TARGET == 'custom'
+        name: Custom deploy command
+        env:
+          DEPLOY_COMMAND: ${{ vars.SQUADHQ_DEPLOY_COMMAND }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          [ -n "$DEPLOY_COMMAND" ] || { echo "::error::set vars.SQUADHQ_DEPLOY_COMMAND"; exit 1; }
+          bash -ec "$DEPLOY_COMMAND"
+      - if: ${{ !contains(fromJSON('["vercel","railway","fly","custom"]'), vars.SQUADHQ_DEPLOY_TARGET) }}
+        run: |
+          echo "::error::vars.SQUADHQ_DEPLOY_TARGET must be one of vercel, railway, fly, custom (got '$TARGET')"
+          exit 1
+      - name: Health checks
+        env:
+          URLS: ${{ vars.SQUADHQ_HEALTH_URLS }}
+        run: |
+          set -eu
+          if [ -z "$URLS" ]; then echo "⚠ no SQUADHQ_HEALTH_URLS set — skipping smoke check" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          for u in $URLS; do curl -fsS --retry 5 --retry-delay 10 --retry-all-errors -o /dev/null "$u"; echo "✅ $u" >> "$GITHUB_STEP_SUMMARY"; done

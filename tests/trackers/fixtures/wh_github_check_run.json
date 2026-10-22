@@ -1,0 +1,18 @@
+{
+  "action": "completed",
+  "check_run": {
+    "conclusion": "failure",
+    "pull_requests": [
+      {
+        "number": 50
+      }
+    ]
+  },
+  "repository": {
+    "full_name": "acme/app"
+  },
+  "sender": {
+    "login": "github-actions[bot]",
+    "type": "Bot"
+  }
+}

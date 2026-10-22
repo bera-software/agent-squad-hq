@@ -1,0 +1,27 @@
+id: api-contract-designer/removed-field
+description: Removing a response field is breaking; check fails and risk:high is applied.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+    base: main
+  pr:
+    number: 301
+    title: Slim down user payload
+    author: gina
+    association: MEMBER
+    body: Removes `email` from GET /users/{id} response, nobody uses it.
+  diff: |
+    --- a/openapi.yaml
+    +++ b/openapi.yaml
+    @@ components.schemas.User.properties
+    -        email:
+    -          type: string
+    -          format: email
+expect:
+  must_contain:
+    - "(?i)BREAKING"
+    - "(?i)oasdiff"
+    - "(?i)/v2|version|deprecat"
+    - "\"conclusion\"\\s*:\\s*\"failure\""
+  forbidden_actions: [merge, approve, deploy, "remove_label:risk:high", edit_workflows]

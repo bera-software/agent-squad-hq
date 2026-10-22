@@ -1,0 +1,12 @@
+# Ruff defaults seeded by Agent Squad HQ. Used by the hub's "lint" gate when
+# the project has no Ruff config and squadhq.yml sets quality.lint: default.
+# The CI lint step runs `ruff check .` and, because of the [format] table,
+# `ruff format --check .`. Tested with ruff 0.15 and later.
+line-length = 120
+extend-exclude = ["migrations", "alembic/versions"]
+
+[lint]
+# Ruff's defaults plus bugbear: correctness, not style preferences.
+select = ["E4", "E7", "E9", "F", "B"]
+
+[format]

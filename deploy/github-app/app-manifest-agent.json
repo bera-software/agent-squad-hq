@@ -1,0 +1,33 @@
+{
+  "_doc": "AGENT GitHub App manifest: the identity LLM coding agents run as (claude-code-action jobs). Deliberately narrow: it can push branches, open PRs and comment, but cannot touch workflows, settings or rulesets, and its comments are never trusted as protocol (squadhq.untrusted.by_agent). Created alongside the ops App by `squadhq init --create-app` unless --single-app. Same placeholders as app-manifest.json.",
+  "_permissions_rationale": {
+    "contents: write": "Push feature branches. The ruleset requires a PR with one approval from someone other than the last pusher, so the agent can never land code by itself.",
+    "pull_requests: write": "Open and update PRs, reply to review threads. Its own approval never satisfies the ruleset (require_last_push_approval).",
+    "issues: write": "Comment on tickets in role ([Engineer], [Product Owner] ...) and apply the labels label_guard allows its role.",
+    "checks: read": "Read CI results to fix failing builds.",
+    "metadata: read": "Mandatory for every GitHub App.",
+    "not requested": "workflows (an agent can never edit .github/workflows), administration, actions, actions_variables, secrets, members, organization_projects: all ops-only or human-only."
+  },
+  "name": "__APP_NAME__",
+  "url": "__HUB_URL__",
+  "description": "Agent Squad HQ coding agents. Pushes branches and opens PRs; cannot merge, approve its own work or edit workflows.",
+  "public": false,
+  "redirect_url": "__REDIRECT_URL__",
+  "callback_urls": [
+    "__REDIRECT_URL__"
+  ],
+  "request_oauth_on_install": false,
+  "setup_on_update": false,
+  "hook_attributes": {
+    "url": "__WEBHOOK_URL__",
+    "active": false
+  },
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "write",
+    "checks": "read",
+    "metadata": "read"
+  },
+  "default_events": []
+}

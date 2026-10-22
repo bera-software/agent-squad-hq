@@ -1,0 +1,4 @@
+# server mode
+jobs:
+  agent:
+    uses: __HUB_REPO__/.github/workflows/agent.yml@__HUB_REF__  # __HUB_TAG__

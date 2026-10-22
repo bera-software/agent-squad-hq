@@ -1,0 +1,31 @@
+id: data-migration-planner
+name: Data modeller / migration planner
+summary: >-
+  For a proposed schema change, writes a reversible expand/contract migration
+  plan with backfill, verification and rollback steps, and forces risk:high.
+phase: design
+tier: core
+default_enabled: true
+legacy: false
+badge: "[Data Modeller] "
+trigger:
+  - event: pull_request.opened
+    filter: "paths match the pack's migration/schema globs (for example **/migrations/**, **/schema.prisma, **/*.sql, **/db/migration/**)"
+  - label: needs-design
+  - command: migration-plan
+inputs: [issue, pr, diff, schema, migrations, adr, repo, metrics]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/migrations/{issue}-{slug}.md"
+  - type: comment
+    description: Plan summary with phase list and rollback point
+  - type: label
+    labels: [risk:high]
+gate:
+  check: squadhq/migration-plan
+  condition: "Any PR changing schema or migrations needs a merged or included docs/migrations/ plan; risk is forced to high"
+requires: [architect]
+untrusted_inputs: true
+prompt: prompt.md

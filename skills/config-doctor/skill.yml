@@ -1,0 +1,23 @@
+id: config-doctor
+name: Config Doctor
+summary: >-
+  Explains `squadhq doctor` failures in plain language: what is wrong, why it
+  matters, and the exact command or setting that fixes it. Reads redacted
+  diagnostics only and never handles secret values.
+phase: platform
+tier: core
+default_enabled: true
+badge: "[Config Doctor] "
+trigger:
+  - command: doctor
+  - manual: true
+inputs: [config, state, logs, docs, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: comment
+    description: "Diagnosis comment (or CLI output) with one section per failing check, ordered by severity"
+  - type: label
+    labels: [needs-human, escalation]
+untrusted_inputs: true
+prompt: prompt.md

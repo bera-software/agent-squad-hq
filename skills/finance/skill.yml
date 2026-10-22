@@ -1,0 +1,23 @@
+id: finance
+name: Finance (LLM spend)
+summary: >-
+  Weekly LLM and agent spend report from usage.json and the cost ledger:
+  month-to-date pace vs budget, top jobs by cost, cost anomalies with
+  transcript links, review spend avoided.
+phase: operate
+tier: core
+default_enabled: true
+legacy: true
+role: finance
+badge: "[Finance] "
+trigger:
+  schedule: finance_weekly
+inputs: [cost_ledger, state, tracker, flows]
+tool_profile: read-only
+model_tier: light
+outputs:
+  - type: json
+    description: "One create_issue action in the hub labelled dept:finance, titled 'Finance weekly — <date>'"
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/finance/prompt.md

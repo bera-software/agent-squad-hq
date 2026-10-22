@@ -1,0 +1,26 @@
+id: hub-janitor
+name: Hub Janitor
+summary: >-
+  Deterministic daily cleanup of the hub repo: closes superseded report
+  issues and stale automation PRs, merges safe housekeeping PRs. Supports a
+  dry-run mode that only reports.
+phase: operate
+tier: core
+default_enabled: true
+legacy: true
+deterministic: true
+trigger:
+  - schedule: hub_janitor
+  - manual: true
+inputs: [tracker, state]
+tool_profile: comment
+model_tier: none
+outputs:
+  - type: comment
+    description: Closing comment on every issue or PR it closes
+  - type: report
+    description: Step summary of closed and merged items
+requires: []
+untrusted_inputs: false
+prompt: null
+entrypoint: "python -m squadhq.hub_janitor"

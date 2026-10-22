@@ -1,0 +1,33 @@
+# deptrac layers seeded by Agent Squad HQ (pack php-laravel).
+#
+# Tool:  deptrac 4.7.2, pinned in require-dev:
+#          composer require --dev deptrac/deptrac:4.7.2
+# Run:   vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress
+#        (the hub's "arch" gate runs exactly this whenever this file exists)
+#
+# TODO(owner): adjust the directories to this project's layout and record the
+# layering in an ADR under docs/adr/.
+deptrac:
+  paths:
+    - ./app
+  layers:
+    - name: Http
+      collectors:
+        - type: directory
+          value: app/Http/.*
+    - name: Service
+      collectors:
+        - type: directory
+          value: app/(Services|Actions)/.*
+    - name: Model
+      collectors:
+        - type: directory
+          value: app/Models/.*
+  ruleset:
+    # A layer may depend only on the layers listed under it.
+    Http:
+      - Service
+      - Model
+    Service:
+      - Model
+    Model: ~

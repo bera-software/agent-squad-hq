@@ -1,0 +1,23 @@
+id: daily-brief
+name: Daily Brief
+summary: >-
+  One morning digest issue in the hub summarising open work, merges, spend and escalations. Digest only, never creates tickets.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: daily-brief
+badge: "[Daily Brief] "
+trigger:
+  - schedule: daily_brief
+  - manual: true
+inputs: [tracker, state, cost_ledger, flows]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: issue
+    description: "Exactly one hub issue labelled daily-brief, titled \"Daily Brief — <date>\""
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/daily-brief/prompt.md
+

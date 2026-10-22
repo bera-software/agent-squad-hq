@@ -1,0 +1,12 @@
+[
+  {
+    "id": "lab-1",
+    "name": "backend",
+    "color": "blue"
+  },
+  {
+    "id": "lab-2",
+    "name": "",
+    "color": "red"
+  }
+]

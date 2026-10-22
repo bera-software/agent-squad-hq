@@ -1,0 +1,22 @@
+[
+  {
+    "name": "test",
+    "status": "success"
+  },
+  {
+    "name": "deploy",
+    "status": "running"
+  },
+  {
+    "name": "lint",
+    "status": "failed"
+  },
+  {
+    "name": "x",
+    "status": "pending"
+  },
+  {
+    "name": "y",
+    "status": "weird"
+  }
+]

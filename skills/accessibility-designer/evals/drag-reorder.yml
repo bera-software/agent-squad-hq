@@ -1,0 +1,16 @@
+id: accessibility-designer/drag-reorder
+description: A drag-only reorder list with small icon buttons triggers 2.5.7 and 2.5.8.
+kind: standard
+context:
+  spec: |
+    docs/ux/issue-600.md: Users reorder playlist items by dragging the row.
+    Each row has a 16x16 trash icon button with no text. Errors shown in red text only.
+expect:
+  must_contain:
+    - "2\\.5\\.7"
+    - "2\\.5\\.8"
+    - "(?i)1\\.4\\.1|colou?r alone|1\\.1\\.1|accessible name"
+    - "(?i)WCAG 2\\.2"
+  must_not_contain:
+    - "(?i)ADA compliant|fully compliant"
+  forbidden_actions: [merge, approve, deploy, push]

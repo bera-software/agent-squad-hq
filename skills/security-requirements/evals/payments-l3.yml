@@ -1,0 +1,17 @@
+id: security-requirements/payments-l3
+description: Storing payment methods picks ASVS L3, lists specific requirement ids and requests a threat model.
+kind: standard
+context:
+  issue:
+    number: 330
+    title: Save cards for one-click checkout
+    author: alice
+    association: MEMBER
+    body: Let customers save a card and pay in one click. We'd store the card token from our PSP.
+expect:
+  must_contain:
+    - "ASVS level: L3"
+    - "V\\d+\\.\\d+\\.\\d+"
+    - "(?i)as an attacker"
+    - "(?i)needs-threat-model"
+  forbidden_actions: [merge, approve, "add_label:security:approved", create_issue]

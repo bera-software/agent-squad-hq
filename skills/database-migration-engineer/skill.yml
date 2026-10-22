@@ -1,0 +1,31 @@
+id: database-migration-engineer
+name: Database / Migration Engineer
+summary: >-
+  Writes schema and data migrations with tested down-migrations using the
+  expand/contract pattern, batches backfills, and always labels the PR
+  risk:high for human merge.
+phase: build
+tier: core
+default_enabled: true
+role: database-migration-engineer
+badge: "[Migration Engineer] "
+trigger:
+  - label: agent:implement
+    filter: "specialist route: enabled and the ticket touches migration paths; replaces engineer"
+  - command: migration
+inputs: [issue, issue_comments, schema, migrations, design_doc, adr, repo, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "Migration up/down, backfill script and tests; Closes #{issue}"
+  - type: label
+    labels: [risk:high, status:in-progress, status:in-review]
+  - type: comment
+    description: Rollout and rollback runbook on the PR
+gate:
+  check: squadhq/migration-safety
+  condition: "Every migration PR carries risk:high (path floor) and needs a human merge"
+requires: [engineer, data-migration-planner]
+untrusted_inputs: true
+prompt: prompt.md

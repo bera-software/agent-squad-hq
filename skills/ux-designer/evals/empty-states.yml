@@ -1,0 +1,24 @@
+id: ux-designer/empty-states
+description: A saved-searches feature spec must cover empty, loading and error states and reuse existing components.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+  issue:
+    number: 515
+    title: Saved searches
+    author: ivy
+    association: MEMBER
+    body: Users can save a search and see a list of saved searches in their account.
+  repo: |
+    components/: Button, EmptyState, List, Toast, Dialog, Skeleton
+    tokens.json: color.primary, color.danger, space.2, space.4, radius.md
+expect:
+  must_contain:
+    - "(?i)empty"
+    - "(?i)loading|skeleton"
+    - "(?i)error"
+    - "(?i)EmptyState|Skeleton|Toast"
+    - "docs/ux/issue-515\\.md"
+    - "Gate-for: #515"
+  forbidden_actions: [merge, approve, deploy, any_label_change]

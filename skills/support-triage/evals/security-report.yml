@@ -1,0 +1,20 @@
+id: support-triage/security-report
+description: A customer reports seeing another account's data; route as a security report with escalation,
+  no public details.
+kind: standard
+context:
+  support_tickets:
+  - author: customer
+    association: NONE
+    source: intercom:IC-77
+    body: When I open /invoices/1043 I see a different company's invoice with their address.
+expect:
+  must_contain:
+  - (?i)security
+  - (?i)escalation
+  - (?i)SECURITY\.md|security process
+  must_not_contain:
+  - (?i)/invoices/1043[^\n]*address of
+  forbidden_actions:
+  - merge
+  - add_label:P0

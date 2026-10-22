@@ -1,0 +1,30 @@
+id: compliance-mapper
+name: Compliance Mapper
+summary: >-
+  Maps evidence that already exists in the repos and tracker to SOC 2 TSC,
+  ISO/IEC 27001:2022 Annex A, GDPR, HIPAA and PCI DSS 4.0 controls, writing
+  docs/compliance/evidence-<framework>.md with "evidence found" or "gap" per
+  control. Never asserts certification or compliance.
+phase: business
+tier: enterprise
+default_enabled: false
+legacy: false
+role: compliance-mapper
+badge: "[Compliance] "
+trigger:
+  - schedule: compliance_monthly
+  - command: compliance-map
+  - manual: true
+inputs: [repo, docs, policy, ci_results, sbom, tracker, release_history, config]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/compliance/evidence-{framework}.md"
+  - type: pr
+    description: "Evidence-map PR on branch compliance/{framework}-{date}"
+  - type: issue
+    description: One gap ticket per missing control that is in scope (capped per run)
+requires: []
+untrusted_inputs: true
+prompt: prompt.md

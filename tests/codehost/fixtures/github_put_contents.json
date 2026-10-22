@@ -1,0 +1,9 @@
+{
+  "content": {
+    "sha": "def456",
+    "path": "state/capacity.json"
+  },
+  "commit": {
+    "sha": "c1"
+  }
+}

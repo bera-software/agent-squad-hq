@@ -1,0 +1,27 @@
+{
+  "iid": 12,
+  "title": "Draft: refactor",
+  "description": "body",
+  "state": "opened",
+  "author": {
+    "username": "project_42_bot",
+    "bot": true
+  },
+  "source_branch": "agent/12",
+  "target_branch": "main",
+  "labels": [
+    "status:in-review"
+  ],
+  "draft": true,
+  "web_url": "https://gitlab.com/acme/app/-/merge_requests/12",
+  "changes": [
+    {
+      "old_path": "a.py",
+      "new_path": "a.py"
+    },
+    {
+      "old_path": "old.py",
+      "new_path": null
+    }
+  ]
+}

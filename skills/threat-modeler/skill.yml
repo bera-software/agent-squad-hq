@@ -1,0 +1,36 @@
+id: threat-modeler
+name: Threat Modeler
+summary: >-
+  Builds a STRIDE + LINDDUN + OWASP LLM Top 10 threat model for a design or
+  security-sensitive ticket, writes docs/threats/<n>.md and opens one
+  mitigation ticket per unmitigated high or critical threat.
+phase: design
+tier: core
+default_enabled: true
+legacy: false
+role: threat-modeler
+badge: "[Threat Modeler] "
+trigger:
+  - label: needs-threat-model
+  - command: threat-model
+inputs: [issue, issue_comments, design_doc, adr, diff, repo, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/threats/{issue}.md"
+  - type: pr
+    description: "Threat model PR on branch threats/issue-{issue}, body carries Gate-for: #{issue}"
+  - type: issue
+    description: One mitigation ticket per unmitigated high/critical threat
+  - type: comment
+    description: Summary comment on the source issue with the risk rating
+  - type: label
+    labels: [security:review-required]
+gate:
+  blocking_label: needs-threat-model
+  check: squadhq/threat-model
+  condition: "Design PRs and tickets with risk >= medium stay blocked until docs/threats/<n>.md is merged"
+requires: [architect]
+untrusted_inputs: true
+prompt: prompt.md

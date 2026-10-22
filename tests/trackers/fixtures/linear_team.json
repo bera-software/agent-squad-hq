@@ -1,0 +1,49 @@
+{
+  "data": {
+    "teams": {
+      "nodes": [
+        {
+          "id": "team-1",
+          "key": "ENG",
+          "states": {
+            "nodes": [
+              {
+                "id": "s-todo",
+                "name": "Todo",
+                "type": "unstarted"
+              },
+              {
+                "id": "s-prog",
+                "name": "In Progress",
+                "type": "started"
+              },
+              {
+                "id": "s-rev",
+                "name": "In Review",
+                "type": "started"
+              },
+              {
+                "id": "s-done",
+                "name": "Done",
+                "type": "completed"
+              },
+              {
+                "id": "s-can",
+                "name": "Canceled",
+                "type": "canceled"
+              }
+            ]
+          },
+          "labels": {
+            "nodes": [
+              {
+                "id": "l1",
+                "name": "backend"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+[
+  {"type": "system", "subtype": "init", "model": "claude-haiku-5-5"},
+  {"type": "result", "subtype": "error_max_turns", "is_error": true, "duration_ms": 600000, "num_turns": 60, "session_id": "s3", "total_cost_usd": 2.5, "usage": {"input_tokens": 500000, "output_tokens": 20000}}
+]

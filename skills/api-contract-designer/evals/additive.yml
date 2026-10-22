@@ -1,0 +1,23 @@
+id: api-contract-designer/additive
+description: Adding an optional query parameter is non-breaking and the check passes.
+kind: standard
+context:
+  pr:
+    number: 302
+    title: Add optional ?sort to GET /orders
+    author: gina
+    association: MEMBER
+    body: Adds optional sort parameter.
+  diff: |
+    --- a/openapi.yaml
+    +++ b/openapi.yaml
+    @@ paths./orders.get.parameters
+    +        - name: sort
+    +          in: query
+    +          required: false
+    +          schema: {type: string, enum: [created_at, total]}
+expect:
+  must_contain:
+    - "(?i)non-breaking"
+    - "\"conclusion\"\\s*:\\s*\"success\""
+  forbidden_actions: [merge, approve, "add_label:risk:high"]

@@ -1,0 +1,45 @@
+id: swift-ios
+name: iOS (Swift, Xcode / SwiftPM)
+detect:
+  files: ["Package.swift", "Project.swift", "project.yml", "Podfile"]
+paths:
+  - "**/*.swift"
+  - "**/*.plist"
+  - "**/*.entitlements"
+  - "**/*.xcconfig"
+  - "Package.swift"
+  - "Package.resolved"
+root: "."
+ci:
+  setup:
+    kind: none
+    version: ""
+  # Requires a macOS runner (Xcode). For app projects (no Package.swift),
+  # set this pack's build/test to xcodebuild with your scheme, e.g.
+  # xcodebuild test -scheme App -destination 'platform=iOS Simulator,name=iPhone 16' -enableCodeCoverage YES
+  install: ""
+  build: "swift build"
+  test: "swift test --enable-code-coverage"
+  coverage:
+    # swift test writes llvm-cov JSON, not a supported format; the gate is
+    # off until an lcov export step (llvm-cov export -format=lcov) is wired.
+    format: none
+    path: ""
+    min_overall: 0
+    min_changed: 0
+risk_paths:
+  - "**/Info.plist"
+  - "**/*.entitlements"
+  - "**/PrivacyInfo.xcprivacy"
+  - "**/*.xcconfig"
+  - "**/Auth/**"
+  - "**/Keychain*"
+  - "**/Billing/**"
+  - "**/StoreKit/**"
+tools:
+  - "Bash(swift build*)"
+  - "Bash(swift test*)"
+  - "Bash(swift package resolve)"
+  - "Bash(xcodebuild build*)"
+  - "Bash(xcodebuild test*)"
+  - "Bash(swiftlint*)"

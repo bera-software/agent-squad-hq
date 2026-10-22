@@ -1,0 +1,45 @@
+id: uptime-watcher
+name: Uptime Watcher
+summary: >-
+  Deterministic health checks against configured URLs. After
+  failure_threshold consecutive failures it opens one P0 incident issue
+  (labels P0 + incident) and pings the escalation channel; after
+  recovery_threshold consecutive successes it comments the recovery and
+  auto-closes the issue. No model is involved.
+phase: operate
+tier: core
+default_enabled: true
+legacy: false
+deterministic: true
+trigger:
+  schedule: uptime_watch
+inputs: [config, state]
+tool_profile: comment
+model_tier: none
+outputs:
+  - type: issue
+    description: "One open incident issue per failing check, titled 'Incident: <check name> down'"
+  - type: label
+    labels: [P0, incident]
+  - type: comment
+    description: Recovery comment before auto-close
+requires: []
+untrusted_inputs: false
+prompt: null
+entrypoint: "python -m squadhq.skills.uptime"
+config:
+  defaults:
+    interval: "5m"
+    timeout_s: 10
+    failure_threshold: 3
+    recovery_threshold: 2
+    severity: P0
+    auto_close: true
+    incident_label: incident
+  checks:
+    - name: example-home
+      url: "https://example.com/healthz"
+      method: GET
+      expect_status: [200]
+      expect_body_regex: "ok"
+      timeout_s: 10

@@ -1,0 +1,31 @@
+id: reviewer
+name: Reviewer
+summary: >-
+  Reviews every agent or human PR for correctness, product quality and policy;
+  posts inline comments plus exactly one verdict and a risk label that the
+  merge policy uses as its gate.
+phase: verify
+tier: core
+default_enabled: true
+legacy: true
+role: reviewer
+badge: "[Reviewer] "
+trigger:
+  - event: pull_request.opened
+    filter: "also synchronize, ready_for_review; skipped for trivial_paths-only PRs"
+  - command: review
+inputs: [pr, pr_comments, diff, issue, adr, ci_results, flows, lessons]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: Inline review comments and exactly one verdict comment
+  - type: label
+    labels: [risk:low, risk:medium, risk:high, review:changes-requested]
+gate:
+  check: squadhq/review
+  blocking_label: review:changes-requested
+  condition: "Every PR needs an APPROVE verdict; final risk = max(llm_risk, path_floor)"
+requires: []
+untrusted_inputs: true
+prompt: ../../prompts/review.md

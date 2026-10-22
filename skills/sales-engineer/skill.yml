@@ -1,0 +1,29 @@
+id: sales-engineer
+name: Sales Engineer
+summary: >-
+  Drafts answers to RFPs and security questionnaires (SIG, CAIQ, custom) from
+  the company's own docs only. Every answer cites a source file or says
+  "needs owner answer"; never invents certifications, controls or customers.
+phase: business
+tier: enterprise
+default_enabled: false
+legacy: false
+role: sales-engineer
+badge: "[Sales Engineer] "
+trigger:
+  - label: questionnaire
+  - command: questionnaire
+  - manual: true
+inputs: [issue, docs, policy, sbom, config]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: artifact
+    path: "docs/sales/questionnaires/{issue}-{customer}.md"
+  - type: pr
+    description: "Draft answers PR on branch sales/questionnaire-{issue}"
+  - type: comment
+    description: Coverage summary (answered / needs owner answer) on the request issue
+requires: [compliance-mapper]
+untrusted_inputs: true
+prompt: prompt.md

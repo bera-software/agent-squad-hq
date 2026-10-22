@@ -1,0 +1,29 @@
+id: mobile-release
+name: Mobile Release (internal tracks only)
+summary: >-
+  Prepares mobile builds for TestFlight and the Google Play internal track:
+  version and build numbers, release notes, store metadata diffs and a
+  Fastlane lane request. Never submits to production review and never
+  touches signing keys. Store metadata automation is a Pro feature.
+phase: release
+tier: core
+default_enabled: false
+legacy: false
+badge: "[Mobile Release] "
+trigger:
+  - command: mobile-release
+  - event: release.published
+    filter: "project has a mobile pack (react-native, flutter, swift-ios, kotlin-android)"
+inputs: [release_history, changelog, commits, config, ci_results, repo]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: "PR bumping version/build numbers and fastlane/metadata release notes"
+  - type: json
+    description: "mobile-release.json: lane (beta | internal) per platform, consumed by the Fastlane job"
+  - type: comment
+    description: Release checklist with tester groups and what was not automated
+requires: [release-manager]
+untrusted_inputs: true
+prompt: prompt.md

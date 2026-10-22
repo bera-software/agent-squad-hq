@@ -1,0 +1,25 @@
+id: lessons-harvester
+name: Lessons Harvester
+summary: >-
+  Weekly PR proposing cited additions to org/lessons.md from real escalations, verdicts and fixes. Every lesson cites a source; a human merges.
+phase: business
+tier: core
+default_enabled: true
+legacy: true
+role: lessons-harvester
+badge: "[Lessons Harvester] "
+trigger:
+  - schedule: lessons_harvester
+  - manual: true
+inputs: [tracker, lessons, commits, state, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: PR editing org/lessons.md (and lessons-archive.md) only
+  - type: comment
+    description: Badged PR body and comments
+requires: []
+untrusted_inputs: true
+prompt: ../../agents/lessons-harvester/prompt.md
+

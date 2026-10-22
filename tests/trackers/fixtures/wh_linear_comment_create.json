@@ -1,0 +1,21 @@
+{
+  "action": "create",
+  "type": "Comment",
+  "actor": {
+    "name": "PM",
+    "type": "user"
+  },
+  "data": {
+    "id": "c9",
+    "body": "@squad go",
+    "issueId": "uuid-1",
+    "issue": {
+      "id": "uuid-1",
+      "identifier": "ENG-42"
+    },
+    "user": {
+      "name": "PM",
+      "email": "pm@acme.test"
+    }
+  }
+}

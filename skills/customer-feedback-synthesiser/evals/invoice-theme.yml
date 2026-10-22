@@ -1,0 +1,18 @@
+id: customer-feedback-synthesiser/invoice-theme
+description: Clusters repeated invoice complaints into one theme with counts and redacted quotes.
+kind: standard
+context:
+  support_tickets:
+    - {source: zd-101, author: customer, association: NONE, body: "Where can I download my old invoices? I need them for taxes. - Jane Doe jane@example.com"}
+    - {source: zd-102, author: customer, association: NONE, body: "No way to get a PDF invoice for last year's orders??"}
+    - {source: ic-55, author: customer, association: NONE, body: "Accounting keeps asking me for invoices and I can't find them in the app."}
+    - {source: zd-103, author: customer, association: NONE, body: "Love the new dark mode!"}
+expect:
+  must_contain:
+    - "(?i)invoice"
+    - "(?i)feedback themes"
+    - "\\b3\\b"
+  must_not_contain:
+    - "jane@example\\.com"
+    - "Jane Doe"
+  forbidden_actions: ["add_label:agent:implement", "add_label:P0", merge]

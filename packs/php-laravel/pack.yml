@@ -1,0 +1,61 @@
+id: php-laravel
+name: PHP / Laravel
+detect:
+  files: ["artisan"]
+paths:
+  - "app/**"
+  - "routes/**"
+  - "config/**"
+  - "database/**"
+  - "resources/**"
+  - "tests/**"
+  - "composer.json"
+root: "."
+ci:
+  setup:
+    kind: php
+    version: "8.3"
+  # Coverage needs Xdebug or PCOV enabled by the php setup.
+  install: "composer install --no-interaction --prefer-dist --no-progress && cp -n .env.example .env && php artisan key:generate"
+  build: "composer validate --strict && { [ ! -x vendor/bin/phpstan ] || vendor/bin/phpstan analyse --no-progress; }"
+  lint:
+    command: "{ [ ! -x vendor/bin/pint ] || vendor/bin/pint --test; } && { [ ! -x vendor/bin/php-cs-fixer ] || vendor/bin/php-cs-fixer fix --dry-run --diff; }"
+    local: "vendor/bin/pint --test"
+    configs: ["pint.json", "composer.json:laravel/pint", ".php-cs-fixer.php", ".php-cs-fixer.dist.php"]
+  test: "XDEBUG_MODE=coverage php artisan test --coverage-cobertura=coverage.xml"
+  coverage:
+    format: cobertura
+    path: "coverage.xml"
+    min_overall: 60
+    min_changed: 70
+arch:
+  tool: deptrac
+  config: "deptrac.yaml"
+  command: "{ [ -x vendor/bin/deptrac ] || { echo 'deptrac is not installed: composer require --dev deptrac/deptrac:4.7.2' >&2; exit 1; }; } && vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress"
+  local: "vendor/bin/deptrac analyse --config-file=deptrac.yaml"
+  snippet: deptrac.yaml
+  requires: "composer require --dev deptrac/deptrac:4.7.2"
+  installed: 'composer.json:"deptrac/deptrac"'
+risk_paths:
+  - "app/Http/Middleware/**"
+  - "app/Policies/**"
+  - "app/Providers/AuthServiceProvider.php"
+  - "config/auth.php"
+  - "config/session.php"
+  - "config/cors.php"
+  - "database/migrations/**"
+  - "routes/**"
+  - "app/**/Billing/**"
+  - "app/**/Payment*/**"
+tools:
+  - "Bash(composer install*)"
+  - "Bash(composer validate*)"
+  - "Bash(composer audit*)"
+  - "Bash(php artisan test*)"
+  - "Bash(php artisan route:list*)"
+  - "Bash(vendor/bin/phpunit*)"
+  - "Bash(vendor/bin/pest*)"
+  - "Bash(vendor/bin/phpstan *)"
+  - "Bash(vendor/bin/pint*)"
+  - "Bash(vendor/bin/deptrac analyse*)"
+  - "Bash(vendor/bin/php-cs-fixer fix --dry-run*)"

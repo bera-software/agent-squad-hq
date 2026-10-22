@@ -1,0 +1,220 @@
+# yaml-language-server: $schema=./schema/squadhq.schema.json
+#
+# squadhq.yml: the ONE file you edit to configure Agent Squad HQ.
+#
+#   cp squadhq.example.yml squadhq.yml      # or: squadhq init
+#   squadhq validate                        # schema + semantic checks
+#   squadhq render                          # writes config/*.json + workflow crons
+#   squadhq render --check                  # CI: fail if generated files are stale
+#   squadhq doctor                          # secrets, App install, rulesets, model ids
+#
+# Everything below uses a fictional company, "Acme", with one project,
+# acme/storefront. Delete what you do not need: every section except
+# `version`, `org` and `hub` has defaults.
+#
+# Quote times ("07:30"): YAML 1.1 reads an unquoted 07:30 as a number.
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Who you are. All schedules below are LOCAL time in org.timezone.
+# ---------------------------------------------------------------------------
+org:
+  name: Acme
+  timezone: Europe/London          # IANA zone name
+  working_hours: "07:00-20:00"     # used by "... during working_hours" schedules (end exclusive)
+  working_days: mon-fri            # daily | weekdays | weekends | mon-fri | sun,wed ...
+  approvers: ["@acme/leads"]       # GitHub users ("@alice") or teams ("@acme/leads") who approve merges
+  operating_model: team            # solo | team: changes prompt wording and approval defaults
+  dst: daylight                    # daylight | standard: GitHub cron is UTC-only; "daylight" renders
+                                   # crons for summer time, so jobs run 1h EARLIER (never late) in winter
+
+# ---------------------------------------------------------------------------
+# The hub: the repo holding this file, prompts and the reusable workflows.
+# ---------------------------------------------------------------------------
+hub:
+  repo: acme/agent-squad-hq        # any name works; nothing assumes "agent-squad-hq"
+  ref: main                        # release installs pin a tag, e.g. v0.1.0
+  trigger: "@squad"                # phrase that summons the squad in issues/PRs
+  # Two GitHub Apps, both created by `squadhq init --create-app`:
+  bot:                             # OPS App: routing, labels, state markers, policy-approved merges
+    app: acme-squad
+    # login: acme-squad[bot]       # defaults to "<app>[bot]"
+    # client_id: Iv23liExample     # filled in by init; rendered to SQUADHQ_APP_CLIENT_ID
+  agent_bot:                       # AGENT App the coding agents run as: pushes branches, opens PRs,
+    app: acme-squad-agent          # cannot merge, approve its own push or edit workflows
+  # single_app: true               # fallback with ONE App: agents share the ops identity and nothing
+                                   # merges without an approver (auto/risk_based/trivial are disabled)
+  # token_broker: https://api.squadhq.example  # ADR-0011: App tokens from this broker via GitHub
+                                   # OIDC; no App private key is stored (SQUADHQ_TOKEN_BROKER)
+
+# ---------------------------------------------------------------------------
+# Model providers and routing. Models are "provider/model-id".
+# ---------------------------------------------------------------------------
+providers:
+  default: anthropic
+  anthropic:
+    auth: api                      # api (ANTHROPIC_API_KEY, metered) | subscription (CLAUDE_CODE_OAUTH_TOKEN;
+                                   # whether automated use is permitted is your responsibility under the provider's terms)
+    # Account pool (optional, max 5): each job runs on one account; a capacity trip
+    # pauses only that account and the next job uses the next one. The fleet pauses
+    # (or uses fallback_on_capacity_trip) only when every account is tripped.
+    # Set SQUADHQ_HANDOFF_KEY when you use a pool. Rotating several API keys or
+    # organisation accounts is fine; pooling or rotating personal consumer
+    # subscriptions for automated use may violate the provider's terms (your call).
+    # pool:
+    #   - { id: team-a, auth: subscription }          # secret CLAUDE_CODE_OAUTH_TOKEN_1
+    #   - { id: team-b, auth: subscription }          # secret CLAUDE_CODE_OAUTH_TOKEN_2
+    #   - { id: org-key, auth: api, secret: ANTHROPIC_API_KEY_3 }
+    # pool_strategy: ordered        # ordered (first untripped) | round_robin
+  openai:
+    auth: api                      # secret defaults to OPENAI_API_KEY
+  fallback_on_capacity_trip: false # true: when subscription capacity trips, fall back to metered API auth
+                                   # (default false: a paused job is cheaper than a surprise bill)
+  executor: claude-code            # claude-code | codex | aider | gemini-cli
+  routing:
+    heavy:                         # judgment work: implement, review, design, PO
+      primary: anthropic/claude-sonnet-5-5
+      fallback: anthropic/claude-sonnet-5
+    light:                         # high-frequency classification / short summaries
+      primary: anthropic/claude-haiku-5-5
+      fallback: anthropic/claude-sonnet-5-5
+  # Per-job tier overrides. Every job already has a sensible default
+  # (see `squadhq validate --explain`); list only the ones you change.
+  jobs:
+    okr-track: light
+    team-thread: light
+    # implement: heavy
+
+# ---------------------------------------------------------------------------
+# Spend limits (USD).
+# ---------------------------------------------------------------------------
+budgets:
+  monthly_usd: 100                 # enforced: hub loops pause at the cap (SQUADHQ_MONTHLY_BUDGET_USD)
+  # The keys below are RESERVED (server mode only): validated, rendered, not enforced in Actions mode.
+  per_project_usd:
+    default: 40
+    Storefront: 60
+  per_run_usd:
+    implement: 3
+    review: 1
+  on_exceed: pause                 # pause (Actions mode) | downgrade | notify (server mode only)
+
+# ---------------------------------------------------------------------------
+# Where tickets live. GitHub Issues needs no settings.
+# ---------------------------------------------------------------------------
+trackers:
+  default: github
+  # jira: { site: acme.atlassian.net, project: ENG, status_map: default }
+  # linear: { team: ENG }
+
+# Actions workflows post github_issue; other channels are rendered to SQUADHQ_NOTIFY_*
+# for `python -m squadhq.notify send` and server mode.
+notifications:
+  escalations: [github_issue, "slack:#eng-alerts"]
+  digest: [github_issue, "email:leads@acme.example"]
+
+# ---------------------------------------------------------------------------
+# Schedules (local time). Syntax:
+#   "weekdays 07:30"  "sun,wed 04:00"  "daily 03:30"  "mon-fri 09:00,15:00"
+#   "hourly"  "hourly :15 during working_hours"  "every 30m during working_hours"
+#   "every 2h"  "monthly 1st 05:00"  "quarterly 1st 05:00"
+#   or a raw five-field cron, which is used VERBATIM AS UTC: "30 6 * * 1-5"
+# Keys not listed keep their defaults.
+# ---------------------------------------------------------------------------
+schedules:
+  chief_of_staff: "every 30m during working_hours"
+  stuck_sweeper: "hourly :15 during working_hours"
+  daily_brief: "weekdays 07:30"
+  debt_scan: "sun,wed 04:00"
+  weekly_rollup: "mon 07:00"
+  architect_quarterly: "quarterly 1st 07:00"
+  growth: "daily 03:30"
+  # Skill-driven jobs (all run from .github/workflows/skill-scheduler.yml):
+  uptime_watch: "every 15m"
+  weekly_dependencies: "mon 05:30"
+  weekly_dast: "sat 03:00"
+  weekly_test_health: "mon 06:00"
+  release_train: "tue,thu 10:00"
+  finops_weekly: "mon 08:00"
+  quarterly_okr_draft: "quarterly 1st 14:00"   # 1st before 14:00 can fall into the previous month in UTC east of UTC+10
+  weekly_feedback: "fri 09:00"
+  monthly_competitive: "monthly 2nd 09:00"
+  weekly_prompt_eval: "sun 05:00"
+  monthly_model_routing: "monthly 3rd 09:00"
+  compliance_monthly: "monthly 2nd 10:00"
+  analytics_weekly: "mon 07:30"
+  docs_gardener: "wed 05:00"
+  weekly_localisation: "thu 05:00"
+
+# ---------------------------------------------------------------------------
+# Agents: every agent can be switched off (rendered to SQUADHQ_DISABLED_AGENTS).
+# ---------------------------------------------------------------------------
+agents:
+  product_owner: { enabled: true }
+  threat_modeler: { enabled: true }
+  growth: { enabled: false }
+  seo: { enabled: false }
+  legal: { enabled: true, jurisdictions: [UK, EU] }
+  finance: { enabled: true }
+
+# Catalogue skills by id (see docs/skills/CATALOGUE.md); same shape as agents.
+skills:
+  threat-modeler: { enabled: true }
+# edition: core                    # core | pro | enterprise: hides skills above this tier
+
+# ---------------------------------------------------------------------------
+# Guard rails.
+# ---------------------------------------------------------------------------
+policies:
+  wip_limit: 5                     # max tickets in progress at once
+  review_fix_rounds: 2             # reviewer <-> engineer rounds before escalating
+  triggers:
+    # Only these GitHub author associations may trigger LLM jobs. Decided by code, never a model.
+    allowed_associations: [OWNER, MEMBER, COLLABORATOR]
+  merge:
+    mode: approvers                # approvers: a human merges | risk_based: bot PRs within
+                                   # risk_based auto-merge | auto: every approved PR merges
+    risk_based:                    # used when mode: risk_based
+      max_risk: low                # low | medium | high
+      require_checks: [sast, sca, secrets]
+      require_security_agent: true # reserved (server mode only)
+    always_human: [auth, payments, migrations, workflows, infra, deps-major]
+  release:
+    strategy: merge_is_prod        # merge_is_prod (Actions) | release_tag | promote_branch (server mode only)
+
+security:
+  gates: [sast, sca, secrets, iac, license, sbom]
+  show_agent_transcripts: false    # true uploads full agent transcripts as run artifacts
+
+# ---------------------------------------------------------------------------
+# Projects the squad works on.
+# ---------------------------------------------------------------------------
+projects:
+  - name: Storefront
+    repo: acme/storefront
+    branch: main                   # integration branch agents branch from and target
+    packs: [node-next, python-fastapi]
+    pack_roots:                    # per-pack working dir override (default: the pack's `root`)
+      node-next: web
+      python-fastapi: api
+    quality:                       # gates run by stack CI, enforced by `hub / ci-gate`
+      arch: auto                   # auto: when the pack's arch config exists | required | off
+      lint: auto                   # auto: when a linter config exists | default: also use the pack's default | off
+      changed_coverage: report     # report (summary) | enforce (pack min_changed blocks) | off
+    environments:
+      staging:
+        url: https://staging.acme.example
+        api_url: https://staging-api.acme.example
+        deploy: vercel
+      production:
+        url: https://acme.example
+        deploy: vercel
+        approval: required
+    product:
+      brief_file: docs/product.md
+      markets: [UK, US]
+      keywords: ["online storefront", "headless commerce"]
+      notes: "Acme Storefront sells refurbished gadgets. Tone: friendly, concise."
+    agents:
+      growth: { enabled: true }    # per-project override of the org-wide switch

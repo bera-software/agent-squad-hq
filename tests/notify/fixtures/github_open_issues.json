@@ -1,0 +1,15 @@
+[
+  {
+    "number": 5,
+    "title": "Capacity breaker tripped [cap-2026-10]",
+    "pull_request": {}
+  },
+  {
+    "number": 6,
+    "title": "Something else [other]"
+  },
+  {
+    "number": 11,
+    "title": "Capacity breaker tripped [cap-2026-10]"
+  }
+]

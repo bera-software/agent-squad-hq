@@ -1,0 +1,71 @@
+name: Squad HQ — escalate
+description: >
+  Open (or add to) an `escalation` issue in the hub. Deduplicates on the exact
+  title: a second failure of the same job comments on the open issue instead
+  of opening another one. For jobs with no agent step; agent jobs use
+  agent-post's failure handler.
+author: Agent Squad HQ
+
+inputs:
+  token:
+    description: Token with issues:write on the hub.
+    required: true
+  hub-repo:
+    description: owner/name of the hub. Default SQUADHQ_HUB_REPO from setup-hub.
+    required: false
+    default: ""
+  title:
+    description: Issue title (also the dedupe key).
+    required: true
+  body:
+    description: Issue body (markdown). The run URL is appended.
+    required: false
+    default: ""
+  labels:
+    description: Comma-separated labels.
+    required: false
+    default: escalation
+  notify-targets:
+    description: vars.SQUADHQ_NOTIFY_ESCALATIONS — also notify these targets. Empty = off.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        IN_HUB: ${{ inputs.hub-repo }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        LABELS: ${{ inputs.labels }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set +e
+        hub="${IN_HUB:-${SQUADHQ_HUB_REPO:-}}"
+        if [ -z "$hub" ]; then echo "::error::escalate: hub repo unknown"; exit 0; fi
+        text=$(printf '%s\n\nRun: %s\n' "$BODY" "$RUN_URL")
+        existing=$(gh issue list -R "$hub" --state open --label escalation --limit 100 \
+          --json number,title --jq '.[] | select(.title == env.TITLE) | .number' 2>/dev/null | head -1)
+        if [ -n "$existing" ]; then
+          printf '%s\n' "Recurred." "$text" | gh issue comment "$existing" -R "$hub" -F - \
+            && echo "escalation: commented on $hub#$existing" >> "$GITHUB_STEP_SUMMARY"
+        else
+          printf '%s\n' "$text" | gh issue create -R "$hub" -t "$TITLE" -l "$LABELS" -F - \
+            >> "$GITHUB_STEP_SUMMARY" 2>&1
+        fi
+        exit 0
+
+    - if: inputs.notify-targets != ''
+      shell: bash
+      continue-on-error: true
+      env:
+        TARGETS: ${{ inputs.notify-targets }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        printf '%s\n\nRun: %s\n' "$BODY" "$RUN_URL" \
+          | python -P -m squadhq.notify send --targets "$TARGETS" --kind escalation --severity warning \
+              --title "$TITLE" --body-file - --url "$RUN_URL" --dedupe-key "$TITLE" || true

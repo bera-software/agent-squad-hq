@@ -1,0 +1,24 @@
+id: model-router-tuner
+name: Model Router Tuner
+summary: >-
+  Monthly proposal for which model tier and provider each skill should use,
+  from the cost ledger, run outcomes and eval scores. Opens a config PR with
+  the expected saving and quality evidence; humans merge.
+phase: platform
+tier: core
+default_enabled: false
+badge: "[Model Router Tuner] "
+trigger:
+  - schedule: monthly_model_routing
+  - command: tune-models
+inputs: [cost_ledger, eval_results, state, config, flows]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: "PR 'Model routing: <month>' editing only the providers.routing / per-skill model_tier overrides in squadhq.yml, labelled awaiting-approval"
+  - type: label
+    labels: [awaiting-approval]
+requires: [prompt-eval-engineer]
+untrusted_inputs: false
+prompt: prompt.md

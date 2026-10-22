@@ -1,0 +1,33 @@
+id: release-manager
+name: Release Manager
+summary: >-
+  Prepares a release: computes the next semver from conventional commits since
+  the last tag, writes the changelog and release notes, and a rollback plan.
+  Opens a release PR; tagging and publishing are done by code after a human
+  approves.
+phase: release
+tier: core
+default_enabled: true
+legacy: false
+role: release-manager
+badge: "[Release Manager] "
+trigger:
+  - command: release
+  - schedule: release_train
+inputs: [commits, release_history, changelog, pr, ci_results, sbom, config, repo]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: "Release PR 'Release v<x.y.z>' on branch release/v<x.y.z> updating CHANGELOG.md"
+  - type: artifact
+    path: "docs/releases/v{version}.md"
+    description: Release notes + rollback plan
+  - type: comment
+    description: Release readiness checklist on the release PR
+gate:
+  check: squadhq/release-readiness
+  condition: "Release PR fails readiness while any required gate (CI, SAST, SCA, secrets, SBOM, provenance) is missing or red"
+requires: [sbom-provenance]
+untrusted_inputs: true
+prompt: prompt.md

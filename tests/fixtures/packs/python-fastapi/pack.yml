@@ -1,0 +1,13 @@
+id: python-fastapi
+name: Python / FastAPI
+detect:
+  files: ["pyproject.toml", "requirements.txt"]
+paths: ["**/*.py", "pyproject.toml"]
+root: .
+ci:
+  setup: {kind: python, version: "3.12"}
+  install: "pip install -e .[dev]"
+  test: "pytest --cov --cov-report=xml"
+  coverage: {format: cobertura, path: coverage.xml, min_overall: 70, min_changed: 80}
+risk_paths: ["**/auth/**", "**/migrations/**"]
+tools: ["Bash(pytest *)", "Bash(npm *)"]

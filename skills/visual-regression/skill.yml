@@ -1,0 +1,28 @@
+id: visual-regression
+name: Visual Regression
+summary: >-
+  Compares screenshots of the preview deployment against the baseline from the
+  default branch, classifies each diff as intended, regression or noise, and
+  posts a check result with the diff gallery.
+phase: verify
+tier: pro
+default_enabled: false
+legacy: false
+badge: "[Visual QA] "
+trigger:
+  event: deployment_status.success
+  filter: "environment contains Preview and PR touches UI paths"
+inputs: [pr, diff, issue, preview_url, ci_results, repo]
+tool_profile: comment
+model_tier: light
+outputs:
+  - type: check
+    description: "squadhq/visual-regression: success | neutral (intended changes) | failure (regressions)"
+  - type: comment
+    description: Diff table with one row per changed screen
+gate:
+  check: squadhq/visual-regression
+  condition: "Unclassified or regression diffs above the pixel threshold fail the check on UI PRs"
+requires: [preview-qa]
+untrusted_inputs: true
+prompt: prompt.md

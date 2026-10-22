@@ -1,0 +1,30 @@
+id: review-fix
+name: Engineer (review-fix)
+summary: >-
+  Addresses a Reviewer's REQUEST CHANGES on an agent PR in capped fix rounds
+  (default 2), replying per comment, pushing verified fixes, and handing a
+  decision digest to approvers when the cap is reached.
+phase: build
+tier: core
+default_enabled: true
+legacy: true
+role: engineer
+badge: "[Engineer] "
+trigger:
+  label: review:changes-requested
+inputs: [pr, pr_comments, review, diff, repo, ci_results, lessons, flows]
+tool_profile: edit-test-push
+model_tier: heavy
+outputs:
+  - type: pr
+    description: Fix commits pushed to the existing PR branch
+  - type: comment
+    description: "Per-comment 'fixed in <sha>' / 'disputed: <reason>' replies and one [fix-round N] summary"
+  - type: label
+    labels: [needs-human]
+gate:
+  blocking_label: review:changes-requested
+  condition: "At most flood-guards.review_fix_round_cap automated rounds; then needs-human with a decision digest"
+requires: [engineer, reviewer]
+untrusted_inputs: true
+prompt: prompt.md

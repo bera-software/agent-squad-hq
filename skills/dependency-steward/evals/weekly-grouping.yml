@@ -1,0 +1,20 @@
+id: dependency-steward/weekly-grouping
+description: Weekly mode groups minor/patch bumps, keeps a major bump separate, and flags an EOL runtime.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+    mode: weekly
+    eol_data: "node 18 EOL 2025-04-30; python 3.9 EOL 2025-10-31"
+  tracker: |
+    Open Dependabot PRs: #201 lodash 4.17.20->4.17.21 (patch), #202 axios 1.6.0->1.7.2 (minor),
+    #203 react 18.3.1->19.0.0 (major), #204 express 4.19.1->4.19.2 (patch, fixes GHSA-qqqq-rrrr-ssss).
+  repo: |
+    .nvmrc: 18
+expect:
+  must_contain:
+    - "(?i)react"
+    - "(?i)major"
+    - "(?i)EOL:? .*node|node.*(end.of.life|EOL)"
+    - "(?i)supersedes"
+  forbidden_actions: [merge, approve, deploy]

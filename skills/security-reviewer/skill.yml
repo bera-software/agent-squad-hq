@@ -1,0 +1,35 @@
+id: security-reviewer
+name: Security Reviewer
+summary: >-
+  Independent security review on a different model/provider from the Reviewer.
+  Required for auto-merge and for every PR with risk >= medium; labels the PR
+  security:approved or security:review-required with findings mapped to CWE
+  and OWASP ASVS 4.0.
+phase: verify
+tier: core
+default_enabled: true
+legacy: false
+role: security-reviewer
+badge: "[Security Reviewer] "
+trigger:
+  - event: pull_request.labeled
+    filter: "label in [risk:medium, risk:high], or the PR is otherwise eligible for auto-merge"
+  - label: security:review-required
+  - command: security-review
+inputs: [pr, pr_comments, diff, issue, threat_model, adr, sarif, ci_results, repo, flows]
+tool_profile: comment
+model_tier: heavy
+outputs:
+  - type: comment
+    description: One verdict comment with a findings table, plus inline comments per finding
+  - type: label
+    labels: [security:approved, security:review-required]
+  - type: json
+    description: "Structured verdict {verdict, findings[{cwe, asvs, severity, file, line, summary}], actions}"
+gate:
+  check: squadhq/security-review
+  blocking_label: security:review-required
+  condition: "Auto-merge and any PR with risk >= medium require security:approved from this skill (run on a different provider/model than reviewer)"
+requires: [reviewer]
+untrusted_inputs: true
+prompt: prompt.md

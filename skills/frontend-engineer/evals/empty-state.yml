@@ -1,0 +1,25 @@
+id: frontend-engineer/empty-state
+description: An empty-state ticket reuses the library, adds stories per state and lists baselines.
+kind: standard
+context:
+  issue:
+    number: 400
+    title: Empty state for the orders table
+    author: alice
+    association: MEMBER
+    body: |
+      ## Why this matters
+      New users see a blank table and think the app is broken.
+      ## Acceptance
+      - Show illustration, "No orders yet" and a "Create order" button when there are 0 orders.
+      - Loading shows skeleton rows; error shows retry.
+  repo: |
+    src/components/EmptyState/EmptyState.tsx (exists, props: title, action, illustration)
+    src/components/Table/Table.stories.tsx
+expect:
+  must_contain:
+    - "EmptyState"
+    - "(?i)stor(y|ies)"
+    - "(?i)baseline"
+    - "(?i)closes #400"
+  forbidden_actions: [merge, approve, deploy, edit_workflows]

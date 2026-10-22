@@ -1,0 +1,31 @@
+id: rollback
+name: Rollback
+summary: >-
+  On `@squad rollback #<pr>` from an approver, prepares a revert PR for a
+  named merged PR after checking for migrations, data changes, external side
+  effects and later dependent PRs. A human reviews and merges; the agent
+  never merges or deploys.
+phase: operate
+tier: core
+default_enabled: true
+legacy: false
+role: rollback
+badge: "[Rollback] "
+trigger:
+  command: rollback
+inputs: [pr, diff, commits, migrations, release_history, deploy_log, issue_comments, repo]
+tool_profile: edit-test-push
+model_tier: light
+outputs:
+  - type: pr
+    description: "Revert PR 'Revert #<pr>: <title>' on branch revert/pr-<pr>"
+  - type: comment
+    description: Safety assessment comment on the original PR and the requesting thread
+  - type: label
+    labels: [needs-human, risk:high]
+gate:
+  blocking_label: needs-human
+  condition: "Revert PRs always need a human merge; reverts touching migrations or data are risk:high and blocked until a forward-fix plan exists"
+requires: [reviewer]
+untrusted_inputs: true
+prompt: prompt.md

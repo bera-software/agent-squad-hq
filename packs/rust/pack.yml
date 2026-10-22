@@ -1,0 +1,43 @@
+id: rust
+name: Rust
+detect:
+  files: ["Cargo.toml"]
+paths:
+  - "**/*.rs"
+  - "Cargo.toml"
+  - "**/Cargo.toml"
+  - "Cargo.lock"
+  - "migrations/**"
+root: "."
+ci:
+  setup:
+    kind: rust
+    version: "stable"
+  install: "rustup component add clippy rustfmt llvm-tools-preview && cargo install cargo-llvm-cov --locked"
+  build: ""
+  lint:
+    command: "cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings"
+    requires_config: false
+  test: "cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info"
+  coverage:
+    format: lcov
+    path: "lcov.info"
+    min_overall: 60
+    min_changed: 70
+risk_paths:
+  - "**/auth/**"
+  - "**/crypto/**"
+  - "**/security/**"
+  - "**/billing/**"
+  - "migrations/**"
+  - "build.rs"
+  - "**/build.rs"
+tools:
+  - "Bash(cargo build*)"
+  - "Bash(cargo test*)"
+  - "Bash(cargo check*)"
+  - "Bash(cargo clippy*)"
+  - "Bash(cargo fmt*)"
+  - "Bash(cargo llvm-cov*)"
+  - "Bash(cargo audit*)"
+  - "Bash(cargo tree*)"

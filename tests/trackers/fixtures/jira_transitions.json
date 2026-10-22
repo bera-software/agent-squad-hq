@@ -1,0 +1,44 @@
+{
+  "transitions": [
+    {
+      "id": "11",
+      "name": "Start",
+      "to": {
+        "name": "In Progress",
+        "statusCategory": {
+          "key": "indeterminate"
+        }
+      }
+    },
+    {
+      "id": "21",
+      "name": "Review",
+      "to": {
+        "name": "In Review",
+        "statusCategory": {
+          "key": "indeterminate"
+        }
+      }
+    },
+    {
+      "id": "31",
+      "name": "Back",
+      "to": {
+        "name": "To Do",
+        "statusCategory": {
+          "key": "new"
+        }
+      }
+    },
+    {
+      "id": "41",
+      "name": "Resolve",
+      "to": {
+        "name": "Closed",
+        "statusCategory": {
+          "key": "done"
+        }
+      }
+    }
+  ]
+}

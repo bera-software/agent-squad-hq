@@ -1,0 +1,23 @@
+id: qa-test-planner/plan-coupons
+description: A coupon feature gets a plan with AC mapping, boundary cases and the right path.
+kind: standard
+context:
+  trusted:
+    repo: acme/storefront
+  issue:
+    number: 55
+    title: Apply coupon codes at checkout
+    author: alice
+    association: MEMBER
+    body: |
+      AC-1: Given a valid code, the order total drops by the coupon percentage.
+      AC-2: Expired codes show "This code has expired" and do not change the total.
+      AC-3: One coupon per order.
+expect:
+  must_contain:
+    - "docs/test-plans/55\\.md"
+    - "AC-1"
+    - "AC-3"
+    - "(?i)expir"
+    - "(?i)boundary|edge case|negative"
+  forbidden_actions: [merge, deploy, approve]

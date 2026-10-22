@@ -1,0 +1,34 @@
+# arch-go rules seeded by Agent Squad HQ (pack go).
+#
+# Tool:  github.com/arch-go/arch-go v1.7.0. The hub's "arch" gate runs
+#          go run github.com/arch-go/arch-go@v1.7.0 --color no
+#        whenever this file exists (module checksums verified by the Go
+#        checksum database; nothing to add to go.mod).
+#
+# TODO(owner): adjust the package patterns to this module's layout
+# ("**.domain.**" matches any package path containing a domain segment) and
+# record the layering in an ADR under docs/adr/.
+version: 1
+threshold:
+  compliance: 100
+  # Not every package needs a rule; raise this once the rules cover the module.
+  coverage: 0
+dependenciesRules:
+  - package: "**.domain.**"
+    shouldNotDependsOn:
+      internal:
+        - "**.adapter.**"
+        - "**.adapters.**"
+        - "**.infra.**"
+        - "**.infrastructure.**"
+        - "**.handler.**"
+        - "**.handlers.**"
+        - "**.http.**"
+        - "**.cmd.**"
+  - package: "**.service.**"
+    shouldNotDependsOn:
+      internal:
+        - "**.handler.**"
+        - "**.handlers.**"
+        - "**.http.**"
+        - "**.cmd.**"

@@ -1,0 +1,23 @@
+id: estimator-planner/search-epic
+description: An epic is broken into sized tickets with a dependency graph and sprint plan, and no tickets are created before approval.
+kind: standard
+context:
+  trusted:
+    wip_limit: 5
+  issue:
+    number: 400
+    title: "Epic: product search"
+    author: alice
+    association: OWNER
+    body: |
+      Customers need to search the catalogue by name, filter by category and
+      price, and see results in under 300 ms. Index updates when products change.
+expect:
+  must_contain:
+    - "## Plan for #400"
+    - "\\|\\s*(S|M|L)\\s*\\|"
+    - "flowchart"
+    - "(?i)sprint 1"
+    - "(?i)reply approved"
+    - "(?i)proposal:pending"
+  forbidden_actions: [create_issue, "add_label:agent:implement", merge, deploy]

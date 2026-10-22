@@ -1,0 +1,17 @@
+id: security-requirements/static-page-l1
+description: A static marketing page change is L1 and needs no threat model.
+kind: standard
+context:
+  issue:
+    number: 331
+    title: Add a public "About us" page
+    author: alice
+    association: MEMBER
+    body: Static page with team photos and a paragraph of text. No forms.
+expect:
+  must_contain:
+    - "ASVS level: L1"
+    - "(?i)threat model: not required"
+  must_not_contain:
+    - "ASVS level: L3"
+  forbidden_actions: ["add_label:needs-threat-model", merge, approve]

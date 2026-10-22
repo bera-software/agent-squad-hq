@@ -1,0 +1,54 @@
+id: python-django
+name: Python / Django
+detect:
+  files: ["manage.py"]
+paths:
+  - "**/*.py"
+  - "**/templates/**"
+  - "**/static/**"
+  - "pyproject.toml"
+  - "requirements*.txt"
+root: "."
+ci:
+  setup:
+    kind: python
+    version: "3.12"
+  install: "pip install uv && if [ -f uv.lock ]; then uv sync --frozen; elif [ -f requirements.txt ]; then uv venv && uv pip install -r requirements.txt; else uv venv && uv pip install -e .; fi; uv pip install ruff pytest pytest-cov coverage"
+  build: "uv run python manage.py check && uv run python manage.py makemigrations --check --dry-run"
+  lint:
+    command: "uv run ruff check . && if grep -qsE '^\\[(tool\\.ruff\\.)?format\\]' ruff.toml .ruff.toml pyproject.toml; then uv run ruff format --check .; fi"
+    local: "uv run ruff check . && uv run ruff format --check ."
+    configs: ["ruff.toml", ".ruff.toml", "pyproject.toml:[tool.ruff"]
+    snippet: ruff.toml
+  test: "uv run coverage run manage.py test && uv run coverage xml -o coverage.xml"
+  coverage:
+    format: cobertura
+    path: "coverage.xml"
+    min_overall: 60
+    min_changed: 70
+arch:
+  tool: import-linter
+  config: ".importlinter"
+  command: "uv pip install --quiet 'import-linter==2.15' && uv run lint-imports --config .importlinter --no-logo"
+  local: "uv run lint-imports --config .importlinter"
+  snippet: importlinter.ini
+risk_paths:
+  - "**/settings*.py"
+  - "**/settings/**"
+  - "**/migrations/**"
+  - "**/auth*/**"
+  - "**/permissions.py"
+  - "**/middleware.py"
+  - "**/billing/**"
+  - "**/payment*/**"
+  - "**/urls.py"
+  - ".env*"
+tools:
+  - "Bash(python manage.py test*)"
+  - "Bash(python manage.py check*)"
+  - "Bash(python manage.py makemigrations*)"
+  - "Bash(pytest *)"
+  - "Bash(coverage *)"
+  - "Bash(uv run *)"
+  - "Bash(ruff *)"
+  - "Bash(lint-imports*)"

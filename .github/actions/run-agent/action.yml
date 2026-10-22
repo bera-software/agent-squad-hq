@@ -1,0 +1,168 @@
+name: Squad HQ — run agent
+description: >
+  Runs in the AGENT job, whose only credentials are the LLM key and the
+  agent's repo-scoped token. Reads the plan agent-prep sealed, installs the
+  label guard and the git guard, neutralises repository-controlled agent
+  configuration, makes the hub checkout read-only, and runs the executor as
+  its LAST step: no hub-provided code runs after the agent.
+author: Agent Squad HQ
+
+# Requires setup-hub earlier in the job (python + squadhq, SQUADHQ_HOME).
+inputs:
+  plan-dir:
+    description: Directory holding plan.json and prompt.md from agent-prep.
+    required: true
+  agent-token:
+    description: The agent's repo-scoped token (from the sealed bundle).
+    required: true
+  anthropic-api-key:
+    description: secrets.ANTHROPIC_API_KEY — handed to the executor input only.
+    required: false
+    default: ""
+  claude-code-oauth-token:
+    description: secrets.CLAUDE_CODE_OAUTH_TOKEN — handed to the executor input only.
+    required: false
+    default: ""
+  executor:
+    description: Coding executor. Only claude-code is wired in Actions mode today.
+    required: false
+    default: claude-code
+  debug-transcripts:
+    description: '"true" prints full transcripts (vars.SQUADHQ_DEBUG_TRANSCRIPTS). Never on public repos.'
+    required: false
+    default: "false"
+
+outputs:
+  auth-mode:
+    description: api | subscription | skip
+    value: ${{ steps.plan.outputs.auth_mode }}
+  model:
+    description: Model the run used.
+    value: ${{ steps.plan.outputs.model }}
+  execution-file:
+    description: Raw executor output (untrusted data).
+    value: ${{ steps.claude.outputs.execution_file }}
+  outcome:
+    description: success | failure | skipped | cancelled
+    value: ${{ steps.claude.outcome }}
+  skip-failed:
+    description: '"true" when the breaker skipped a run that must fail (a review).'
+    value: ${{ steps.plan.outputs.auth_mode == 'skip' && steps.plan.outputs.fail_on_skip == 'true' }}
+
+runs:
+  using: composite
+  steps:
+    - id: plan
+      name: Read the sealed plan
+      shell: bash
+      env:
+        PLAN_DIR: ${{ inputs.plan-dir }}
+      run: |
+        python -I - <<'PY'
+        import json, os
+        plan = json.load(open(os.path.join(os.environ["PLAN_DIR"], "plan.json")))
+        keys = ("role", "tool_profile", "allowed", "disallowed", "model", "auth_mode", "label_guard_role",
+                "push_branches", "allowed_bots")
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            for k in keys:
+                v = str(plan.get(k, "")).replace("\n", " ")
+                f.write(f"{k}={v}\n")
+            f.write(f"fail_on_skip={'true' if plan.get('fail_on_skip') else 'false'}\n")
+        PY
+
+    - name: Neutralise repository agent configuration
+      shell: bash
+      # Hooks in .claude/settings.json, MCP servers in .mcp.json, and other
+      # executors' project config would run with the agent's token.
+      # CLAUDE.md / AGENTS.md stay readable — as untrusted data.
+      run: |
+        for p in .claude .mcp.json .codex .gemini .cursor .aider.conf.yml; do
+          if [ -e "$p" ]; then rm -rf -- "$p"; echo "removed repository-controlled $p" >> "$GITHUB_STEP_SUMMARY"; fi
+        done
+        # A committed symlink could point the agent's own tools at /proc, /etc or
+        # the runner's temp dirs: drop every link that resolves outside the checkout.
+        ws=$(pwd -P)
+        find . -path ./.git -prune -o -type l -print 2>/dev/null | while IFS= read -r l; do
+          t=$(readlink -f -- "$l" 2>/dev/null || echo /)
+          case "$t" in "$ws"/*) ;; *) rm -f -- "$l"; echo "removed symlink $l -> outside the checkout" >> "$GITHUB_STEP_SUMMARY" ;; esac
+        done
+
+    - if: steps.plan.outputs.label_guard_role != ''
+      name: Label guard
+      shell: bash
+      continue-on-error: true
+      env:
+        ROLE: ${{ steps.plan.outputs.label_guard_role }}
+      run: python -P -m squadhq.label_guard install --role "$ROLE"
+
+    - name: Git guard (every profile)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.agent-token }}
+        PUSH_BRANCHES: ${{ steps.plan.outputs.tool_profile == 'edit-test-push' && steps.plan.outputs.push_branches || 'none' }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        PUSH_CREDENTIALS: ${{ steps.plan.outputs.tool_profile == 'edit-test-push' }}
+      run: bash "$GITHUB_ACTION_PATH/branch-guard.sh"
+
+    - if: startsWith(steps.plan.outputs.tool_profile, 'edit-')
+      name: Commit identity (the bot)
+      shell: bash
+      run: |
+        bot="${SQUADHQ_BOT_LOGIN:-squadhq-ops[bot]}"
+        git config --global user.name "$bot"
+        git config --global user.email "$bot@users.noreply.github.com"
+
+    - if: hashFiles('graphify-out/graph.json') != '' && steps.plan.outputs.tool_profile != 'read-only'
+      name: Install graphify (pinned)
+      shell: bash
+      continue-on-error: true
+      run: python -P -m pip install --disable-pip-version-check --quiet --require-hashes -r "$SQUADHQ_HOME/requirements/graph.lock"
+
+    - name: Make the hub checkout read-only
+      shell: bash
+      # Nothing from the hub runs after the agent in this job; read-only stops
+      # the agent's own tools from editing prompts mid-run. (The hub is the
+      # checkout itself in hub-repo workflows, where agents edit hub files.)
+      run: |
+        if [ "$(cd "$SQUADHQ_HOME" && pwd)" != "$(pwd)" ]; then chmod -R a-w "$SQUADHQ_HOME"; fi
+
+    - if: inputs.executor != 'claude-code'
+      name: Unsupported executor
+      shell: bash
+      env:
+        EXECUTOR: ${{ inputs.executor }}
+      run: |
+        echo "::error::executor '$EXECUTOR' is not available in Actions mode yet (supported: claude-code)"
+        exit 1
+
+    - id: prompt
+      name: Load the prompt
+      shell: bash
+      env:
+        PLAN_DIR: ${{ inputs.plan-dir }}
+      run: |
+        delim="SQUADHQ_PROMPT_$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+        { echo "text<<$delim"; cat "$PLAN_DIR/prompt.md"; echo "$delim"; } >> "$GITHUB_OUTPUT"
+
+    # LAST STEP. The executor gets the LLM key through its input and the agent
+    # token as GH_TOKEN / github_token — nothing else.
+    - id: claude
+      if: inputs.executor == 'claude-code' && steps.plan.outputs.auth_mode != 'skip'
+      name: Run agent (claude-code)
+      uses: anthropics/claude-code-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1.0.256
+      with:
+        anthropic_api_key: ${{ steps.plan.outputs.auth_mode == 'api' && inputs.anthropic-api-key || '' }}
+        claude_code_oauth_token: ${{ steps.plan.outputs.auth_mode != 'api' && inputs.claude-code-oauth-token || '' }}
+        github_token: ${{ inputs.agent-token }}
+        allowed_bots: ${{ steps.plan.outputs.allowed_bots }}
+        show_full_output: ${{ inputs.debug-transcripts == 'true' }}
+        claude_args: |
+          --model ${{ steps.plan.outputs.model }}
+          --setting-sources user
+          --allowedTools "${{ steps.plan.outputs.allowed }}"
+          --disallowedTools "${{ steps.plan.outputs.disallowed }}"
+        prompt: ${{ steps.prompt.outputs.text }}
+      env:
+        # An ephemeral runner dies with the job; background subagents would be killed mid-work.
+        CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+        GH_TOKEN: ${{ inputs.agent-token }}

@@ -1,0 +1,36 @@
+{{- $c := .Values.scheduler }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "squadhq.fullname" . }}-scheduler
+  labels:
+    {{- include "squadhq.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  {{- if not (and (hasKey $c "autoscaling") $c.autoscaling.enabled) }}
+  replicas: {{ $c.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "squadhq.selector" (dict "root" . "component" "scheduler") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "squadhq.labels" . | nindent 8 }}
+        app.kubernetes.io/component: scheduler
+      annotations:
+        checksum/config: {{ .Values.squadhqYml | sha256sum }}
+        {{- if and (eq "scheduler" "api") .Values.metrics.annotations }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+        {{- end }}
+        {{- with $c.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if hasKey $c "terminationGracePeriodSeconds" }}
+      terminationGracePeriodSeconds: {{ $c.terminationGracePeriodSeconds }}
+      {{- end }}
+      {{- include "squadhq.podSpec" (dict "root" . "component" "scheduler" "cmd" "scheduler" "ports" (eq "scheduler" "api") "resources" $c.resources "nodeSelector" $c.nodeSelector "tolerations" $c.tolerations "affinity" $c.affinity) | nindent 6 }}

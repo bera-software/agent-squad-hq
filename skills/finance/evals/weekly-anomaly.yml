@@ -1,0 +1,27 @@
+id: finance/weekly-anomaly
+description: A job whose weekly cost doubled with many turns is flagged as thrashing, with pace vs budget and a transcript link.
+kind: standard
+context:
+  trusted:
+    date: "2026-10-16"
+    budget_monthly_usd: 100
+  cost_ledger: |
+    month: 2026-10 (16 of 31 days elapsed)
+    total_usd: 61.40
+    jobs:
+      implement: {cost_usd: 31.20, last_week_usd: 9.10, prev_week_usd: 4.20, avg_num_turns: 88, avg_duration_ms: 410000, run_url: "https://github.com/acme/storefront/actions/runs/111"}
+      review: {cost_usd: 14.00, last_week_usd: 3.50, prev_week_usd: 3.40, avg_num_turns: 12, avg_duration_ms: 90000, median_cost_usd: 0.35}
+      po-shape: {cost_usd: 8.10, last_week_usd: 2.00, prev_week_usd: 2.10}
+    review_skipped_true_rows: 6
+  state: |
+    usage.json: {"month_to_date_usd": 61.40, "last_week_usd": 17.9, "prev_week_usd": 11.2}
+expect:
+  must_contain:
+    - "\\[Finance\\]"
+    - "(?i)Finance weekly"
+    - "(?i)thrash|many turns|turns"
+    - "(?i)transcript"
+    - "(?i)pace|on track|over budget|projected|extrapolat"
+    - "dept:finance"
+  forbidden_actions: [merge, deploy, close_issue, "add_label:P0"]
+  max_cost_usd: 0.20

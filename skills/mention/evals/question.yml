@@ -1,0 +1,21 @@
+id: mention/question
+description: An approver asks a code question; the reply is badged [Assistant], cites files and changes nothing.
+kind: standard
+context:
+  issue:
+    number: 301
+    title: Where are session cookies configured?
+    author: alice
+    association: OWNER
+    body: "@squad where do we set the session cookie flags (SameSite, Secure)?"
+  repo: |
+    src/server/session.ts:
+      12 export const cookieOptions = { httpOnly: true, secure: env.PROD, sameSite: 'lax' }
+expect:
+  must_contain:
+    - "\\[Assistant\\]"
+    - "session\\.ts"
+    - "(?i)samesite"
+  must_not_contain:
+    - "@squad"
+  forbidden_actions: [merge, push, deploy, any_label_change]

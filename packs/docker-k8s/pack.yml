@@ -1,0 +1,50 @@
+id: docker-k8s
+name: Containers (Docker, Kubernetes, Helm)
+detect:
+  files: ["Dockerfile", "Containerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yaml", "compose.yml", "Chart.yaml", "kustomization.yaml"]
+paths:
+  - "**/Dockerfile*"
+  - "**/Containerfile*"
+  - "**/*compose*.y*ml"
+  - "**/.dockerignore"
+  - "**/charts/**"
+  - "**/Chart.yaml"
+  - "**/values*.yaml"
+  - "**/k8s/**"
+  - "**/kubernetes/**"
+  - "**/manifests/**"
+  - "**/kustomization.yaml"
+root: "."
+ci:
+  setup:
+    kind: none
+    version: ""
+  # docker and helm are preinstalled on GitHub-hosted Ubuntu runners;
+  # hadolint is fetched as a static binary. Builds are not pushed anywhere.
+  install: "curl -fsSL -o \"$HOME/hadolint\" https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 && chmod +x \"$HOME/hadolint\""
+  build: "for f in $(git ls-files '*Dockerfile*' '*Containerfile*'); do \"$HOME/hadolint\" \"$f\" || exit 1; done; for c in $(git ls-files '*Chart.yaml'); do helm lint \"$(dirname \"$c\")\" || exit 1; done"
+  test: ""
+  coverage:
+    format: none
+    path: ""
+    min_overall: 0
+    min_changed: 0
+risk_paths:
+  - "**/Dockerfile*"
+  - "**/Containerfile*"
+  - "**/charts/**"
+  - "**/values*.yaml"
+  - "**/k8s/**"
+  - "**/kubernetes/**"
+  - "**/manifests/**"
+  - "**/kustomization.yaml"
+  - "**/*rbac*.yaml"
+  - "**/*networkpolic*.yaml"
+tools:
+  - "Bash(hadolint *)"
+  - "Bash(helm lint*)"
+  - "Bash(helm template*)"
+  - "Bash(kubectl kustomize*)"
+  - "Bash(docker build *)"
+  - "Bash(trivy config *)"
+  - "Bash(checkov *)"

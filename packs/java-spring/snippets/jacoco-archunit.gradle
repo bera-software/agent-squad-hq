@@ -1,0 +1,12 @@
+// Add to build.gradle (or backend/build.gradle).
+// CI note: run `./gradlew build --continue`, then `./gradlew jacocoTestReport`,
+// then exit with the build's exit code, so a failing test still yields a report.
+plugins { id 'jacoco' }
+jacoco { toolVersion = "0.8.12" }
+jacocoTestReport {
+    dependsOn test
+    reports { xml.required = true; html.required = true }
+}
+dependencies {
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+}
