@@ -288,7 +288,7 @@ jobs:
           set +e
           no() { echo "base_only=false" >> "$GITHUB_OUTPUT"; [ -n "$1" ] && echo "base-only: no — $1" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
           [ "$IS_SYNC" = true ] || no ""
-          [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] || no "no previous head"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ]; then no "no previous head"; fi
           pr_diff() {
             gh api "repos/$REPO/compare/$BASE...$1" \
               --jq 'if (.files|length) >= 300 then error("truncated") else .files[] | "\(.filename)|\(.status)|\(.sha)" end' 2>/dev/null | sort
@@ -3469,7 +3469,7 @@ jobs:
           # Only the three tracked files, regular files, bounded size; JSON must parse.
           for f in "$IN"/*; do
             case "$(basename "$f")" in graph.json|GRAPH_REPORT.md|manifest.json) ;; *) echo "::error::unexpected file $(basename "$f")"; exit 1 ;; esac
-            [ -f "$f" ] && [ ! -L "$f" ] || { echo "::error::not a regular file: $f"; exit 1; }
+            if [ ! -f "$f" ] || [ -L "$f" ]; then echo "::error::not a regular file: $f"; exit 1; fi
             [ "$(stat -c %s "$f")" -le 50000000 ] || { echo "::error::$f is too large"; exit 1; }
           done
           for f in graph.json manifest.json; do

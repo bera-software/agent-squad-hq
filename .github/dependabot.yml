@@ -16,8 +16,10 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+  # /apps is one npm workspace with a single package-lock.json: watching the
+  # workspace directories too only produces duplicate pull requests.
   - package-ecosystem: npm
-    directories: ["/apps", "/apps/dashboard", "/apps/mobile"]
+    directory: /apps
     schedule:
       interval: weekly
     cooldown:
