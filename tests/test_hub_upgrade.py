@@ -82,3 +82,12 @@ def test_files_removed_from_the_template_are_deleted_unless_changed_locally():
 def test_manifest_only_change_counts_as_empty():
     assert Change(writes={MANIFEST_PATH: b"{}"}).empty
     assert hub_upgrade.parse_manifest("not json") is None and hub_upgrade.parse_manifest(None) is None
+
+
+def test_project_only_workflows_are_removed_from_template_hubs(hub):
+    current = blobs(hub.files)
+    current[".github/workflows/hub-ci.yml"] = git_blob_sha(b"project ci")
+    current[".github/workflows/release.yml"] = git_blob_sha(b"project release")
+    ch = hub_upgrade.plan(current, hub, None)
+    assert ch.deletes == [".github/workflows/hub-ci.yml", ".github/workflows/release.yml"] and not ch.empty
+

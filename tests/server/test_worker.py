@@ -196,6 +196,9 @@ def test_backoff_delay() -> None:
 def _worker_rig(store: Any, outcomes: list[ContainerOutcome] | None = None) -> Rig:
     r = make_rig(store, make_settings(mode="worker", executor_image="ghcr.io/acme/exec@sha256:abc"))
     r.worker.deps.containers = r.containers = FakeContainerRunner(outcomes)
+    # Model credentials come from pool_env (os.environ by default). Other test modules and CI
+    # set ANTHROPIC_API_KEY, so start from an empty environment unless a test sets one.
+    r.worker.pool_env = {}
     return r
 
 

@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   verify:
+    # The project's own CI and release: never run in a hub created from the template.
+    if: github.repository == 'bera-software/agent-squad-hq'
     # Any v* tag triggers this workflow; only a tag on a commit that is already
     # on main may publish (pair with a tag ruleset limited to maintainers).
     runs-on: ubuntu-latest
@@ -38,6 +40,8 @@ jobs:
             || { echo "::error::tag $GITHUB_REF_NAME points at a commit that is not on main — refusing to publish"; exit 1; }
 
   build:
+    # The project's own CI and release: never run in a hub created from the template.
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: [verify]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -82,6 +86,8 @@ jobs:
           retention-days: 7
 
   pypi:
+    # The project's own CI and release: never run in a hub created from the template.
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -99,6 +105,8 @@ jobs:
           packages-dir: dist/
 
   image:
+    # The project's own CI and release: never run in a hub created from the template.
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: [verify]
     # Same protected environment as the PyPI publish: its required reviewers
     # gate the GHCR push and the signature too.
@@ -150,6 +158,8 @@ jobs:
         run: cosign sign --yes "$IMAGE"
 
   github-release:
+    # The project's own CI and release: never run in a hub created from the template.
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: [build, pypi, image]
     runs-on: ubuntu-latest
     timeout-minutes: 10

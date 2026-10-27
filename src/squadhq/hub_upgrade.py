@@ -8,7 +8,8 @@ A hub is a copy of the template plus its owner's ``squadhq.yml``. An upgrade:
 * renders ``config/*.json`` and the workflow schedule lines again from the
   hub's own ``squadhq.yml``, so its settings carry over;
 * never touches ``squadhq.yml``, ``README.md``, ``.gitignore`` or any file
-  outside the template;
+  outside the template, except that it removes the project's own CI and release
+  workflows (``scaffold.PROJECT_ONLY``) that a hub made from the GitHub template carries;
 * keeps, and reports, an engine file the owner changed since the last managed
   upgrade. :data:`MANIFEST_PATH` records the git blob of every file an upgrade
   wrote, which is how a local change is recognised. A hub without the manifest
@@ -140,6 +141,11 @@ def plan(current: Mapping[str, str], hub: HubFiles, manifest: Mapping[str, str] 
             ch.deletes.append(path)  # removed from the template and untouched locally
         else:
             ch.kept.append(path)
+    # The project's own CI and release workflows: a hub created from the GitHub template carries
+    # them, a scaffolded one never does. They do not belong in a hub.
+    for path in sorted(p.replace(os.sep, "/") for p in scaffold.PROJECT_ONLY):
+        if path in current and path not in hub.files and path not in ch.deletes:
+            ch.deletes.append(path)
     if not ch.empty or current.get(MANIFEST_PATH) != git_blob_sha(manifest_bytes(hub)):
         ch.writes[MANIFEST_PATH] = manifest_bytes(hub)
     return ch
