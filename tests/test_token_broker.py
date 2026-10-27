@@ -384,3 +384,14 @@ def test_broker_mode_is_never_single_app(monkeypatch):
     monkeypatch.setenv("SQUADHQ_TOKEN_BROKER", "https://api.squadhq.example")
     assert not settings.single_app_mode()
     assert settings.token_broker() == "https://api.squadhq.example"
+
+
+@pytest.mark.parametrize("name", ["router.yml", "squadhq-agent.yml"])
+def test_agent_jobs_end_before_their_tokens_expire(name):
+    # The prep job mints the agent's tokens; GitHub caps installation tokens at 1 hour.
+    jobs = _load(os.path.join(GH, "workflows", name))["jobs"]
+    agent = {n: j for n, j in jobs.items()
+             if any("Unseal the agent's tokens" in str(s.get("name", "")) for s in j.get("steps") or [])}
+    assert agent, f"{name}: no agent jobs found"
+    for n, job in agent.items():
+        assert job.get("timeout-minutes", 360) <= 50, f"{name}: {n}"

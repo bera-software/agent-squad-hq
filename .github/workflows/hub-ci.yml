@@ -35,7 +35,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: python -P -m pip install --disable-pip-version-check --quiet -e '.[dev]'
+        run: python -P -m pip install --disable-pip-version-check --quiet -e '.[dev,server]'
       - name: ruff (package, tests and action scripts)
         run: ruff check .
       - name: mypy (typed subpackages, blocking)

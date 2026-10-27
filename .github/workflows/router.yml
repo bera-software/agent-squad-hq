@@ -683,8 +683,10 @@ jobs:
           f="$RUNNER_TEMP/squadhq-broker-tokens"
           [ -f "$f" ] || exit 0
           while IFS= read -r t; do
-            [ -n "$t" ] && curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
-              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+            if [ -n "$t" ]; then
+              curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $t" \
+                -H "Accept: application/vnd.github+json" https://api.github.com/installation/token || true
+            fi
           done < "$f"
           rm -f "$f"
 
@@ -1596,7 +1598,8 @@ jobs:
       group: squadhq-review-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Agent tokens come from the prep job and GitHub caps them at 1 hour: stop before they expire.
+    timeout-minutes: 50
     permissions:
       contents: read
     outputs: &agent-outputs
@@ -2015,7 +2018,8 @@ jobs:
       group: squadhq-review-fix-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Agent tokens come from the prep job and GitHub caps them at 1 hour: stop before they expire.
+    timeout-minutes: 50
     permissions:
       contents: read
     outputs: *agent-outputs
@@ -2117,7 +2121,8 @@ jobs:
       group: squadhq-implement-${{ github.repository }}-${{ github.event.issue.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Agent tokens come from the prep job and GitHub caps them at 1 hour: stop before they expire.
+    timeout-minutes: 50
     permissions:
       contents: read
     outputs: *agent-outputs
@@ -2181,7 +2186,8 @@ jobs:
       group: squadhq-design-${{ github.repository }}-${{ github.event.issue.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Agent tokens come from the prep job and GitHub caps them at 1 hour: stop before they expire.
+    timeout-minutes: 50
     permissions:
       contents: read
     outputs: *agent-outputs
@@ -2554,7 +2560,8 @@ jobs:
       group: squadhq-mention-${{ github.repository }}-${{ github.event.issue.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Agent tokens come from the prep job and GitHub caps them at 1 hour: stop before they expire.
+    timeout-minutes: 50
     permissions:
       contents: read
     outputs: *agent-outputs
@@ -2665,7 +2672,8 @@ jobs:
       group: squadhq-skill-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Agent tokens come from the prep job and GitHub caps them at 1 hour: stop before they expire.
+    timeout-minutes: 50
     permissions:
       contents: read
     outputs: *agent-outputs
