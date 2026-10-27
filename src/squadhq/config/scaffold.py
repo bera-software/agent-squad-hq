@@ -78,7 +78,7 @@ def known_template_packs() -> set[str] | None:
 
 
 def _ignore(_dir: str, names: list[str]) -> list[str]:
-    return [n for n in names if n in ("__pycache__", ".pytest_cache") or n.endswith(".pyc")]
+    return [n for n in names if n in ("__pycache__", ".pytest_cache", ".DS_Store") or n.endswith(".pyc")]
 
 
 def _copy_new(a: str, b: str) -> None:

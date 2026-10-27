@@ -11,6 +11,22 @@ There are two things to keep in step:
 
 The SHA comes from `SQUADHQ_STUB_REF` when onboarding and stub sync render the stub. The onboarding workflow sets it from `vars.SQUADHQ_HUB_REF` (default `main`).
 
+## Agent Squad HQ Cloud
+
+On Cloud you do not merge anything by hand. When a new version ships, Cloud opens a pull request
+in your hub, **chore: upgrade Agent Squad HQ to X.Y.Z** (you can also open it from the Overview
+page). It is one commit made by `squadhq.hub_upgrade`:
+
+- engine files (workflows, actions, prompts, packs, skills, `src/squadhq`, ...) are replaced with
+  the new version's;
+- `config/*.json` and the workflow schedules are rendered again from your `squadhq.yml`;
+- `squadhq.yml`, `README.md`, `.gitignore` and files outside the template are left alone;
+- `.github/squadhq-manifest.json` records what the upgrade wrote. From the second upgrade on, an
+  engine file you changed is kept and listed in the PR description instead of being replaced.
+
+Review and merge it. The manifest change starts **Stub Sync**, which opens a PR in each project
+(step 4 below).
+
 ## Upgrade steps
 
 1. **Read the changelog** for every version between yours and the target.

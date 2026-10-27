@@ -5,7 +5,8 @@ name: Stub Sync
 on:
   push:
     branches: [main]
-    paths: ["onboarding/agents.yml.stub"]
+    # The manifest changes when a hub upgrade (squadhq.hub_upgrade) is merged.
+    paths: ["onboarding/agents.yml.stub", ".github/squadhq-manifest.json"]
   release:
     types: [published]
   workflow_dispatch:
