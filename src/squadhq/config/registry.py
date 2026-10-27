@@ -148,6 +148,21 @@ PROVIDER_SECRETS: dict[str, dict[str, str]] = {
     "openai_compatible": {"api": "OPENAI_COMPATIBLE_API_KEY"},
     "vllm": {"api": "VLLM_API_KEY"},
 }
+# Model-provider secrets the hub-loop workflows (hub-agent.yml and its callers) pass to
+# `squadhq.agent_runner`. Reusable workflows declare secrets statically, so a provider
+# credential under any other name never reaches a hub loop in Actions mode. Keep in sync with
+# .github/workflows/hub-agent.yml (tests/test_hub_loop_secrets.py checks it).
+HUB_LOOP_SECRETS: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY", "GEMINI_BEARER_TOKEN",
+    "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_AD_TOKEN",
+    "AWS_BEARER_TOKEN_BEDROCK", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+    "OPENROUTER_API_KEY",
+    "TOGETHER_API_KEY",
+    "OPENAI_COMPATIBLE_API_KEY",
+    "VLLM_API_KEY", "OLLAMA_API_KEY", "LMSTUDIO_API_KEY",
+)
 # Providers that exist elsewhere but have no adapter here: rejected with a hint.
 UNSUPPORTED_PROVIDERS: dict[str, str] = {
     "vertex": "no Vertex AI adapter yet: use gemini (Gemini API key) or anthropic directly",

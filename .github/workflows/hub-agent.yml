@@ -17,6 +17,7 @@ on:
         type: number
         required: false
         default: 30
+    # Model-provider secrets: squadhq.config.registry.HUB_LOOP_SECRETS (a test keeps them in sync).
     secrets:
       SQUADHQ_APP_PRIVATE_KEY:
         required: true
@@ -25,6 +26,32 @@ on:
       OPENAI_API_KEY:
         required: false
       GEMINI_API_KEY:
+        required: false
+      GEMINI_BEARER_TOKEN:
+        required: false
+      AZURE_OPENAI_API_KEY:
+        required: false
+      AZURE_OPENAI_AD_TOKEN:
+        required: false
+      AWS_BEARER_TOKEN_BEDROCK:
+        required: false
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      AWS_SESSION_TOKEN:
+        required: false
+      OPENROUTER_API_KEY:
+        required: false
+      TOGETHER_API_KEY:
+        required: false
+      OPENAI_COMPATIBLE_API_KEY:
+        required: false
+      VLLM_API_KEY:
+        required: false
+      OLLAMA_API_KEY:
+        required: false
+      LMSTUDIO_API_KEY:
         required: false
       SLACK_WEBHOOK_URL:
         required: false
@@ -86,6 +113,19 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_BEARER_TOKEN: ${{ secrets.GEMINI_BEARER_TOKEN }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_AD_TOKEN: ${{ secrets.AZURE_OPENAI_AD_TOKEN }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          OPENAI_COMPATIBLE_API_KEY: ${{ secrets.OPENAI_COMPATIBLE_API_KEY }}
+          VLLM_API_KEY: ${{ secrets.VLLM_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          LMSTUDIO_API_KEY: ${{ secrets.LMSTUDIO_API_KEY }}
           SQUADHQ_MONTHLY_BUDGET_USD: ${{ vars.SQUADHQ_MONTHLY_BUDGET_USD || '50' }}
           MONTHLY_BUDGET_USD: ${{ vars.SQUADHQ_MONTHLY_BUDGET_USD || '50' }}
         run: python -P -m squadhq.agent_runner "$MODE"

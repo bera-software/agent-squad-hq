@@ -72,9 +72,9 @@ Capabilities (web search, JSON mode, thinking controls) and prices per model com
 ## Current limitations
 
 !!! warning "Read before you route hub loops away from Anthropic"
-    - **Non-Anthropic routing through `squadhq.yml` does not reach the adapters yet in Actions mode.** `squadhq render` writes bare model ids into `config/models.json` (with the provider in a separate `primary_provider` field that the runtime does not read), so a bare id resolves to `SQUADHQ_DEFAULT_PROVIDER`, which the workflows do not set. Until this is fixed, keep hub-loop tiers on Anthropic models in Actions mode.
-    - The hub workflows pass only `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `GEMINI_API_KEY` to hub loops. Other providers' variables (`AZURE_OPENAI_*`, `AWS_*`, `OLLAMA_BASE_URL`, …) would need workflow changes. In server mode, set them in the server environment.
-    - `providers.<name>.base_url`, `.region` and `.secret` in `squadhq.yml` are rendered into `config/auth.json`, but the adapters read their environment variables, not that file.
+    - Hub loops in Actions mode receive the provider secrets listed in `squadhq.config.registry.HUB_LOOP_SECRETS`: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GEMINI_BEARER_TOKEN`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_AD_TOKEN`, `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `OPENROUTER_API_KEY`, `TOGETHER_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `VLLM_API_KEY`, `OLLAMA_API_KEY`, `LMSTUDIO_API_KEY`. A `providers.<name>.secret` with another name validates with a warning and works in server mode only.
+    - Endpoints and regions come from `squadhq.yml` (`providers.<name>.base_url`, `providers.bedrock.region`), rendered into `config/auth.json`. Local servers (`ollama`, `vllm`, `lmstudio`) need a `base_url` the GitHub runner can reach.
+    - Coding agents run on Claude Code only in Actions mode (see [Executors](#executors)).
     - `vertex` is accepted in `squadhq.yml` but has no adapter of its own; use `gemini` with `GEMINI_BASE_URL` and `GEMINI_BEARER_TOKEN` as described above.
 
 ## Adding a provider

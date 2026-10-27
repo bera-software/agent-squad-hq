@@ -352,6 +352,10 @@ def _providers(v: _V, raw: Any, skill_jobs: dict[str, str] | None = None) -> Pro
             secret=v.string(pd, "secret", p, secrets.get(auth, ""),
                             pattern=re.compile(r"^[A-Z_][A-Z0-9_]*$"), hint="UPPER_SNAKE secret name"),
         )
+        if configs[name].secret and auth == "api" and configs[name].secret not in R.HUB_LOOP_SECRETS:
+            v.warn(f"{p}.secret", f"{configs[name].secret} is not passed to hub loops in Actions mode (the "
+                   "workflows declare their secrets statically); it works in server mode only",
+                   "use " + R.PROVIDER_SECRETS.get(name, {}).get("api", "the provider's default secret name"))
         if name == "anthropic":
             configs[name].pool = _pool(v, pd.get("pool"), f"{p}.pool")
             configs[name].pool_strategy = v.string(pd, "pool_strategy", p, "ordered", choices=POOL_STRATEGIES)
