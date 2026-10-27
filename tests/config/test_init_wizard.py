@@ -130,3 +130,24 @@ def test_generate_yaml_with_an_account_pool():
                                                        ("account-2", "subscription", "CLAUDE_CODE_OAUTH_TOKEN_2")]
     assert cfg.providers.configs["anthropic"].pool_strategy == "round_robin"
     assert "pool:" not in W.generate_yaml(W.Answers(org_name="a", owner="a", hub_repo="a/h", approvers=["@a"]))
+
+
+def test_generate_yaml_routes_hub_loops_to_another_provider():
+    from squadhq.config import render
+
+    a = W.Answers(org_name="acme", owner="acme", hub_repo="acme/hub", approvers=["@octo"],
+                  heavy_model="claude-opus-5-5",
+                  hub_loops=W.HubLoopAnswer("azure_openai", "gpt5-prod", "gpt5-mini-prod",
+                                            base_url="https://acme.openai.azure.com"))
+    text = W.generate_yaml(a)
+    assert W.validate_generated(text) == []
+    cfg, _ = load_text(text)
+    models = render.render_models(cfg)
+    # Coding agents keep Claude; every hub loop runs on the Azure tiers, falling back to Claude.
+    assert models["tiers"]["heavy"]["primary"] == "claude-opus-5-5"
+    assert models["hub_loops"]["hub-heavy"] == {
+        "primary": "azure_openai/gpt5-prod", "fallback": "claude-opus-5-5",
+        "jobs": ["brief", "legal", "rollup"], "primary_provider": "azure_openai", "fallback_provider": "anthropic"}
+    assert set(models["hub_loops"]["hub-light"]["jobs"]) == {"cos", "growth", "seo", "finance"}
+    assert render.render_auth(cfg)["providers"]["azure_openai"]["base_url"] == "https://acme.openai.azure.com"
+    assert "AZURE_OPENAI_API_KEY" in {n for n, _ in render.required_secrets(cfg)}

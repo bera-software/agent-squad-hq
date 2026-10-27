@@ -17,6 +17,7 @@ from squadhq.paths import hub_root
 
 from . import github_ops as ops
 from .gh import Gh
+from . import registry as R
 from .loader import default_agent_slug, load_text
 
 Ask = Callable[[str, str], str]
@@ -40,6 +41,19 @@ class PoolAnswer:
 
 
 @dataclass
+class HubLoopAnswer:
+    """Model routing for the hub's scheduled loops (brief, rollup, growth, ...), on any provider.
+
+    They get their own tiers (``hub-heavy``, ``hub-light``) so coding agents keep Claude models,
+    and fall back to Claude so a provider outage does not stop them."""
+    provider: str  # a registry provider id, e.g. openai, gemini, azure_openai, bedrock, openrouter
+    heavy: str  # model id (Azure: deployment name)
+    light: str
+    base_url: str = ""
+    region: str = ""
+
+
+@dataclass
 class Answers:
     org_name: str
     owner: str
@@ -57,6 +71,9 @@ class Answers:
     token_broker: str = ""  # https URL: tokens via OIDC from a broker, no App keys (ADR-0011)
     pool: list[PoolAnswer] = field(default_factory=list)  # empty = the single `auth` credential
     pool_strategy: str = "ordered"  # ordered | round_robin
+    heavy_model: str = "claude-sonnet-5-5"  # coding agents' tiers (Claude Code)
+    light_model: str = "claude-haiku-5-5"
+    hub_loops: HubLoopAnswer | None = None  # None: hub loops share the coding tiers
 
 
 # --------------------------------------------------------------------------
@@ -186,10 +203,25 @@ def generate_yaml(a: Answers) -> str:
             secret = f", secret: {acct.secret}" if acct.secret else ""
             lines.append(f"      - {{ id: {acct.id}, auth: {acct.auth}{secret} }}")
         lines.append(f"    pool_strategy: {a.pool_strategy}   # ordered | round_robin")
+    hl = a.hub_loops
+    if hl and hl.provider != "anthropic":
+        extra = "".join(f", {k}: {_q(val)}" for k, val in (("base_url", hl.base_url), ("region", hl.region)) if val)
+        lines.append(f"  {hl.provider}: {{ auth: api{extra} }}   # hub loops (scheduled jobs) only")
+    heavy_fb = "claude-sonnet-5" if a.heavy_model != "claude-sonnet-5" else "claude-sonnet-5-5"
+    light_fb = "claude-sonnet-5-5" if a.light_model != "claude-sonnet-5-5" else "claude-haiku-5-5"
     lines += [
         "  routing:",
-        "    heavy: { primary: anthropic/claude-sonnet-5-5, fallback: anthropic/claude-sonnet-5 }",
-        "    light: { primary: anthropic/claude-haiku-5-5, fallback: anthropic/claude-sonnet-5-5 }",
+        f"    heavy: {{ primary: anthropic/{a.heavy_model}, fallback: anthropic/{heavy_fb} }}",
+        f"    light: {{ primary: anthropic/{a.light_model}, fallback: anthropic/{light_fb} }}",
+    ]
+    if hl:
+        lines += [
+            f"    hub-heavy: {{ primary: {hl.provider}/{hl.heavy}, fallback: anthropic/{a.heavy_model} }}",
+            f"    hub-light: {{ primary: {hl.provider}/{hl.light}, fallback: anthropic/{a.light_model} }}",
+            "  jobs:                          # hub loops on their own tiers; coding agents stay on Claude",
+        ]
+        lines += [f"    {job}: hub-{tier}" for job, tier in R.HUB_LOOP_JOBS.items()]
+    lines += [
         "",
         "budgets:",
         f"  monthly_usd: {int(a.monthly_usd) if float(a.monthly_usd).is_integer() else a.monthly_usd}",
