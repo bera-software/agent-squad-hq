@@ -27,6 +27,11 @@ updates:
     groups:
       apps-minor:
         update-types: [minor, patch]
+    # Major upgrades (Next.js, TypeScript, ESLint, @types/node) are planned migrations
+    # with manual testing of the dashboard; no CI job builds /apps yet.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /deploy/docker
     schedule:
