@@ -116,3 +116,17 @@ def test_setup_plan_and_next_steps(tmp_path):
     assert any("claude setup-token" in s for s in steps)
     assert any(s == "squadhq onboard acme/shop --apply" for s in steps)
     assert steps[-1].startswith("squadhq drill")
+
+
+def test_generate_yaml_with_an_account_pool():
+    a = W.Answers(org_name="acme", owner="acme", hub_repo="acme/hub", approvers=["@octo"], auth="api",
+                  pool=[W.PoolAnswer("account-1", "api", "ANTHROPIC_API_KEY"), W.PoolAnswer("account-2", "subscription")],
+                  pool_strategy="round_robin")
+    text = W.generate_yaml(a)
+    assert W.validate_generated(text) == []
+    cfg, _ = load_text(text)
+    pool = cfg.providers.configs["anthropic"].pool
+    assert [(p.id, p.auth, p.secret) for p in pool] == [("account-1", "api", "ANTHROPIC_API_KEY"),
+                                                       ("account-2", "subscription", "CLAUDE_CODE_OAUTH_TOKEN_2")]
+    assert cfg.providers.configs["anthropic"].pool_strategy == "round_robin"
+    assert "pool:" not in W.generate_yaml(W.Answers(org_name="a", owner="a", hub_repo="a/h", approvers=["@a"]))

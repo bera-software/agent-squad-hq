@@ -32,6 +32,14 @@ class ProjectAnswer:
 
 
 @dataclass
+class PoolAnswer:
+    """One coding-agent account of ``providers.anthropic.pool``."""
+    id: str
+    auth: str = "api"  # api | subscription
+    secret: str = ""  # empty = the loader's default for its position
+
+
+@dataclass
 class Answers:
     org_name: str
     owner: str
@@ -47,6 +55,8 @@ class Answers:
     single_app: bool = False
     projects: list[ProjectAnswer] = field(default_factory=list)
     token_broker: str = ""  # https URL: tokens via OIDC from a broker, no App keys (ADR-0011)
+    pool: list[PoolAnswer] = field(default_factory=list)  # empty = the single `auth` credential
+    pool_strategy: str = "ordered"  # ordered | round_robin
 
 
 # --------------------------------------------------------------------------
@@ -169,6 +179,14 @@ def generate_yaml(a: Answers) -> str:
         "  default: anthropic",
         "  anthropic:",
         f"    auth: {a.auth}               # api | subscription",
+    ]
+    if a.pool:
+        lines.append("    pool:                        # coding agents: one account per job (docs: account pool)")
+        for acct in a.pool:
+            secret = f", secret: {acct.secret}" if acct.secret else ""
+            lines.append(f"      - {{ id: {acct.id}, auth: {acct.auth}{secret} }}")
+        lines.append(f"    pool_strategy: {a.pool_strategy}   # ordered | round_robin")
+    lines += [
         "  routing:",
         "    heavy: { primary: anthropic/claude-sonnet-5-5, fallback: anthropic/claude-sonnet-5 }",
         "    light: { primary: anthropic/claude-haiku-5-5, fallback: anthropic/claude-sonnet-5-5 }",
