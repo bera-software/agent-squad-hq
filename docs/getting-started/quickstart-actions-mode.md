@@ -9,7 +9,7 @@ Check the [requirements](requirements.md) first.
 The hub is a copy of this repository. It holds `squadhq.yml`, the prompts, the packs and the reusable workflows. Any name works.
 
 ```bash
-git clone https://github.com/bera-software/agent-squad-hq agent-squad-hq
+git clone https://github.com/berasoftware/agent-squad-hq agent-squad-hq
 cd agent-squad-hq
 gh repo create acme/agent-squad-hq --private --source . --push
 ```
@@ -56,8 +56,8 @@ What `init --apply` does:
 
 1. Writes `squadhq.yml` (refuses to overwrite an existing one without `--force`) after validating it.
 2. With `--create-app`: creates **two** GitHub Apps through GitHub's "create App from manifest" page, one after the other in your browser:
-    - the **ops** App ([`app-manifest.json`](https://github.com/bera-software/agent-squad-hq/blob/main/deploy/github-app/app-manifest.json), default slug `<owner>-squad`): routing, labels, state, and the policy approval that lets a PR merge;
-    - the **agent** App ([`app-manifest-agent.json`](https://github.com/bera-software/agent-squad-hq/blob/main/deploy/github-app/app-manifest-agent.json), default `<owner>-squad-agent`): what the coding agents run as. It can push branches and open PRs, but cannot edit workflows, approve its own push or merge.
+    - the **ops** App ([`app-manifest.json`](https://github.com/berasoftware/agent-squad-hq/blob/main/deploy/github-app/app-manifest.json), default slug `<owner>-squad`): routing, labels, state, and the policy approval that lets a PR merge;
+    - the **agent** App ([`app-manifest-agent.json`](https://github.com/berasoftware/agent-squad-hq/blob/main/deploy/github-app/app-manifest-agent.json), default `<owner>-squad-agent`): what the coding agents run as. It can push branches and open PRs, but cannot edit workflows, approve its own push or merge.
 
     Each private key is saved as `<slug>.private-key.pem` (mode 0600) in `--pem-dir` (default: the hub directory, where `*.pem` is git-ignored).
 3. Stores `SQUADHQ_APP_PRIVATE_KEY`, `SQUADHQ_AGENT_APP_PRIVATE_KEY` and the `SQUADHQ_*` variables (including both client ids), by default as **organisation** secrets and variables visible to all repositories (`--scope org`). `squadhq render` prints the same `gh variable set` / `gh secret set` lines.

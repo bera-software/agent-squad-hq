@@ -1,30 +1,29 @@
-# Code owners for Agent Squad HQ. @bera-software/maintainers is a placeholder
-# team: create it in the organisation (or replace it) before enabling
-# "Require review from Code Owners" in the default-branch ruleset.
+# Code owners for Agent Squad HQ: the @berasoftware account (Bera Software).
+# Add maintainers here by GitHub login as the project grows.
 # Later rules win. See GOVERNANCE.md for the two-approval rule on
 # security-sensitive paths.
 
-*                                       @bera-software/maintainers
+*                                       @berasoftware
 
 # Security-sensitive: policy, guards, fencing, tool profiles, auth, triggers
-/src/squadhq/policy/                    @bera-software/maintainers
-/src/squadhq/merge_policy.py            @bera-software/maintainers
-/src/squadhq/label_guard.py             @bera-software/maintainers
-/src/squadhq/untrusted.py               @bera-software/maintainers
-/src/squadhq/executors/                 @bera-software/maintainers
-/src/squadhq/server/auth.py             @bera-software/maintainers
-/src/squadhq/server/sandbox.py          @bera-software/maintainers
-/src/squadhq/trackers/webhooks.py       @bera-software/maintainers
-/prompts/_untrusted-input.md            @bera-software/maintainers
-/config/flows.yml                       @bera-software/maintainers
+/src/squadhq/policy/                    @berasoftware
+/src/squadhq/merge_policy.py            @berasoftware
+/src/squadhq/label_guard.py             @berasoftware
+/src/squadhq/untrusted.py               @berasoftware
+/src/squadhq/executors/                 @berasoftware
+/src/squadhq/server/auth.py             @berasoftware
+/src/squadhq/server/sandbox.py          @berasoftware
+/src/squadhq/trackers/webhooks.py       @berasoftware
+/prompts/_untrusted-input.md            @berasoftware
+/config/flows.yml                       @berasoftware
 
 # CI/CD, release and supply chain
-/.github/                               @bera-software/maintainers
-/onboarding/                            @bera-software/maintainers
-/deploy/                                @bera-software/maintainers
+/.github/                               @berasoftware
+/onboarding/                            @berasoftware
+/deploy/                                @berasoftware
 
 # Governance and licensing
-/LICENSE                                @bera-software/maintainers
-/NOTICE                                 @bera-software/maintainers
-/SECURITY.md                            @bera-software/maintainers
-/GOVERNANCE.md                          @bera-software/maintainers
+/LICENSE                                @berasoftware
+/NOTICE                                 @berasoftware
+/SECURITY.md                            @berasoftware
+/GOVERNANCE.md                          @berasoftware

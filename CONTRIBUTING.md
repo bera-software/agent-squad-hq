@@ -61,7 +61,7 @@ AI-assisted contributions are welcome. You are responsible for them exactly as i
 You need Python 3.11 or newer (CI uses 3.12), [`uv`](https://docs.astral.sh/uv/) (or plain `pip`), `git` and, for GitHub-facing commands, the [`gh` CLI](https://cli.github.com/). The client apps need Node 20 or newer.
 
 ```bash
-git clone https://github.com/bera-software/agent-squad-hq && cd agent-squad-hq
+git clone https://github.com/berasoftware/agent-squad-hq && cd agent-squad-hq
 uv venv --python 3.12 .venv
 uv pip install --python .venv -e '.[dev,server]'
 .venv/bin/squadhq version

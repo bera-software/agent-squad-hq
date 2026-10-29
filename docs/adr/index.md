@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Each significant design decision is recorded as an ADR in the standard format: context, decision, consequences. New ADRs follow the process in [GOVERNANCE.md](https://github.com/bera-software/agent-squad-hq/blob/main/GOVERNANCE.md).
+Each significant design decision is recorded as an ADR in the standard format: context, decision, consequences. New ADRs follow the process in [GOVERNANCE.md](https://github.com/berasoftware/agent-squad-hq/blob/main/GOVERNANCE.md).
 
 | ADR | Title | Status |
 |---|---|---|

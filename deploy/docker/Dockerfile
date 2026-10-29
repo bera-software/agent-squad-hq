@@ -41,7 +41,7 @@ RUN cd /tmp \
 FROM ${PYTHON_IMAGE} AS runtime
 LABEL org.opencontainers.image.title="agent-squad-hq" \
       org.opencontainers.image.description="Agent Squad HQ server mode (API, worker, scheduler)" \
-      org.opencontainers.image.source="https://github.com/bera-software/agent-squad-hq" \
+      org.opencontainers.image.source="https://github.com/berasoftware/agent-squad-hq" \
       org.opencontainers.image.licenses="Apache-2.0"
 
 RUN apt-get update \

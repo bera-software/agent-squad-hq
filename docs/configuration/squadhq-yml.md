@@ -1,6 +1,6 @@
 # squadhq.yml reference
 
-`squadhq.yml` at the root of your hub is the one file you edit ([ADR-0003](../adr/0003-single-config-file.md)). It is validated by `squadhq validate`, turned into runtime files by `squadhq render`, and read directly by server mode. Start from [`squadhq.example.yml`](https://github.com/bera-software/agent-squad-hq/blob/main/squadhq.example.yml) or `squadhq init`.
+`squadhq.yml` at the root of your hub is the one file you edit ([ADR-0003](../adr/0003-single-config-file.md)). It is validated by `squadhq validate`, turned into runtime files by `squadhq render`, and read directly by server mode. Start from [`squadhq.example.yml`](https://github.com/berasoftware/agent-squad-hq/blob/main/squadhq.example.yml) or `squadhq init`.
 
 Editor autocomplete: add this first line (the example file already has it):
 

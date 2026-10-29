@@ -3,9 +3,9 @@
 **An AI software team that runs in your GitHub organisation.** Open an issue in plain language. A squad of agents shapes it, designs it, threat-models it, builds it, reviews it and runs the security gates. Humans approve at the gates they choose. No agent can merge or deploy.
 
 <!-- Badges: placeholders until the public repository and its workflows exist. -->
-[![Hub CI](https://github.com/bera-software/agent-squad-hq/actions/workflows/hub-ci.yml/badge.svg)](https://github.com/bera-software/agent-squad-hq/actions/workflows/hub-ci.yml)
+[![Hub CI](https://github.com/berasoftware/agent-squad-hq/actions/workflows/hub-ci.yml/badge.svg)](https://github.com/berasoftware/agent-squad-hq/actions/workflows/hub-ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/bera-software/agent-squad-hq/badge)](https://securityscorecards.dev/viewer/?uri=github.com/bera-software/agent-squad-hq)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/berasoftware/agent-squad-hq/badge)](https://securityscorecards.dev/viewer/?uri=github.com/berasoftware/agent-squad-hq)
 
 > **Status: alpha (0.1.0, unreleased).** The Actions-mode pipeline, the configuration CLI and the SSDLC gates are the most exercised parts. Server mode, the non-Anthropic executors, the non-GitHub trackers and the dashboard and mobile apps are newer and less proven. See [Project status](#project-status) before you rely on any of it.
 
@@ -40,7 +40,7 @@ Requirements: Python 3.11+, the [`gh` CLI](https://cli.github.com/) logged in as
 
 ```bash
 # 1. Make this repository your hub (any name; agent-squad-hq is the default)
-git clone https://github.com/bera-software/agent-squad-hq acme-squad-hub && cd acme-squad-hub
+git clone https://github.com/berasoftware/agent-squad-hq acme-squad-hub && cd acme-squad-hub
 gh repo create acme/agent-squad-hq --private --source . --push
 
 # 2. Install the CLI (PyPI publishing starts with v0.1.0; until then install from source)

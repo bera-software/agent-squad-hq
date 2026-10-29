@@ -79,4 +79,4 @@ Capabilities (web search, JSON mode, thinking controls) and prices per model com
 
 ## Adding a provider
 
-See [CONTRIBUTING.md](https://github.com/bera-software/agent-squad-hq/blob/main/CONTRIBUTING.md#adding-an-llm-provider-hub-loops).
+See [CONTRIBUTING.md](https://github.com/berasoftware/agent-squad-hq/blob/main/CONTRIBUTING.md#adding-an-llm-provider-hub-loops).

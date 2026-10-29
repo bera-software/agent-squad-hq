@@ -24,7 +24,7 @@ concurrency:
 jobs:
   python:
     # The project's own CI and release: never run in a hub created from the template.
-    if: github.repository == 'bera-software/agent-squad-hq'
+    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -60,7 +60,7 @@ jobs:
 
   docs:
     # The project's own CI and release: never run in a hub created from the template.
-    if: github.repository == 'bera-software/agent-squad-hq'
+    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
     # squadhq.yml, render --check, flows, packs, skills and the eval dry run are
     # in hub-config.yml, which every scaffolded hub also carries. This job
     # checks what only this repository has: the generated docs.
@@ -83,7 +83,7 @@ jobs:
 
   workflows:
     # The project's own CI and release: never run in a hub created from the template.
-    if: github.repository == 'bera-software/agent-squad-hq'
+    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -136,7 +136,7 @@ jobs:
 
   guard:
     # The project's own CI and release: never run in a hub created from the template.
-    if: github.repository == 'bera-software/agent-squad-hq'
+    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
     # Company references from the private predecessor must not come back.
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -149,7 +149,7 @@ jobs:
       - name: Grep guard
         run: |
           # Character classes keep this line from matching itself. The publisher
-          # (bera-software/agent-squad-hq) is legitimate and not matched.
+          # (berasoftware/agent-squad-hq) is legitimate and not matched.
           pattern='pai[t]ify|agent[g]uard'
           hits=$(git grep -nIiE "$pattern" -- . ':!CHANGELOG.md' || true)
           if [ -n "$hits" ]; then

@@ -62,7 +62,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement, the project
 maintainers listed in [GOVERNANCE.md](GOVERNANCE.md). Report privately through
 the repository's GitHub private reporting form
-(<https://github.com/bera-software/agent-squad-hq/security/advisories/new>),
+(<https://github.com/berasoftware/agent-squad-hq/security/advisories/new>),
 starting the title with "Code of Conduct", or contact a maintainer directly
 through GitHub. Please do not report conduct issues in a public issue.
 

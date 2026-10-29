@@ -18,7 +18,7 @@ The core prompts in `prompts/` are language-neutral. Everything specific to a st
 | `swift-ios` | iOS (Swift) | `terraform` | Terraform / OpenTofu |
 | `docker-k8s` | Docker, Kubernetes, Helm | | |
 
-The detection rules and coverage formats are listed in [`packs/README.md`](https://github.com/bera-software/agent-squad-hq/blob/main/packs/README.md).
+The detection rules and coverage formats are listed in [`packs/README.md`](https://github.com/berasoftware/agent-squad-hq/blob/main/packs/README.md).
 
 ## Selecting packs
 
@@ -68,4 +68,4 @@ python -m squadhq.packs gates --repo acme/storefront                 # arch and 
 
 ## Writing a pack
 
-The `pack.yml` schema is in [CONVENTIONS](../architecture/CONVENTIONS.md#packs-stack-specific-behaviour). The steps are in [CONTRIBUTING.md](https://github.com/bera-software/agent-squad-hq/blob/main/CONTRIBUTING.md#adding-a-stack-pack). Never put deploy, apply or publish commands in a pack: packs run on pull requests.
+The `pack.yml` schema is in [CONVENTIONS](../architecture/CONVENTIONS.md#packs-stack-specific-behaviour). The steps are in [CONTRIBUTING.md](https://github.com/berasoftware/agent-squad-hq/blob/main/CONTRIBUTING.md#adding-a-stack-pack). Never put deploy, apply or publish commands in a pack: packs run on pull requests.

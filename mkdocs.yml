@@ -1,8 +1,8 @@
 site_name: Agent Squad HQ
 site_description: An AI software team that runs in your GitHub org. Shape, design, build, review, secure and ship.
-site_url: https://bera-software.github.io/agent-squad-hq/
-repo_url: https://github.com/bera-software/agent-squad-hq
-repo_name: bera-software/agent-squad-hq
+site_url: https://berasoftware.github.io/agent-squad-hq/
+repo_url: https://github.com/berasoftware/agent-squad-hq
+repo_name: berasoftware/agent-squad-hq
 edit_uri: edit/main/docs/
 copyright: Copyright &copy; 2026 Bera Software &amp; Consultancy Ltd. Apache-2.0.
 docs_dir: docs

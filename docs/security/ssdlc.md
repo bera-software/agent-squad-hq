@@ -41,11 +41,11 @@ Gates are chosen with `security.gates` (`SQUADHQ_GATES`). Every gate is configur
 | Workflow security | `actionlint`, `zizmor` (high and above fails), a check that every action is SHA-pinned and that `secrets: inherit` and `Bash(*)` never appear | In place |
 | Generated-file drift | `squadhq render --check`, `flow_reader validate --strict`, schema test, catalogue `--check` | In place |
 | Agent evals | Golden tickets and a prompt-injection red-team set; thresholds in `evals/thresholds.yml` (injection set 100%, zero policy violations); dry-run scoring in CI | Dry run in CI; live runs on demand |
-| Review | CODEOWNERS; two maintainer approvals on security-sensitive paths ([GOVERNANCE](https://github.com/bera-software/agent-squad-hq/blob/main/GOVERNANCE.md)) | Process in place |
+| Review | CODEOWNERS; two maintainer approvals on security-sensitive paths ([GOVERNANCE](https://github.com/berasoftware/agent-squad-hq/blob/main/GOVERNANCE.md)) | Process in place |
 | Contribution provenance | DCO sign-off on every commit | Process in place; no DCO check bot yet |
 | Dependencies | Dependabot for Actions, pip, npm and Docker with a 7-day cooldown | In place |
 | Release | SBOM, SLSA build provenance, cosign-signed image, PyPI trusted publishing ([supply chain](supply-chain.md)) | Workflow in place; no release published yet |
-| Vulnerability handling | Private reporting through GitHub advisories, 90-day coordinated disclosure ([SECURITY.md](https://github.com/bera-software/agent-squad-hq/blob/main/SECURITY.md)) | In place |
+| Vulnerability handling | Private reporting through GitHub advisories, 90-day coordinated disclosure ([SECURITY.md](https://github.com/berasoftware/agent-squad-hq/blob/main/SECURITY.md)) | In place |
 | Planned | CodeQL, OpenSSF Scorecard workflow, secret scanning with push protection on the public repository, webhook-parser fuzzing, an external penetration test before 1.0 | Planned |
 
 ## Release gate

@@ -33,15 +33,15 @@ No release has been published yet; the first will be `v0.1.0`.
 
 ```bash
 # Wheel or sdist provenance (GitHub CLI)
-gh attestation verify agent_squad_hq-0.1.0-py3-none-any.whl --repo bera-software/agent-squad-hq
+gh attestation verify agent_squad_hq-0.1.0-py3-none-any.whl --repo berasoftware/agent-squad-hq
 
 # Container image signature (keyless, GitHub Actions OIDC identity)
-cosign verify ghcr.io/bera-software/agent-squad-hq@sha256:<digest> \
+cosign verify ghcr.io/berasoftware/agent-squad-hq@sha256:<digest> \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/bera-software/agent-squad-hq/.github/workflows/release.yml@refs/tags/v'
+  --certificate-identity-regexp '^https://github.com/berasoftware/agent-squad-hq/.github/workflows/release.yml@refs/tags/v'
 
 # Container provenance attestation
-gh attestation verify oci://ghcr.io/bera-software/agent-squad-hq@sha256:<digest> --repo bera-software/agent-squad-hq
+gh attestation verify oci://ghcr.io/berasoftware/agent-squad-hq@sha256:<digest> --repo berasoftware/agent-squad-hq
 ```
 
 ## For your projects

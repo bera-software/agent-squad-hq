@@ -13,9 +13,9 @@ Agent Squad HQ is community-supported. There is no paid support or SLA for the o
 
 | You have | Go to |
 |---|---|
-| A question about setup or usage | [GitHub Discussions](https://github.com/bera-software/agent-squad-hq/discussions), Q&A category |
-| A reproducible bug | [Open a bug report](https://github.com/bera-software/agent-squad-hq/issues/new?template=bug_report.yml) |
-| An idea or feature request | [Open a feature request](https://github.com/bera-software/agent-squad-hq/issues/new?template=feature_request.yml) |
+| A question about setup or usage | [GitHub Discussions](https://github.com/berasoftware/agent-squad-hq/discussions), Q&A category |
+| A reproducible bug | [Open a bug report](https://github.com/berasoftware/agent-squad-hq/issues/new?template=bug_report.yml) |
+| An idea or feature request | [Open a feature request](https://github.com/berasoftware/agent-squad-hq/issues/new?template=feature_request.yml) |
 | A security problem, including prompt injection | **Never a public issue.** Follow [SECURITY.md](SECURITY.md) |
 
 When you report a problem, include the `squadhq version` output, the relevant part of your `squadhq.yml` (remove secrets and private names), the `squadhq doctor` output and a link to or excerpt of the failed run. Do not paste tokens, private keys or full agent transcripts from private repositories.
