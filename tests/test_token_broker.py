@@ -306,7 +306,22 @@ def test_broker_refusal_reports_code_and_detail(env, capsys, status, body, want)
     out = capsys.readouterr().out
     assert out.startswith(f"::add-mask::req-secret\n::add-mask::{JWT}\n::error title=squadhq-token::")
     assert want in out and JWT not in out.split("\n", 2)[2]
-    assert env.read_text() == ""
+    # Only the refusal code (for agent-prep's notice on the issue), never a token.
+    code = body.get("error", "unknown")
+    assert env.read_text() == f"refused={code}\nhelp-url=\n"
+
+
+def test_broker_refusal_outputs_a_safe_help_url(env, capsys):
+    mod = _broker()
+    _fake(mod, broker_status=403, broker_body={"error": "plan_limit", "help_url": "https://app.example/t/1/billing"})
+    with pytest.raises(SystemExit):
+        mod.token()
+    assert env.read_text() == "refused=plan_limit\nhelp-url=https://app.example/t/1/billing\n"
+    env.write_text("")
+    _fake(mod, broker_status=403, broker_body={"error": "x\ny=1", "help_url": "javascript:alert(1)"})
+    with pytest.raises(SystemExit):
+        mod.token()
+    assert env.read_text() == "refused=xy\nhelp-url=\n"
 
 
 def test_token_in_an_error_body_is_still_masked(env, capsys):

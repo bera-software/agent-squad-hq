@@ -95,6 +95,12 @@ outputs:
   mode:
     description: broker | app
     value: ${{ steps.mode.outputs.broker != '' && 'broker' || 'app' }}
+  refused:
+    description: Broker mode, when the step failed - the broker's refusal code (e.g. quota_exceeded).
+    value: ${{ steps.broker.outputs.refused }}
+  help-url:
+    description: Broker mode, when refused - where the account owner can fix it (e.g. the billing page).
+    value: ${{ steps.broker.outputs.help-url }}
 
 runs:
   using: composite

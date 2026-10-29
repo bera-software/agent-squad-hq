@@ -335,6 +335,20 @@ runs:
         # revokes it (DELETE /installation/token); it expires within the hour.
         skip-token-revoke: "true"
 
+    - id: refused
+      # The broker refused the agent token (plan, quota, paused): say so where the work was asked for.
+      if: failure() && steps.agent-token.outputs.refused != ''
+      name: Tell the issue or PR why the agent did not start
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.ops-token }}
+        REPO: ${{ inputs.subject-repo || github.repository }}
+        ISSUE_OR_PR: ${{ inputs.number }}
+        ROLE: ${{ inputs.role }}
+        REFUSED: ${{ steps.agent-token.outputs.refused }}
+        HELP_URL: ${{ steps.agent-token.outputs.help-url }}
+      run: python -P -m squadhq.broker_notice || true
+
     - id: hub-token
       # Both modes: contents:read on the hub only (the broker narrows to the same set).
       if: inputs.run == 'true' && steps.gate.outputs.auth_mode != 'skip' && inputs.hub-read == 'true'
