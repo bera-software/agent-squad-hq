@@ -50,4 +50,4 @@ Not yet. Cloud and Enterprise editions are planned. See [editions](../editions.m
 
 ## How do I report a security issue?
 
-Privately, through GitHub Security Advisories, as described in [SECURITY.md](https://github.com/berasoftware/agent-squad-hq/blob/main/SECURITY.md). Prompt-injection bypasses are in scope.
+Privately, through GitHub Security Advisories, as described in [SECURITY.md](https://github.com/bera-software/agent-squad-hq/blob/main/SECURITY.md). Prompt-injection bypasses are in scope.

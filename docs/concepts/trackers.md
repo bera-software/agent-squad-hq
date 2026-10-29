@@ -72,4 +72,4 @@ Ticket text from any tracker is untrusted and is [fenced](../security/security-m
 
 ## Adding a tracker
 
-See [CONTRIBUTING.md](https://github.com/berasoftware/agent-squad-hq/blob/main/CONTRIBUTING.md#adding-a-tracker).
+See [CONTRIBUTING.md](https://github.com/bera-software/agent-squad-hq/blob/main/CONTRIBUTING.md#adding-a-tracker).

@@ -134,7 +134,7 @@ For `edit-test-push`, `run-agent` installs a global `pre-push` hook and a `git` 
 - Checkouts use `persist-credentials: false`, so no token is left in `.git/config`. For pushes, the branch guard configures the credential helper with the agent token.
 - `permissions: {}` at the top of every workflow; each job asks for the least it needs.
 - The project stub passes five **named** secrets to the router, never `secrets: inherit`. Hub CI rejects `secrets: inherit`.
-- Both Apps' permissions are listed and justified in [`app-manifest.json`](https://github.com/berasoftware/agent-squad-hq/blob/main/deploy/github-app/app-manifest.json) (ops) and [`app-manifest-agent.json`](https://github.com/berasoftware/agent-squad-hq/blob/main/deploy/github-app/app-manifest-agent.json) (agent: contents, pull requests and issues write, checks read; no workflows). Neither requests administration, secrets, environments, deployments or security events; rulesets and secrets are applied by `squadhq init` with your own login.
+- Both Apps' permissions are listed and justified in [`app-manifest.json`](https://github.com/bera-software/agent-squad-hq/blob/main/deploy/github-app/app-manifest.json) (ops) and [`app-manifest-agent.json`](https://github.com/bera-software/agent-squad-hq/blob/main/deploy/github-app/app-manifest-agent.json) (agent: contents, pull requests and issues write, checks read; no workflows). Neither requests administration, secrets, environments, deployments or security events; rulesets and secrets are applied by `squadhq init` with your own login.
 
 ## Workflow isolation (hardening in progress)
 
@@ -178,4 +178,4 @@ Fork PRs run CI and the SSDLC gates, and `ci-gate` uses only `GITHUB_TOKEN` so i
 - Set a hard spending limit with your model provider.
 - Rotate the App key and model credentials if a runner, log or laptop that held them is compromised.
 
-Report vulnerabilities as described in [SECURITY.md](https://github.com/berasoftware/agent-squad-hq/blob/main/SECURITY.md).
+Report vulnerabilities as described in [SECURITY.md](https://github.com/bera-software/agent-squad-hq/blob/main/SECURITY.md).

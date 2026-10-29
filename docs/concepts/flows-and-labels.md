@@ -1,6 +1,6 @@
 # Flows and labels
 
-Agent Squad HQ is driven by GitHub labels. A label records where a ticket or PR is, and adding certain labels starts a job. The single source of truth for every label, state, transition, role authority and numeric limit is [`config/flows.yml`](https://github.com/berasoftware/agent-squad-hq/blob/main/config/flows.yml). Hub CI validates it with `python -m squadhq.flow_reader validate --strict`, and the [generated flow diagram](../FLOW-DIAGRAM.md) is rebuilt from it.
+Agent Squad HQ is driven by GitHub labels. A label records where a ticket or PR is, and adding certain labels starts a job. The single source of truth for every label, state, transition, role authority and numeric limit is [`config/flows.yml`](https://github.com/bera-software/agent-squad-hq/blob/main/config/flows.yml). Hub CI validates it with `python -m squadhq.flow_reader validate --strict`, and the [generated flow diagram](../FLOW-DIAGRAM.md) is rebuilt from it.
 
 `flows.yml` is an engine file that ships with each release ([ADR-0003](../adr/0003-single-config-file.md)). You normally configure behaviour through `squadhq.yml` instead of editing it.
 

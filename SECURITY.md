@@ -8,7 +8,7 @@ Agent Squad HQ runs language-model agents with write access to your repositories
 
 Report it privately through GitHub's private vulnerability reporting:
 
-1. Go to <https://github.com/berasoftware/agent-squad-hq/security/advisories/new> (the repository's **Security** tab, then **Report a vulnerability**).
+1. Go to <https://github.com/bera-software/agent-squad-hq/security/advisories/new> (the repository's **Security** tab, then **Report a vulnerability**).
 2. Describe the issue, the affected version or commit, and how to reproduce it. A minimal `squadhq.yml`, the event payload or issue text that triggers it, and the workflow run log help most.
 3. Tell us how you would like to be credited, or whether you prefer to stay anonymous.
 

@@ -81,4 +81,4 @@ See the [Compose troubleshooting table](../deploy/docker-compose.md#troubleshoot
 
 ## Still stuck?
 
-Ask in [Discussions](https://github.com/berasoftware/agent-squad-hq/discussions) with the output of `squadhq version`, `squadhq doctor` and the relevant run log. See [SUPPORT.md](https://github.com/berasoftware/agent-squad-hq/blob/main/SUPPORT.md).
+Ask in [Discussions](https://github.com/bera-software/agent-squad-hq/discussions) with the output of `squadhq version`, `squadhq doctor` and the relevant run log. See [SUPPORT.md](https://github.com/bera-software/agent-squad-hq/blob/main/SUPPORT.md).

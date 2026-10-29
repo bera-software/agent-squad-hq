@@ -4,9 +4,9 @@ description: Agent Squad HQ server mode (API, worker, scheduler) for Kubernetes
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-home: https://github.com/berasoftware/agent-squad-hq
+home: https://github.com/bera-software/agent-squad-hq
 sources:
-  - https://github.com/berasoftware/agent-squad-hq
+  - https://github.com/bera-software/agent-squad-hq
 keywords: [ai-agents, devops, ssdlc, automation]
 maintainers:
   - name: Agent Squad HQ maintainers

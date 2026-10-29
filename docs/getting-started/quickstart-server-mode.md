@@ -24,7 +24,7 @@ Install the server extra to run it outside a container: `pip install 'agent-squa
 The fastest path is Docker Compose on one VM:
 
 ```bash
-git clone https://github.com/berasoftware/agent-squad-hq && cd agent-squad-hq
+git clone https://github.com/bera-software/agent-squad-hq && cd agent-squad-hq
 ./deploy/install.sh
 ```
 

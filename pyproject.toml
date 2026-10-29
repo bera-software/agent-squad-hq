@@ -46,9 +46,9 @@ dev = [
 squadhq = "squadhq.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/berasoftware/agent-squad-hq"
-Documentation = "https://github.com/berasoftware/agent-squad-hq/tree/main/docs"
-Issues = "https://github.com/berasoftware/agent-squad-hq/issues"
+Homepage = "https://github.com/bera-software/agent-squad-hq"
+Documentation = "https://github.com/bera-software/agent-squad-hq/tree/main/docs"
+Issues = "https://github.com/bera-software/agent-squad-hq/issues"
 
 [tool.hatch.version]
 path = "src/squadhq/__init__.py"

@@ -1,6 +1,6 @@
 # Upgrading
 
-Agent Squad HQ follows [semantic versioning](https://semver.org/). Before 1.0.0, a minor release may contain breaking changes; the [CHANGELOG](https://github.com/berasoftware/agent-squad-hq/blob/main/CHANGELOG.md) lists them with upgrade steps.
+Agent Squad HQ follows [semantic versioning](https://semver.org/). Before 1.0.0, a minor release may contain breaking changes; the [CHANGELOG](https://github.com/bera-software/agent-squad-hq/blob/main/CHANGELOG.md) lists them with upgrade steps.
 
 ## How versions are pinned (Actions mode)
 

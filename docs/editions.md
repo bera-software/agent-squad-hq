@@ -17,6 +17,6 @@ Agent Squad HQ is open source under Apache-2.0. Two further editions are **plann
 | Audit log | Hash-chained log in server mode, with export | Yes | Plus SIEM export and evidence packs |
 | Budgets | Monthly cap for hub loops | Per team and project | Budget hierarchy and chargeback |
 | Dashboard and mobile app | Preview, self-hosted against your server | Hosted | Yes |
-| Support | Community ([SUPPORT.md](https://github.com/berasoftware/agent-squad-hq/blob/main/SUPPORT.md)) | Planned | Planned |
+| Support | Community ([SUPPORT.md](https://github.com/bera-software/agent-squad-hq/blob/main/SUPPORT.md)) | Planned | Planned |
 
 Plans, pricing and timing for the paid editions have not been announced. See the [roadmap](ROADMAP.md).

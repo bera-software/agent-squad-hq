@@ -41,7 +41,7 @@ GITIGNORE = "# never commit GitHub App keys\n*.pem\n__pycache__/\n.venv/\n*.egg-
 # pyproject's `readme` must exist for `pip install <hub>`.
 README = """# Agent Squad HQ hub
 
-This repository is an [Agent Squad HQ](https://github.com/berasoftware/agent-squad-hq) hub,
+This repository is an [Agent Squad HQ](https://github.com/bera-software/agent-squad-hq) hub,
 created by `squadhq init`. `squadhq.yml` is the configuration; `squadhq render` regenerates
 `config/*.json` and the workflow schedules from it. `src/squadhq` is the pinned copy of the
 squadhq package the workflows install.

@@ -40,4 +40,4 @@ See the [Docker Compose guide](../deploy/docker-compose.md#requirements). In sho
 
 ## Developing Agent Squad HQ itself
 
-Python 3.11+ (CI uses 3.12) and, for the client apps, Node 20 or newer. See [CONTRIBUTING.md](https://github.com/berasoftware/agent-squad-hq/blob/main/CONTRIBUTING.md).
+Python 3.11+ (CI uses 3.12) and, for the client apps, Node 20 or newer. See [CONTRIBUTING.md](https://github.com/bera-software/agent-squad-hq/blob/main/CONTRIBUTING.md).

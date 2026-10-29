@@ -8,10 +8,10 @@ Agent Squad HQ is an open-source project maintained by Bera Software & Consultan
 |---|---|---|
 | **User** | Anyone using the project | Open issues and discussions, ask for help, vote with reactions |
 | **Contributor** | Anyone whose signed-off PR was merged | Everything a user can, plus be suggested as a reviewer |
-| **Maintainer** | The `@berasoftware` account and the people listed in `.github/CODEOWNERS` | Review and merge PRs, triage issues, cut releases, handle security reports |
+| **Maintainer** | Members of the `@bera-software/maintainers` GitHub team | Review and merge PRs, triage issues, cut releases, handle security reports |
 | **Lead maintainer** | A maintainer chosen by the maintainers | Break ties, own the roadmap and the release calendar, represent the project |
 
-The current maintainer is Bera Software (`@berasoftware`), which owns every path in [`.github/CODEOWNERS`](.github/CODEOWNERS).
+The current maintainers are the members of the `@bera-software/maintainers` team, which owns every path in [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
 ## Decisions
 

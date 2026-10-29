@@ -21,7 +21,7 @@ concurrency:
 jobs:
   verify:
     # The project's own CI and release: never run in a hub created from the template.
-    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
+    if: github.repository == 'bera-software/agent-squad-hq'
     # Any v* tag triggers this workflow; only a tag on a commit that is already
     # on main may publish (pair with a tag ruleset limited to maintainers).
     runs-on: ubuntu-latest
@@ -41,7 +41,7 @@ jobs:
 
   build:
     # The project's own CI and release: never run in a hub created from the template.
-    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: [verify]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -87,7 +87,7 @@ jobs:
 
   pypi:
     # The project's own CI and release: never run in a hub created from the template.
-    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -106,7 +106,7 @@ jobs:
 
   image:
     # The project's own CI and release: never run in a hub created from the template.
-    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: [verify]
     # Same protected environment as the PyPI publish: its required reviewers
     # gate the GHCR push and the signature too.
@@ -159,7 +159,7 @@ jobs:
 
   github-release:
     # The project's own CI and release: never run in a hub created from the template.
-    if: contains(fromJSON('["berasoftware/agent-squad-hq", "bera-software/agent-squad-hq"]'), github.repository)
+    if: github.repository == 'bera-software/agent-squad-hq'
     needs: [build, pypi, image]
     runs-on: ubuntu-latest
     timeout-minutes: 10

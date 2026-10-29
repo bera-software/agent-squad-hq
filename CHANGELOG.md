@@ -96,4 +96,4 @@ First public developer preview. The code was imported from an earlier private de
 - Executors other than Claude Code cannot run in Actions mode yet.
 - The deployment examples have been linted and validated but not applied to real cloud accounts.
 
-[0.1.0]: https://github.com/berasoftware/agent-squad-hq/releases/tag/v0.1.0
+[0.1.0]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0

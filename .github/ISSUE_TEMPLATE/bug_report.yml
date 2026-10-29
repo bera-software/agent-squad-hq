@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for the report. **Security problems, including prompt-injection bypasses, must be reported privately** through
-        [SECURITY.md](https://github.com/berasoftware/agent-squad-hq/blob/main/SECURITY.md), not here.
+        [SECURITY.md](https://github.com/bera-software/agent-squad-hq/blob/main/SECURITY.md), not here.
         Remove tokens, private keys, private repository names and transcripts before you paste anything.
   - type: dropdown
     id: runtime

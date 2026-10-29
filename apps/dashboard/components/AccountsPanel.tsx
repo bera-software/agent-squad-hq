@@ -1,7 +1,7 @@
 import { formatRelative, formatTimestamp, isTripped, type Capacity, type Run } from "@squadhq/shared-api";
 import { LocalTime } from "./LocalTime";
 
-export const POOL_DOCS_URL = "https://berasoftware.github.io/agent-squad-hq/configuration/squadhq-yml/#account-pool";
+export const POOL_DOCS_URL = "https://bera-software.github.io/agent-squad-hq/configuration/squadhq-yml/#account-pool";
 
 const STRATEGY_TEXT: Record<string, string> = {
   ordered: "Ordered: each job uses the first available account, in the order below.",
