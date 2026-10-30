@@ -177,6 +177,6 @@ jobs:
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
-          pre=""; case "$TAG" in *-*) pre="--prerelease" ;; esac
+          pre=""; case "$TAG" in *-* | *.dev* | *a[0-9]* | *b[0-9]* | *rc[0-9]*) pre="--prerelease" ;; esac  # semver or PEP 440
           gh release create "$TAG" -R "$REPO" --verify-tag --generate-notes $pre \
             dist/* dist-sbom/sbom.cdx.json
