@@ -11,10 +11,12 @@ Env: ``ANTHROPIC_API_KEY`` (required), ``ANTHROPIC_BASE_URL`` (default
 """
 from __future__ import annotations
 
+import json
+from collections.abc import Iterator
 from typing import Any
 
-from squadhq.http import Transport
-from squadhq.interfaces import LLMReply, Message
+from squadhq.http import Transport, stream_lines
+from squadhq.interfaces import AdapterError, LLMReply, Message, StreamEvent
 from squadhq.providers import prices
 from squadhq.providers.base import HTTPProvider, env, message_content, usage_of
 
@@ -71,14 +73,55 @@ class AnthropicProvider(HTTPProvider):
         self.api_key = api_key
         self.base_url = (base_url or env("ANTHROPIC_BASE_URL", default="https://api.anthropic.com") or "").rstrip("/")
 
-    def complete(self, *, model: str, system: str, messages: list[Message], max_tokens: int,
-                 web_search: bool = False, json_mode: bool = False, timeout: float = 120.0) -> LLMReply:
+    def _headers(self) -> dict[str, str]:
         key = self._require(self.api_key or env("ANTHROPIC_API_KEY"), "ANTHROPIC_API_KEY")
-        headers = {
+        return {
             "content-type": "application/json",
             "x-api-key": key,
             "anthropic-version": env("ANTHROPIC_VERSION", default="2023-06-01") or "2023-06-01",
         }
+
+    def complete(self, *, model: str, system: str, messages: list[Message], max_tokens: int,
+                 web_search: bool = False, json_mode: bool = False, timeout: float = 120.0) -> LLMReply:
         req = build_request(model, system, messages, max_tokens, web_search)
-        resp = self._post(f"{self.base_url}/v1/messages", req, headers, timeout)
+        resp = self._post(f"{self.base_url}/v1/messages", req, self._headers(), timeout)
         return parse_reply(resp if isinstance(resp, dict) else {}, model, self.name)
+
+    def stream(self, *, model: str, system: str, messages: list[Message], max_tokens: int,
+               json_mode: bool = False, timeout: float = 120.0) -> Iterator[StreamEvent]:
+        """Server-sent events: text deltas, then the whole reply with usage and stop reason."""
+        req = {**build_request(model, system, messages, max_tokens), "stream": True}
+        parts: list[str] = []
+        usage: dict[str, Any] = {}
+        raw_stop = ""
+        try:
+            for line in stream_lines("POST", f"{self.base_url}/v1/messages", headers=self._headers(), json_body=req,
+                                     timeout=timeout, transport=self.transport):
+                if not line.startswith("data:"):
+                    continue
+                try:
+                    ev = json.loads(line[5:].strip())
+                except ValueError:
+                    continue
+                kind = ev.get("type")
+                if kind == "message_start":
+                    usage.update((ev.get("message") or {}).get("usage") or {})
+                elif kind == "content_block_delta" and (ev.get("delta") or {}).get("type") == "text_delta":
+                    text = str(ev["delta"].get("text") or "")
+                    if text:
+                        parts.append(text)
+                        yield StreamEvent(text=text)
+                elif kind == "message_delta":
+                    raw_stop = str((ev.get("delta") or {}).get("stop_reason") or raw_stop)
+                    usage.update({k: v for k, v in (ev.get("usage") or {}).items() if v is not None})
+                elif kind == "error":
+                    err = ev.get("error") or {}
+                    from squadhq.http import classify_http_error
+
+                    status = 529 if err.get("type") == "overloaded_error" else 500
+                    raise classify_http_error(status, json.dumps(err))
+        except AdapterError as e:
+            e.args = (f"{self.name}: {e.args[0] if e.args else ''}",)
+            raise
+        yield StreamEvent(reply=parse_reply({"content": [{"type": "text", "text": "".join(parts)}],
+                                             "stop_reason": raw_stop, "usage": usage}, model, self.name))

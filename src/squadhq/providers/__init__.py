@@ -14,16 +14,17 @@ Public API::
     price_for(ref, usage) -> Decimal | None
     capabilities_for(ref) -> set[Capability]
     complete(ref, *, system, messages, max_tokens, ...) -> LLMReply
+    stream_reply(provider, *, model, system, messages, ...) -> Iterator[StreamEvent]
     complete_with_fallback(primary_ref, fallback_ref, *, system, messages, max_tokens, ...) -> FallbackResult
 """
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from decimal import Decimal
 from typing import Any
 
-from squadhq.interfaces import Capability, FatalError, LLMProvider, LLMReply, Message, Usage
+from squadhq.interfaces import Capability, FatalError, LLMProvider, LLMReply, Message, StreamEvent, Usage
 from squadhq.providers import prices
 from squadhq.providers.fallback import FallbackResult, complete_with_fallback
 
@@ -35,6 +36,7 @@ __all__ = [
     "price_for",
     "capabilities_for",
     "complete",
+    "stream_reply",
     "complete_with_fallback",
     "FallbackResult",
     "default_provider",
@@ -199,3 +201,19 @@ def complete(model_ref: str, *, system: str, messages: list[Message], max_tokens
     return get_provider(prov, **provider_kwargs).complete(
         model=model, system=system, messages=messages, max_tokens=max_tokens,
         web_search=web_search, json_mode=json_mode, timeout=timeout)
+
+
+def stream_reply(provider: LLMProvider, *, model: str, system: str, messages: list[Message], max_tokens: int,
+                 json_mode: bool = False, timeout: float = 120.0) -> Iterator[StreamEvent]:
+    """Text deltas as they arrive, then one event carrying the whole reply. Providers without a
+    native stream answer in one delta, so every provider can be streamed."""
+    native = getattr(provider, "stream", None)
+    if callable(native):
+        yield from native(model=model, system=system, messages=messages, max_tokens=max_tokens,
+                          json_mode=json_mode, timeout=timeout)
+        return
+    reply = provider.complete(model=model, system=system, messages=messages, max_tokens=max_tokens,
+                              json_mode=json_mode, timeout=timeout)
+    if reply.text:
+        yield StreamEvent(text=reply.text)
+    yield StreamEvent(reply=reply)

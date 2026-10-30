@@ -30,7 +30,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from email.message import Message as _EmailMessage
 from typing import Any
@@ -43,6 +43,7 @@ __all__ = [
     "FakeTransport",
     "request",
     "request_json",
+    "stream_lines",
     "classify_http_error",
     "parse_link_next",
     "DEFAULT_TIMEOUT",
@@ -222,6 +223,57 @@ def request(
     raise last  # pragma: no cover
 
 
+def stream_lines(
+    method: str,
+    url: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+    json_body: Any = None,
+    timeout: float = DEFAULT_TIMEOUT,
+    transport: Transport | None = None,
+) -> Iterator[str]:
+    """Send one request and yield the response body line by line as it arrives (server-sent
+    events). No retry: a stream that fails part way cannot be replayed. Errors before the body
+    map onto the adapter errors exactly like :func:`request`."""
+    if urllib.parse.urlsplit(url).scheme not in ("https", "http"):
+        raise FatalError(f"refusing non-http(s) URL: {url[:80]}")
+    hdrs = {"User-Agent": "agent-squad-hq", "Accept": "text/event-stream"}
+    if headers:
+        hdrs.update(headers)
+    body = None
+    if json_body is not None:
+        body = json.dumps(json_body).encode()
+        hdrs.setdefault("Content-Type", "application/json")
+    req = urllib.request.Request(url, data=body, headers=hdrs, method=method.upper())  # noqa: S310 - scheme checked above
+    send = transport or _default_transport
+    try:
+        resp = send(req, timeout)
+    except urllib.error.HTTPError as e:
+        try:
+            ebody = e.read().decode("utf-8", errors="replace") if e.fp is not None else ""
+        except Exception:
+            ebody = ""
+        raise classify_http_error(e.code, ebody, _headers_to_dict(e.headers)) from None
+    except AdapterError:
+        raise
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+        raise TransientError(f"network error: {e!r}") from None
+    try:
+        status = int(getattr(resp, "status", None) or getattr(resp, "code", None) or 200)
+        if not 200 <= status < 300:
+            raise classify_http_error(status, resp.read().decode("utf-8", errors="replace"),
+                                      _headers_to_dict(getattr(resp, "headers", None)))
+        try:
+            for raw in iter(resp.readline, b""):
+                yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
+        except (TimeoutError, ConnectionError, OSError) as e:
+            raise TransientError(f"stream interrupted: {e!r}") from None
+    finally:
+        close = getattr(resp, "close", None)
+        if callable(close):
+            close()
+
+
 def request_json(method: str, url: str, **kwargs: Any) -> Any:
     """:func:`request` and decode the JSON body (``None`` for an empty body)."""
     return request(method, url, **kwargs).json()
@@ -249,6 +301,12 @@ class _FakeResp:
 
     def read(self) -> bytes:
         return self.body
+
+    def readline(self) -> bytes:
+        """Line by line, for :func:`stream_lines` (server-sent events)."""
+        cut = self.body.find(b"\n")
+        line, self.body = (self.body, b"") if cut < 0 else (self.body[:cut + 1], self.body[cut + 1:])
+        return line
 
     def close(self) -> None:
         return None

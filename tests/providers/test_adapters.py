@@ -54,6 +54,48 @@ def test_anthropic_request_and_reply() -> None:
     assert r.provider == "anthropic"
 
 
+def _sse(*events: dict) -> str:
+    return "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events)
+
+
+def test_anthropic_streams_text_then_the_whole_reply() -> None:
+    from squadhq.providers import stream_reply
+
+    body = _sse({"type": "message_start", "message": {"usage": {"input_tokens": 50, "output_tokens": 1}}},
+                {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+                {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hel"}},
+                {"type": "content_block_delta", "index": 0, "delta": {"type": "thinking_delta", "thinking": "x"}},
+                {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "lo"}},
+                {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 7}},
+                {"type": "message_stop"})
+    t = FakeTransport().add("POST /v1/messages", (200, body))
+    events = list(stream_reply(AnthropicProvider(api_key="sk-test", transport=t), model="claude-sonnet-5-5",
+                               system="s", messages=MSGS, max_tokens=50))
+    assert [e.text for e in events if e.text] == ["Hel", "lo"] and t.calls[0]["body"]["stream"] is True
+    reply = events[-1].reply
+    assert reply is not None and reply.text == "Hello" and reply.stop_reason == "end"
+    assert reply.usage.input_tokens == 50 and reply.usage.output_tokens == 7
+    overloaded = FakeTransport().add("POST /v1/messages", (200, _sse(
+        {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}})))
+    with pytest.raises(TransientError):
+        list(AnthropicProvider(api_key="k", transport=overloaded).stream(
+            model="claude-sonnet-5-5", system="s", messages=MSGS, max_tokens=5))
+    refused = FakeTransport().add("POST /v1/messages", (401, {"error": {"type": "authentication_error"}}))
+    with pytest.raises(FatalError):
+        list(AnthropicProvider(api_key="k", transport=refused).stream(
+            model="claude-sonnet-5-5", system="s", messages=MSGS, max_tokens=5))
+
+
+def test_providers_without_a_stream_answer_in_one_piece() -> None:
+    from squadhq.providers import stream_reply
+
+    t = FakeTransport().add("POST /chat/completions", (200, fx("openai_chat.json")))
+    events = list(stream_reply(OpenAICompatibleProvider(base_url="https://llm.test/v1", api_key="k", transport=t),
+                               model="m", system="s", messages=MSGS, max_tokens=5))
+    assert len(events) == 2 and events[0].text and events[-1].reply is not None
+    assert events[-1].reply.text == events[0].text
+
+
 def test_anthropic_no_thinking_for_legacy_model_and_missing_key() -> None:
     t = FakeTransport().add("/v1/messages", (200, {"content": [], "stop_reason": "max_tokens"}))
     p = AnthropicProvider(api_key="k", transport=t)

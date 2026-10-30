@@ -111,6 +111,14 @@ class LLMReply:
     raw: Any = field(default=None, compare=False, repr=False)
 
 
+@dataclass(frozen=True)
+class StreamEvent:
+    """One piece of a streamed reply: a text delta, or (last) the whole reply with usage."""
+
+    text: str = ""
+    reply: LLMReply | None = None
+
+
 @runtime_checkable
 class LLMProvider(Protocol):
     name: str
