@@ -134,6 +134,29 @@ jobs:
                 | grep -vE '^[^:]+:[0-9]+:\s*#' || true)
           [ -z "$bad" ] || { echo "::error::forbidden pattern:"; echo "$bad"; exit 1; }
 
+  docker:
+    # The server image the release publishes: build it on every change so a missing
+    # file in the build context fails here, not at release time. Never pushed.
+    if: github.repository == 'bera-software/agent-squad-hq'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: false
+          load: true
+          tags: agent-squad-hq:ci
+      - name: The image starts
+        run: docker run --rm agent-squad-hq:ci --help
+
   guard:
     # The project's own CI and release: never run in a hub created from the template.
     if: github.repository == 'bera-software/agent-squad-hq'
