@@ -18,7 +18,9 @@ tests
 evals/*
 !evals/golden
 !evals/thresholds.yml
-docs
+docs/*
+# Force-included in the wheel (pyproject.toml).
+!docs/FLOW-DIAGRAM.md
 state
 apps
 **/node_modules
