@@ -49,8 +49,10 @@ SHA_RE = re.compile(r"@[0-9a-f]{40}$")
 # reusable entry workflows is recognised by its docstring.
 MINT_ACTIONS = ("create-github-app-token", "actions/squadhq-token", "actions/agent-prep")
 BROKER_MARKERS = ("squadhq-token broker client", "squadhq-token/broker.py", "ACTIONS_ID_TOKEN_REQUEST", "/v1/broker/")
-# Jobs that need OIDC for something other than the token broker (signing, publishing).
-OIDC_OTHER = {("release.yml", "build"), ("release.yml", "pypi"), ("release.yml", "image")}
+# Jobs that need OIDC for something other than the token broker (signing, publishing,
+# Scorecard results).
+OIDC_OTHER = {("release.yml", "build"), ("release.yml", "pypi"), ("release.yml", "image"),
+              ("scorecard.yml", "analysis")}
 
 
 def secrets_in(obj):

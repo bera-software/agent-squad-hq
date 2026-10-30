@@ -34,6 +34,7 @@ TEMPLATE_ITEMS: tuple[str, ...] = (
 PROJECT_ONLY: frozenset[str] = frozenset({
     os.path.join(".github", "workflows", "release.yml"),
     os.path.join(".github", "workflows", "hub-ci.yml"),
+    os.path.join(".github", "workflows", "scorecard.yml"),
 })
 PACKAGE_DEST = os.path.join("src", "squadhq")
 HUB_MARKER = os.path.join("config", "flows.yml")
