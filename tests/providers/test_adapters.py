@@ -316,3 +316,32 @@ def test_bedrock_bearer_and_errors() -> None:
         BedrockProvider(bearer_token="bk", transport=t3).complete(model="x", system="", messages=MSGS, max_tokens=1)
     with pytest.raises(FatalError):
         BedrockProvider(transport=t3).complete(model="x", system="", messages=MSGS, max_tokens=1)
+
+
+# ------------------------------------------------------------------ images
+def test_images_take_each_apis_shape() -> None:
+    from squadhq.interfaces import Image
+    from squadhq.providers.base import message_content
+
+    png = Image("image/png", b"\x89PNG")
+    m = Message(role="user", content="What is this?", images=(png,))
+    assert message_content(Message("user", "hi"), "anthropic") == "hi"
+    assert message_content(m, "anthropic") == [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw=="}},
+        {"type": "text", "text": "What is this?"}]
+    assert message_content(m, "openai_chat")[1] == {"type": "image_url",
+                                                    "image_url": {"url": "data:image/png;base64,iVBORw=="}}
+    assert message_content(m, "openai_responses")[1] == {"type": "input_image",
+                                                         "image_url": "data:image/png;base64,iVBORw=="}
+    assert message_content(m, "gemini")[1] == {"inline_data": {"mime_type": "image/png", "data": "iVBORw=="}}
+    jpg = Message("user", "x", images=(Image("image/jpg", b"j"),))
+    assert message_content(jpg, "bedrock")[1]["image"]["format"] == "jpeg"
+    # Images only ever go with the person's turns.
+    assert message_content(Message("assistant", "ok", images=(png,)), "anthropic") == "ok"
+    with pytest.raises(ValueError):
+        message_content(m, "smoke-signals")
+    t = FakeTransport().add("POST /v1/messages", (200, fx("anthropic_messages.json")))
+    AnthropicProvider(api_key="k", transport=t).complete(model="claude-haiku-5-5", system="", messages=[m],
+                                                         max_tokens=50)
+    assert t.calls[0]["body"]["messages"][0]["content"][0]["type"] == "image"
+    assert Capability.VISION in AnthropicProvider(api_key="k").capabilities("claude-haiku-5-5")

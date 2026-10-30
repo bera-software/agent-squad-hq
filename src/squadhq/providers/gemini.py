@@ -18,7 +18,7 @@ from typing import Any
 from squadhq.http import Transport
 from squadhq.interfaces import LLMReply, Message
 from squadhq.providers import prices
-from squadhq.providers.base import HTTPProvider, env, usage_of
+from squadhq.providers.base import HTTPProvider, env, message_content, usage_of
 
 _STOP = {
     "STOP": "end",
@@ -80,8 +80,8 @@ class GeminiProvider(HTTPProvider):
         if isinstance(t, dict):
             gen["thinkingConfig"] = dict(t)
         body: dict[str, Any] = {
-            "contents": [{"role": "model" if m.role == "assistant" else "user", "parts": [{"text": m.content}]}
-                         for m in messages],
+            "contents": [{"role": "model" if m.role == "assistant" else "user",
+                          "parts": message_content(m, "gemini")} for m in messages],
             "generationConfig": gen,
         }
         if system:

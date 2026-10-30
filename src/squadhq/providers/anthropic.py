@@ -16,7 +16,7 @@ from typing import Any
 from squadhq.http import Transport
 from squadhq.interfaces import LLMReply, Message
 from squadhq.providers import prices
-from squadhq.providers.base import HTTPProvider, env, usage_of
+from squadhq.providers.base import HTTPProvider, env, message_content, usage_of
 
 WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 6}
 
@@ -41,7 +41,7 @@ def build_request(model: str, system: str, messages: list[Message], max_tokens: 
         "model": model,
         "max_tokens": max_tokens,
         "system": system,
-        "messages": [{"role": m.role, "content": m.content} for m in messages],
+        "messages": [{"role": m.role, "content": message_content(m, "anthropic")} for m in messages],
     }
     if web_search:
         req["tools"] = [dict(WEB_SEARCH_TOOL)]

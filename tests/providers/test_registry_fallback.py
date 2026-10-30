@@ -75,7 +75,8 @@ def test_price_for_and_capabilities() -> None:
     assert providers.price_for("openai/gpt-4o-mini", Usage(1_000_000, 0, 1_000_000)) == Decimal("0.225")
     assert providers.price_for("", Usage()) is None
     assert Capability.THINKING in providers.capabilities_for("openai/gpt-5")
-    assert providers.capabilities_for("openai/gpt-4.1") == {Capability.TOOLS, Capability.WEB_SEARCH, Capability.JSON_MODE}
+    assert providers.capabilities_for("openai/gpt-4.1") == {Capability.TOOLS, Capability.WEB_SEARCH, Capability.JSON_MODE,
+                                                            Capability.VISION}
 
 
 def test_unknown_price_warns_once(caplog: pytest.LogCaptureFixture) -> None:

@@ -1,6 +1,7 @@
 """Shared plumbing for HTTP-based LLM provider adapters."""
 from __future__ import annotations
 
+import base64
 import logging
 import os
 from decimal import Decimal
@@ -71,6 +72,42 @@ def warn_unsupported(provider: str, feature: str, model: str) -> None:
 
 def to_role_messages(messages: list[Message]) -> list[dict[str, str]]:
     return [{"role": m.role, "content": m.content} for m in messages]
+
+
+def _b64(data: bytes) -> str:
+    return base64.b64encode(data).decode("ascii")
+
+
+def message_content(m: Message, style: str) -> Any:
+    """A message's content in one API's shape: plain text, or text plus images.
+
+    ``style`` is ``anthropic``, ``openai_chat``, ``openai_responses``, ``gemini`` or ``bedrock``.
+    One place for every provider, so a new API shape is one branch here.
+    """
+    images = m.images if m.role == "user" else ()
+    if style == "anthropic":
+        if not images:
+            return m.content
+        return [*({"type": "image", "source": {"type": "base64", "media_type": i.media_type, "data": _b64(i.data)}}
+                  for i in images), {"type": "text", "text": m.content}]
+    if style == "openai_chat":
+        if not images:
+            return m.content
+        return [{"type": "text", "text": m.content},
+                *({"type": "image_url", "image_url": {"url": f"data:{i.media_type};base64,{_b64(i.data)}"}}
+                  for i in images)]
+    if style == "openai_responses":
+        if not images:
+            return m.content
+        return [{"type": "input_text", "text": m.content},
+                *({"type": "input_image", "image_url": f"data:{i.media_type};base64,{_b64(i.data)}"} for i in images)]
+    if style == "gemini":
+        return [{"text": m.content}, *({"inline_data": {"mime_type": i.media_type, "data": _b64(i.data)}}
+                                       for i in images)]
+    if style == "bedrock":
+        return [{"text": m.content}, *({"image": {"format": i.media_type.split("/")[-1].replace("jpg", "jpeg"),
+                                                  "source": {"bytes": _b64(i.data)}}} for i in images)]
+    raise ValueError(f"unknown message style {style!r}")
 
 
 def usage_of(input_tokens: Any = 0, output_tokens: Any = 0, cache_read: Any = 0, cache_write: Any = 0) -> Usage:

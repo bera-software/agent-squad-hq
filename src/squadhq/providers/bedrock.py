@@ -21,7 +21,7 @@ from squadhq import http
 from squadhq.http import Transport
 from squadhq.interfaces import AdapterError, LLMReply, Message
 from squadhq.providers import sigv4
-from squadhq.providers.base import HTTPProvider, env, usage_of, warn_unsupported
+from squadhq.providers.base import HTTPProvider, env, message_content, usage_of, warn_unsupported
 
 _STOP = {
     "end_turn": "end",
@@ -66,7 +66,7 @@ class BedrockProvider(HTTPProvider):
         if web_search:
             warn_unsupported(self.name, "web_search", model)
         body: dict[str, Any] = {
-            "messages": [{"role": m.role, "content": [{"text": m.content}]} for m in messages],
+            "messages": [{"role": m.role, "content": message_content(m, "bedrock")} for m in messages],
             "inferenceConfig": {"maxTokens": max_tokens},
         }
         if system:

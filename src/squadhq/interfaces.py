@@ -72,12 +72,23 @@ class Capability(str, Enum):
     TOOLS = "tools"
     JSON_MODE = "json_mode"
     THINKING = "thinking"
+    VISION = "vision"
+
+
+@dataclass(frozen=True)
+class Image:
+    """An image a person gave the model to look at (PNG, JPEG, GIF or WebP bytes)."""
+
+    media_type: str
+    data: bytes
 
 
 @dataclass(frozen=True)
 class Message:
     role: Literal["user", "assistant"]
     content: str
+    # Images go with user messages only; each adapter shapes them for its API (providers.base).
+    images: tuple[Image, ...] = ()
 
 
 @dataclass(frozen=True)

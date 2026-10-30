@@ -15,7 +15,7 @@ from typing import Any
 
 from squadhq.http import Transport
 from squadhq.interfaces import LLMReply, Message
-from squadhq.providers.base import env
+from squadhq.providers.base import env, message_content
 from squadhq.providers.openai import ApiStyle, OpenAIProvider, parse_responses
 
 DEFAULT_API_VERSION = "2024-10-21"
@@ -60,7 +60,7 @@ class AzureOpenAIProvider(OpenAIProvider):
         body: dict[str, Any] = {
             "model": model,
             "instructions": system,
-            "input": [{"role": m.role, "content": m.content} for m in messages],
+            "input": [{"role": m.role, "content": message_content(m, "openai_responses")} for m in messages],
             "max_output_tokens": max_tokens,
         }
         if json_mode:

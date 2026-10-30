@@ -21,7 +21,7 @@ from typing import Any, Literal
 from squadhq.http import Transport
 from squadhq.interfaces import LLMReply, Message
 from squadhq.providers import prices
-from squadhq.providers.base import HTTPProvider, env, usage_of, warn_unsupported
+from squadhq.providers.base import HTTPProvider, env, message_content, usage_of, warn_unsupported
 
 ApiStyle = Literal["responses", "chat"]
 
@@ -135,7 +135,7 @@ class OpenAIProvider(HTTPProvider):
         body: dict[str, Any] = {
             "model": model,
             "instructions": system,
-            "input": [{"role": m.role, "content": m.content} for m in messages],
+            "input": [{"role": m.role, "content": message_content(m, "openai_responses")} for m in messages],
             "max_output_tokens": max_tokens,
         }
         if web_search:
@@ -152,10 +152,10 @@ class OpenAIProvider(HTTPProvider):
 
     def _chat_body(self, model: str, system: str, messages: list[Message], max_tokens: int,
                    json_mode: bool) -> dict[str, Any]:
-        msgs: list[dict[str, str]] = []
+        msgs: list[dict[str, Any]] = []
         if system:
             msgs.append({"role": "system", "content": system})
-        msgs.extend({"role": m.role, "content": m.content} for m in messages)
+        msgs.extend({"role": m.role, "content": message_content(m, "openai_chat")} for m in messages)
         body: dict[str, Any] = {"model": model, "messages": msgs}
         if self.name in ("openai", "azure_openai"):
             body["max_completion_tokens"] = max_tokens
