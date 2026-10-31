@@ -335,3 +335,20 @@ def test_merged_jacoco_keeps_every_counter(tmp_path, monkeypatch):
     assert {sf.get("name") for sf in files} == {"A1.java", "A2.java"}
     assert all(sf.find("counter[@type='INSTRUCTION']") is not None for sf in files)
     assert root.find("counter[@type='INSTRUCTION']").attrib == {"type": "INSTRUCTION", "missed": "2", "covered": "6"}
+
+
+def test_comment_covers_every_format_and_stack(tmp_path):
+    # One PR comment for all stacks: lcov (Vitest/Jest), Cobertura (pytest-cov, .NET, Go), JaCoCo.
+    d = reports(tmp_path, web="lcov.info", api="cobertura.xml", be="jacoco.xml")
+    diff = tmp_path / "d.diff"
+    diff.write_text(DIFF)
+    matrix = json.dumps([entry("web", "lcov", "lcov.info", ["web/**"]),
+                         entry("api", "cobertura", "cobertura.xml", ["api/**"], mode="off"),
+                         entry("be", "jacoco", "jacoco.xml", ["src/**"], mode="report")])
+    out = tmp_path / "comment.md"
+    assert C.main(["changed", "--reports", d, "--diff-file", str(diff), "--matrix", matrix,
+                   "--summary", "", "--comment-file", str(out)]) == 0
+    text = out.read_text()
+    assert text.startswith(C.COMMENT_MARKER + "\n### Coverage")
+    for stack in ("`web` overall", "`api` overall", "`be` overall"):  # "off" still shown in the comment
+        assert stack in text, text

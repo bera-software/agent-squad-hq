@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Code graph in the agent's own PR: implement, design, review-fix and mention agents may run `graphify query/path/explain` and `graphify update .`, and commit the three graph files with their change (`prompts/_shared/delivery.md`). `graph-refresh` skips pushes that already carry `graphify-out/graph.json` in its `if:`, so no runner starts; it only catches up after changes made without the graph. The reviewer leaves the graph diff out.
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
+### Changed
+- PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
+
 ### Fixed
 - Coverage comment on multi-module builds said "no coverage information present for the Files changed": the combined report was rebuilt from line data, without the per-file INSTRUCTION/BRANCH counters the comment reads. JaCoCo module reports are now merged as they are, every counter kept.
 - A design ticket whose implementation the PO cut as a separate ticket (`After: #<design>`) got the Engineer dispatched onto it when its design PR merged, and stayed open, so the implementation ticket waited forever. It now closes, which releases the follow-up.

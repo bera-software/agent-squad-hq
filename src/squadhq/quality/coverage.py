@@ -285,6 +285,8 @@ class EntryResult:
     measurable: int = 0
     changed_files: int = 0
     files: list[FileResult] = field(default_factory=list)
+    overall_covered: int = 0
+    overall_total: int = 0
 
     @property
     def pct(self) -> float | None:
@@ -344,12 +346,14 @@ def find_report(reports_dir: str, entry_id: str, report_path: str) -> str | None
     return os.path.join(d, files[0]) if len(files) == 1 else None
 
 
-def run(matrix: Any, reports_dir: str, changed: dict[str, set[int]]) -> list[EntryResult]:
+def run(matrix: Any, reports_dir: str, changed: dict[str, set[int]], include_off: bool = False) -> list[EntryResult]:
     results = []
     for e in _entries(matrix):
         cov = e.get("coverage") or {}
         fmt = str(cov.get("format") or "none")
         mode = str((e.get("quality") or {}).get("changed_coverage") or "report")
+        if include_off and mode == "off":
+            mode = "report"  # the PR comment shows every stack's coverage
         if fmt not in FORMATS or mode not in MODES or mode == "off":
             continue
         try:
@@ -371,6 +375,7 @@ def run(matrix: Any, reports_dir: str, changed: dict[str, set[int]]) -> list[Ent
             results.append(res)
             continue
         globs = [g for g in (e.get("paths") or []) if isinstance(g, str)]
+        res.overall_covered, res.overall_total = line_counts(report)
         results.append(evaluate(report, changed, globs, res))
     return results
 
@@ -379,8 +384,11 @@ def _md(s: str) -> str:
     return s.replace("`", "'").replace("|", "\\|")
 
 
-def render(results: list[EntryResult], max_files: int = 25) -> str:
-    out = ["### Changed-lines coverage", ""]
+COMMENT_MARKER = "<!-- squadhq:coverage -->"
+
+
+def render(results: list[EntryResult], max_files: int = 25, title: str = "Changed-lines coverage") -> str:
+    out = [f"### {title}", ""]
     if not results:
         out.append("⏭ No stack with a coverage report applies to this change.")
         return "\n".join(out) + "\n"
@@ -389,6 +397,9 @@ def render(results: list[EntryResult], max_files: int = 25) -> str:
         if r.error:
             out.append(f"- ⚠ `{_md(r.id)}`: {_md(r.error)} ({label})")
             continue
+        if r.overall_total:
+            out.append(f"- `{_md(r.id)}` overall: {100.0 * r.overall_covered / r.overall_total:.1f}% "
+                       f"of {r.overall_total} lines")
         pct = r.pct
         if pct is None:
             out.append(f"- ✅ `{_md(r.id)}`: no measurable changed lines in {r.changed_files} changed file(s) "
@@ -590,6 +601,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--diff-file", default=None, help="read a --unified=0 diff from this file instead of git")
     c.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY") or "",
                    help="append the markdown summary here (default: GITHUB_STEP_SUMMARY; stdout otherwise)")
+    c.add_argument("--comment-file", default="",
+                   help="also write a PR comment body here (every stack, marker first); never fails the run")
     a = ap.parse_args(argv)
     if a.cmd == "overall":
         return overall(a.format, a.report, a.root, a.min, a.out, a.summary)
@@ -602,6 +615,11 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, OSError) as e:
         print(f"changed-coverage: {e}", file=sys.stderr)
         return 2
+    if a.comment_file:
+        with open(a.comment_file, "w", encoding="utf-8") as f:
+            f.write(COMMENT_MARKER + "\n" + render(run(matrix, a.reports, parse_diff(diff), include_off=True),
+                                                    title="Coverage"))
+        return 0
     results = run(matrix, a.reports, parse_diff(diff))
     text = render(results)
     if a.summary:
