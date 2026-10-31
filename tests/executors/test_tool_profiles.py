@@ -323,10 +323,14 @@ def test_read_grep_glob_and_edit_path_denies():
         deny = set(tp.claude_code_deny_list("read-only", role))
         for tool in ("Read", "Grep", "Glob"):
             for path in ("//proc/**", "//sys/**", "//etc/**", "//root/**", "//tmp/**", "//github/**",
-                         "//home/runner/work/_temp/**", "~/**"):
+                         "//home/runner/work/_temp/**", "~/.*/**", "~/.*"):
                 assert f"{tool}({path})" in deny, (tool, path)
-        # The checkout under /home/runner/work/<repo> must stay readable.
-        assert not any(r.startswith(("Read(//home/**", "Read(/home/**")) for r in deny)
+        # The checkout under /home/runner/work/<repo> (inside $HOME on hosted runners) must stay
+        # readable: no rule may cover the whole home directory.
+        for tool in ("Read", "Grep", "Glob"):
+            assert not any(r.startswith((f"{tool}(//home/**", f"{tool}(/home/**", f"{tool}(~/**", f"{tool}(~)"))
+                           for r in deny)
+            assert all(r.startswith(f"{tool}(~/.") for r in deny if r.startswith(f"{tool}(~"))
         for tool in ("Edit", "Write", "MultiEdit"):
             for path in (".git/**", "**/.git/**", ".github/**", "**/.github/**"):
                 assert f"{tool}({path})" in deny

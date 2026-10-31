@@ -156,8 +156,10 @@ _NON_POST_VERBS: tuple[str, ...] = tuple(
 # Secret-bearing locations outside the checkout. Claude Code path rules use
 # gitignore syntax: "//abs/path" is filesystem-absolute, "~/" is home; the
 # single-slash form is emitted too (harmless if it means project-relative).
-# "/home/**" is deliberately NOT denied wholesale: GitHub-hosted runners keep
-# the checkout under /home/runner/work/<repo>, and deny beats allow.
+# "/home/**" and "~/**" are deliberately NOT denied wholesale: GitHub-hosted
+# runners keep the checkout under /home/runner/work/<repo> (inside $HOME), and
+# deny beats allow, so either rule would deny every file the agent must read.
+# Only the home directory's hidden entries (~/.ssh, ~/.config, ...) are denied.
 _SECRET_PATHS: tuple[str, ...] = (
     "/proc/**", "/sys/**", "/etc/**", "/root/**", "/tmp/**", "/github/**",  # noqa: S108 - deny rules, not temp-file use
     "/home/runner/work/_temp/**", "/home/*/.*/**", "/home/*/.*",
@@ -167,7 +169,7 @@ _READ_DENY: tuple[str, ...] = tuple(
     for tool in ("Read", "Grep", "Glob")
     for path in _SECRET_PATHS
     for prefix in ("/", "")
-) + tuple(f"{tool}(~/**)" for tool in ("Read", "Grep", "Glob"))
+) + tuple(f"{tool}({path})" for tool in ("Read", "Grep", "Glob") for path in ("~/.*/**", "~/.*"))
 _DENY_COMMON: tuple[str, ...] = (
     "Bash(gh pr merge *)",
     "Bash(git push --force *)", "Bash(git push -f *)", "Bash(git push --force-with-lease *)",

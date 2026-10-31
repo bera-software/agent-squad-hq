@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- Agents could not read any file on GitHub-hosted runners: the deny rule `Read(~/**)` (also Grep and Glob) covered `$HOME`, and the checkout lives in `/home/runner/work`, inside it. Every agent stopped after a few denied reads while its run stayed green. Only the home directory's hidden entries (`~/.*`) are denied now.
+- Agent runs report denied tool calls: a `::warning` and a job-summary list, and a `denials` output, instead of finishing silently.
 - Stuck Sweeper: the sweep token reads checks and commit statuses (every PR was skipped with "Resource not accessible by integration" while the run stayed green), and a repository it cannot read now fails the run.
 - Stuck Sweeper: mentions older than 7 days are not asked about again (it re-asked about mentions from a previous setup). Set `SQUADHQ_BOT_ALIASES` to an earlier bot login so its comments still count as the sweeper's.
 - Packs `node-next` and `node-api`: the test command adds `--coverage` only when the project's test script does not already pass it; Vitest 4 stopped with "Expected a single value for option --coverage" on the second flag.
