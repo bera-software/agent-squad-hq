@@ -22,9 +22,10 @@ ci:
     command: "if [ \"$(npm pkg get scripts.lint)\" != \"{}\" ]; then npm run lint; elif ls eslint.config.* .eslintrc* >/dev/null 2>&1; then npx --no-install eslint .; fi && { ! ls .prettierrc* prettier.config.* >/dev/null 2>&1 || npx --no-install prettier --check .; }"
     local: "npm run lint && npx --no-install prettier --check ."
     configs: ["package.json:\"lint\"", "eslint.config.*", ".eslintrc*", ".prettierrc*", "prettier.config.*"]
-  # Coverage on unless the project's own test script already turns it on (a second
-  # --coverage makes Vitest stop with "Expected a single value for option").
-  test: "if npm pkg get scripts.test | grep -q -- --coverage; then npm test; else npm test -- --coverage; fi"
+  # Coverage with an lcov report (what coverage.path reads): Vitest and Jest each get their own
+  # reporter flag, and --coverage only when the test script lacks it (a second --coverage makes
+  # Vitest stop with "Expected a single value for option").
+  test: "s=$(npm pkg get scripts.test); case \"$s\" in *vitest*) r=\"--coverage.reporter=lcov --coverage.reporter=text\";; *jest*) r=\"--coverageReporters=lcov --coverageReporters=text\";; *) r=\"\";; esac; case \"$s\" in *--coverage*) ;; *) r=\"--coverage $r\";; esac; npm test -- $r"
   coverage:
     format: lcov
     path: "coverage/lcov.info"
