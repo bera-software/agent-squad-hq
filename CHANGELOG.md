@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0.0, minor releases may contain breaking changes; each one is called out under **Changed** with upgrade steps.
 
+## [Unreleased]
+
+### Fixed
+- Packs `node-next` and `node-api`: the test command adds `--coverage` only when the project's test script does not already pass it; Vitest 4 stopped with "Expected a single value for option --coverage" on the second flag.
+
 ## [0.1.0.dev5] - 2026-10-31
 
 ### Added
@@ -126,6 +131,7 @@ First public developer preview. The code was imported from an earlier private de
 - Executors other than Claude Code cannot run in Actions mode yet.
 - The deployment examples have been linted and validated but not applied to real cloud accounts.
 
+[Unreleased]: https://github.com/bera-software/agent-squad-hq/compare/v0.1.0.dev5...HEAD
 [0.1.0.dev5]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev5
 [0.1.0.dev4]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev4
 [0.1.0.dev3]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev3
