@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Packs `node-next` and `node-api`: the test command adds `--coverage` only when the project's test script does not already pass it; Vitest 4 stopped with "Expected a single value for option --coverage" on the second flag.
 - Router: the merge token can read checks, commit statuses and Actions (workflow names in the check rollup), so `trivial-merge` and `self-merge` can evaluate the merge policy; they read the PR's check rollup, failed to, and declined every unattended merge ("could not read the PR — failing closed").
 - Packs `node-next` and `node-api`: tests also write `coverage/lcov.info` (Vitest `--coverage.reporter=lcov`, Jest `--coverageReporters=lcov`), so coverage gates and comments work when the project's own reporters leave lcov out.
+- Pack `java-spring`, multi-module Gradle builds: the arch gate no longer fails with "No tests found for given includes: [*ArchitectureTest]" in modules without ArchUnit tests (a Gradle init script turns off `failOnNoMatchingTests`, as Maven's `failIfNoSpecifiedTests=false` already did).
+- Coverage gate, multi-module builds: when the configured report is missing or has no line data (the empty root project of a Gradle or Maven multi-module build), the gate merges every module's report at the same relative path (`coverage.py overall`) instead of reporting 0%. The changed-lines job and the PR comment use the same report.
 
 ## [0.1.0.dev5] - 2026-10-31
 

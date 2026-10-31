@@ -1,5 +1,7 @@
-"""Changed-lines coverage: coverage reports + a git diff -> a gate verdict.
+"""Coverage gates: overall line coverage per CI entry, and changed-lines coverage
+(coverage reports + a git diff -> a gate verdict).
 
+    python3 -I coverage.py overall --format FMT --report PATH [--root DIR] [--min N] [--out DIR]
     python3 -I coverage.py changed --reports DIR [--repo-dir .] [--base REF] [--head REF]
                                    [--diff-file FILE] [--matrix JSON | env MATRIX]
     python -m squadhq.quality.coverage changed ...   (same, from an installed hub)
@@ -15,6 +17,11 @@ Formats: ``lcov`` (``SF:``/``DA:``), ``cobertura`` (``<class filename>`` /
 ``<line nr ci>``). Report paths are matched to repo paths by the longest
 common path suffix, so absolute paths, pack roots and Java package paths all
 resolve.
+
+``overall`` reads the configured report; when it is missing or has no line
+data (the empty root project of a multi-module Gradle or Maven build), it
+merges every module's report at the same relative path below the entry root,
+and writes the report it used to ``--out`` for the changed-lines job.
 
 Per CI-plan entry (``--matrix``: the ci-plan matrix JSON, each entry carrying
 ``id``, ``paths``, ``coverage`` and ``quality.changed_coverage``):
@@ -402,9 +409,153 @@ def render(results: list[EntryResult], max_files: int = 25) -> str:
     return "\n".join(out) + "\n"
 
 
+# ---------------------------------------------------------------- overall
+
+# Directories never searched for module reports (dependencies, VCS, build output:
+# a module's report path already starts with its build directory).
+SKIP_DIRS = {"node_modules", "vendor", "build", "target", "dist", "out", "coverage", "__pycache__"}
+MAX_MODULE_DEPTH = 4
+
+
+def module_reports(root: str, rel: str, max_depth: int = MAX_MODULE_DEPTH) -> list[str]:
+    """``<module>/<rel>`` for every module directory under ``root`` (not ``root`` itself):
+    the per-module reports of a multi-module build that mirrors the root layout
+    (Gradle/Maven subprojects, monorepo packages)."""
+    found = []
+    root = os.path.normpath(root)
+    for d, dirs, _ in os.walk(root):
+        depth = 0 if d == root else os.path.relpath(d, root).count(os.sep) + 1
+        dirs[:] = sorted(x for x in dirs if not x.startswith(".") and x not in SKIP_DIRS
+                         and not os.path.islink(os.path.join(d, x)))
+        if depth >= max_depth:
+            dirs[:] = []
+        if depth == 0:
+            continue
+        cand = os.path.join(d, rel)
+        if os.path.isfile(cand) and not os.path.islink(cand):
+            found.append(cand)
+    return found
+
+
+def merge(reports: list[Report]) -> Report:
+    merged: Report = {}
+    for report in reports:
+        for path, lines in report.items():
+            into = merged.setdefault(path, {})
+            for nr, hits in lines.items():
+                into[nr] = max(into.get(nr, 0), hits)
+    return merged
+
+
+def line_counts(report: Report) -> tuple[int, int]:
+    """(covered, measurable) lines."""
+    total = sum(len(lines) for lines in report.values())
+    covered = sum(1 for lines in report.values() for hits in lines.values() if hits > 0)
+    return covered, total
+
+
+def resolve(fmt: str, path: str, root: str = ".") -> tuple[list[str], Report]:
+    """The report(s) behind one CI entry: the configured report when it has line data,
+    otherwise every module's report at the same relative path, merged. A root report
+    with no lines (a multi-module build's empty root project) counts as missing."""
+    if os.path.isfile(path):
+        report = load_report(path, fmt)
+        if line_counts(report)[1]:
+            return [path], report
+    used, reports = [], []
+    for p in module_reports(root or ".", os.path.relpath(path, root or ".")):
+        try:
+            report = load_report(p, fmt)
+        except CoverageError:
+            continue
+        if line_counts(report)[1]:
+            used.append(p)
+            reports.append(report)
+    return used, merge(reports)
+
+
+def _counter(parent: ET.Element, covered: int, total: int) -> None:
+    ET.SubElement(parent, "counter", type="LINE", missed=str(total - covered), covered=str(covered))
+
+
+def dump(report: Report, fmt: str) -> bytes:
+    """``report`` written back in ``fmt``, for the jobs that read one file per entry."""
+    if fmt == "lcov":
+        out = []
+        for path in sorted(report):
+            lines = report[path]
+            out.append(f"SF:{path}")
+            out += [f"DA:{nr},{lines[nr]}" for nr in sorted(lines)]
+            out += [f"LF:{len(lines)}", f"LH:{sum(1 for h in lines.values() if h > 0)}", "end_of_record"]
+        return ("\n".join(out) + "\n").encode()
+    covered, total = line_counts(report)
+    if fmt == "cobertura":
+        root = ET.Element("coverage", {"line-rate": f"{covered / max(total, 1):.4f}",
+                                       "lines-covered": str(covered), "lines-valid": str(total)})
+        classes = ET.SubElement(ET.SubElement(ET.SubElement(root, "packages"), "package", name=""), "classes")
+        for path in sorted(report):
+            lines = ET.SubElement(ET.SubElement(classes, "class", name=path, filename=path), "lines")
+            for nr in sorted(report[path]):
+                ET.SubElement(lines, "line", number=str(nr), hits=str(report[path][nr]))
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    root = ET.Element("report", name="combined")
+    packages: dict[str, ET.Element] = {}
+    for path in sorted(report):
+        pname, _, name = path.rpartition("/")
+        pkg = packages.get(pname)
+        if pkg is None:
+            pkg = packages[pname] = ET.SubElement(root, "package", name=pname)
+        sf = ET.SubElement(pkg, "sourcefile", name=name)
+        lines = report[path]
+        for nr in sorted(lines):
+            ET.SubElement(sf, "line", nr=str(nr), mi="0" if lines[nr] else "1", ci=str(lines[nr]), mb="0", cb="0")
+        _counter(sf, *line_counts({path: lines}))
+    for pname, pkg in packages.items():
+        _counter(pkg, *line_counts({p: ls for p, ls in report.items() if p.rpartition("/")[0] == pname}))
+    _counter(root, covered, total)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def overall(fmt: str, path: str, root: str, minimum: float, out_dir: str | None, summary: str = "") -> int:
+    """Overall line coverage gate. Writes the report it used to ``out_dir`` (one file,
+    named like the configured report) for the changed-lines and comment jobs."""
+    def out(msg: str) -> None:
+        print(msg)
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(msg + "\n")
+
+    try:
+        used, report = resolve(fmt, path, root)
+    except CoverageError as e:
+        out(f"⚠ coverage: could not read `{path}` as {fmt}: {e}")
+        return 0
+    if not used:
+        out(f"⏭ coverage: no {fmt} report with line data at `{path}` or in any module below `{root}`")
+        return 1 if minimum > 0 else 0
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+        dest = os.path.join(out_dir, os.path.basename(path) or f"coverage.{fmt}")
+        with open(dest, "wb") as f:
+            f.write(read_capped(used[0]) if len(used) == 1 else dump(report, fmt))
+    covered, total = line_counts(report)
+    pct = 100.0 * covered / max(total, 1)
+    ok = pct >= minimum
+    where = f"`{used[0]}`" if len(used) == 1 else f"{len(used)} module reports combined"
+    out(f"{'✅' if ok else '❌'} line coverage {pct:.1f}% (minimum {minimum:g}%) — {where}")
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="coverage.py", description="Changed-lines coverage gate")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    o = sub.add_parser("overall", help="overall line coverage of one CI entry against its minimum")
+    o.add_argument("--format", required=True, choices=FORMATS)
+    o.add_argument("--report", required=True, help="the configured report path (repo-relative)")
+    o.add_argument("--root", default=".", help="the entry's root; module reports are searched below it")
+    o.add_argument("--min", type=float, default=0.0)
+    o.add_argument("--out", default=None, help="write the report used here, for the downstream jobs")
+    o.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY") or "")
     c = sub.add_parser("changed", help="evaluate every ci-plan entry against the diff")
     c.add_argument("--reports", required=True, help="directory holding coverage-<id>/ artifact folders")
     c.add_argument("--matrix", default=None, help="ci-plan matrix JSON (default: env MATRIX)")
@@ -415,6 +566,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY") or "",
                    help="append the markdown summary here (default: GITHUB_STEP_SUMMARY; stdout otherwise)")
     a = ap.parse_args(argv)
+    if a.cmd == "overall":
+        return overall(a.format, a.report, a.root, a.min, a.out, a.summary)
     try:
         matrix = json.loads(a.matrix if a.matrix is not None else os.environ.get("MATRIX") or "[]")
         if a.diff_file:

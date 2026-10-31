@@ -115,7 +115,7 @@ def test_build_kit(tmp_path):
     out = tmp_path / "kit"
     assert G.build_kit(plan, str(hub), str(out)) == ["coverage.py", "gates.py", "snippets/python-fastapi/ruff.toml"]
     assert (out / "snippets" / "python-fastapi" / "ruff.toml").read_text() == "[format]\n"
-    assert (out / "coverage.py").read_text().startswith('"""Changed-lines coverage')
+    assert (out / "coverage.py").read_text().startswith('"""Coverage gates')
 
 
 def test_main_kit(tmp_path, monkeypatch, capsys):
@@ -130,3 +130,28 @@ def test_kit_scripts_are_stdlib_only(name):
     """The kit runs as `python3 -I <file>` without the squadhq package."""
     src = open(os.path.join(os.path.dirname(G.__file__), name)).read()
     assert "import squadhq" not in src and "from squadhq" not in src
+
+
+def _repo_file(*parts):
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), *parts)
+
+
+def test_stack_ci_coverage_gate_runs_the_kit_and_keeps_the_report_it_used():
+    import yaml
+    with open(_repo_file(".github", "workflows", "router.yml")) as f:
+        steps = yaml.safe_load(f)["jobs"]["stack-ci"]["steps"]
+    by_name = {s.get("name"): s for s in steps}
+    kit = by_name["Quality kit (the pack's default lint config and the coverage gate)"]
+    assert "if" not in kit  # the coverage gate always needs it
+    gate = by_name["Coverage gate"]
+    assert '"$KIT/coverage.py" overall' in gate["run"] and "--out \"$RUNNER_TEMP/coverage-report\"" in gate["run"]
+    upload = by_name["Keep the coverage report for the PR comment"]
+    assert upload["with"]["path"] == "${{ runner.temp }}/coverage-report/"
+
+
+def test_java_arch_gate_skips_modules_without_architecture_tests():
+    import yaml
+    with open(_repo_file("packs", "java-spring", "pack.yml")) as f:
+        cmd = yaml.safe_load(f)["arch"]["command"]
+    assert "-Dsurefire.failIfNoSpecifiedTests=false" in cmd
+    assert "failOnNoMatchingTests = false" in cmd and "--init-script" in cmd

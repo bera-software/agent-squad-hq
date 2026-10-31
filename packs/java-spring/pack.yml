@@ -33,11 +33,14 @@ ci:
 # ArchUnit rules are JUnit tests (snippets/HexagonalArchitectureTest.java, plus
 # the ArchUnit dependency from snippets/jacoco-archunit*.{xml,gradle}); the arch
 # gate runs just those tests, and the full build runs them again with the rest.
+# Modules without one are skipped, not failed (multi-module builds keep the
+# ArchUnit tests in one module): Maven's failIfNoSpecifiedTests=false, and a
+# Gradle init script turning off failOnNoMatchingTests.
 # Not seeded by onboarding: the test needs the dependency and the root package.
 arch:
   tool: ArchUnit
   config: "**/*ArchitectureTest.java"
-  command: "if [ -f pom.xml ]; then mvn -B -q test -Dtest='*ArchitectureTest' -Dsurefire.failIfNoSpecifiedTests=false -Djacoco.skip=true; else ./gradlew test --tests '*ArchitectureTest' --no-daemon; fi"
+  command: "if [ -f pom.xml ]; then mvn -B -q test -Dtest='*ArchitectureTest' -Dsurefire.failIfNoSpecifiedTests=false -Djacoco.skip=true; else d=$(mktemp -d); echo 'allprojects { tasks.withType(Test).configureEach { filter.failOnNoMatchingTests = false } }' > \"$d/arch.init.gradle\"; ./gradlew --init-script \"$d/arch.init.gradle\" test --tests '*ArchitectureTest' --no-daemon; fi"
   local: "./gradlew test --tests '*ArchitectureTest' (Gradle) or mvn -B test -Dtest='*ArchitectureTest' (Maven)"
   snippet: HexagonalArchitectureTest.java
   requires: "ArchUnit test dependency from snippets/jacoco-archunit-maven.xml or jacoco-archunit.gradle, and the test under src/test/java with your root package"

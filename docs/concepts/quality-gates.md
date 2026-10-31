@@ -88,6 +88,15 @@ Lint is its own step, separate from `build`; packs that used to lint inside
   committed).
 - `off`: never runs.
 
+## Overall coverage (stack-ci)
+
+Each stack-ci leg checks overall line coverage against the pack's
+`min_overall`. It reads the pack's report path; in a multi-module build
+(Gradle subprojects, Maven modules, monorepo packages) where that report is
+missing or empty, it merges every module's report found at the same relative
+path below the stack root. The report it used is the one the changed-lines
+job and the PR comment read.
+
 ## Changed-lines coverage (`changed-coverage`)
 
 The `changed-coverage` job computes, per stack, the share of the PR's added

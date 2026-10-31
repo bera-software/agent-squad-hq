@@ -238,3 +238,81 @@ def test_diff_size_cap(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "MAX_DIFF_BYTES", 10)
     with pytest.raises(C.CoverageError, match="larger than"):
         C.git_diff(str(repo), "HEAD^1", "HEAD")
+
+
+# ---------------------------------------------------------------- overall
+
+JACOCO_EMPTY = b'<?xml version="1.0"?><report name="root"><counter type="LINE" missed="0" covered="0"/></report>'
+
+
+def _jacoco(pkg, name, lines):
+    rows = "".join(f'<line nr="{nr}" mi="{0 if ci else 1}" ci="{ci}" mb="0" cb="0"/>' for nr, ci in lines)
+    return (f'<?xml version="1.0"?><report name="m"><package name="{pkg}">'
+            f'<sourcefile name="{name}">{rows}</sourcefile></package></report>').encode()
+
+
+REL = "build/reports/jacoco/test/jacocoTestReport.xml"
+
+
+def _write(base, rel, data):
+    p = base / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(data)
+    return p
+
+
+def test_overall_uses_the_configured_report_when_it_has_lines(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, REL, _jacoco("a", "A.java", [(1, 1), (2, 0)]))
+    _write(tmp_path, f"mod/{REL}", _jacoco("b", "B.java", [(1, 0)]))
+    used, report = C.resolve("jacoco", REL, ".")
+    assert used == [REL] and C.line_counts(report) == (1, 2)
+
+
+def test_overall_merges_module_reports_when_the_root_report_is_empty(tmp_path, monkeypatch):
+    # A multi-module Gradle build: the root project has no code, each module has its own report.
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, REL, JACOCO_EMPTY)
+    _write(tmp_path, f"domain/{REL}", _jacoco("com/x/domain", "Policy.java", [(1, 1), (2, 1), (3, 0)]))
+    _write(tmp_path, f"app/{REL}", _jacoco("com/x/app", "Svc.java", [(1, 1)]))
+    _write(tmp_path, f"node_modules/x/{REL}", _jacoco("junk", "J.java", [(1, 0)] * 1))
+    _write(tmp_path, f"archunit/{REL}", JACOCO_EMPTY)
+    out = tmp_path / "out"
+    rc = C.overall("jacoco", REL, ".", 60, str(out))
+    assert rc == 0  # 3 of 4 lines
+    written = out / "jacocoTestReport.xml"
+    back = C.parse_jacoco(written.read_bytes())
+    assert back == {"com/x/domain/Policy.java": {1: 1, 2: 1, 3: 0}, "com/x/app/Svc.java": {1: 1}}
+    assert C.overall("jacoco", REL, ".", 80, None) == 1
+
+
+def test_overall_without_any_report_fails_only_with_a_minimum(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert C.overall("jacoco", REL, ".", 60, None) == 1
+    assert C.overall("jacoco", REL, ".", 0, None) == 0
+
+
+def test_overall_lcov_modules_under_a_pack_root(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, "web/packages/ui/coverage/lcov.info", b"SF:src/a.ts\nDA:1,1\nDA:2,0\nend_of_record\n")
+    _write(tmp_path, "web/packages/api/coverage/lcov.info", b"SF:src/b.ts\nDA:1,3\nend_of_record\n")
+    out = tmp_path / "out"
+    assert C.overall("lcov", "web/coverage/lcov.info", "web", 60, str(out)) == 0
+    assert C.parse_lcov((out / "lcov.info").read_text()) == {"src/a.ts": {1: 1, 2: 0}, "src/b.ts": {1: 3}}
+
+
+@pytest.mark.parametrize("fmt", ["lcov", "cobertura", "jacoco"])
+def test_dump_round_trips(fmt):
+    report = {"com/x/A.java": {1: 2, 5: 0}, "B.java": {3: 1}}
+    data = C.dump(report, fmt)
+    back = C.parse_lcov(data.decode()) if fmt == "lcov" else (
+        C.parse_cobertura(data) if fmt == "cobertura" else C.parse_jacoco(data))
+    assert back == report
+
+
+def test_overall_cli(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, f"m/{REL}", _jacoco("p", "A.java", [(1, 1)]))
+    summary = tmp_path / "summary.md"
+    rc = C.main(["overall", "--format", "jacoco", "--report", REL, "--min", "60", "--summary", str(summary)])
+    assert rc == 0 and "100.0%" in summary.read_text()

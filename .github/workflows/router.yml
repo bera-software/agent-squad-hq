@@ -787,8 +787,7 @@ jobs:
         run: |
           if [ -f gradlew ]; then chmod +x gradlew; fi
           if [ -n "$INSTALL" ]; then bash -ec "$INSTALL"; fi
-      - if: matrix.gates.lint == 'default'
-        name: Quality kit (the pack's default lint config)
+      - name: Quality kit (the pack's default lint config and the coverage gate)
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: squadhq-quality-kit
@@ -872,48 +871,21 @@ jobs:
           exit "$rc"
       - if: always() && matrix.coverage.format != 'none' && matrix.coverage.path != ''
         name: Coverage gate
+        # The configured report, or (multi-module builds) every module's report
+        # merged; the report used is kept for the changed-lines job.
         env:
           FORMAT: ${{ matrix.coverage.format }}
           REPORT: ${{ matrix.coverage.path }}
+          ROOT: ${{ matrix.root || '.' }}
           MIN: ${{ matrix.coverage.min_overall }}
-        run: |
-          python3 -I - <<'PY'
-          import os, re, sys
-          import xml.etree.ElementTree as ET
-          fmt, path, minimum = os.environ["FORMAT"], os.environ["REPORT"], float(os.environ.get("MIN") or 0)
-          def out(msg):
-              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-                  f.write(msg + "\n")
-          if not os.path.exists(path):
-              out(f"⏭ coverage: no {fmt} report at `{path}`")
-              sys.exit(1 if minimum > 0 else 0)
-          pct = None
-          if fmt == "jacoco":
-              root = ET.parse(path).getroot()
-              for c in root.findall("counter"):
-                  if c.get("type") == "LINE":
-                      covered, missed = int(c.get("covered")), int(c.get("missed"))
-                      pct = 100.0 * covered / max(covered + missed, 1)
-          elif fmt == "cobertura":
-              pct = 100.0 * float(ET.parse(path).getroot().get("line-rate", 0))
-          elif fmt == "lcov":
-              text = open(path).read()
-              lf = sum(int(x) for x in re.findall(r"^LF:(\d+)", text, re.M))
-              lh = sum(int(x) for x in re.findall(r"^LH:(\d+)", text, re.M))
-              pct = 100.0 * lh / max(lf, 1)
-          if pct is None:
-              out(f"⚠ coverage: could not read `{path}` as {fmt}")
-              sys.exit(0)
-          ok = pct >= minimum
-          out(f"{'✅' if ok else '❌'} line coverage {pct:.1f}% (minimum {minimum:g}%) — `{path}`")
-          sys.exit(0 if ok else 1)
-          PY
+          KIT: ${{ runner.temp }}/squadhq-quality-kit
+        run: python3 -I "$KIT/coverage.py" overall --format "$FORMAT" --report "$REPORT" --root "$ROOT" --min "${MIN:-0}" --out "$RUNNER_TEMP/coverage-report"
       - if: always() && matrix.coverage.path != ''
         name: Keep the coverage report for the PR comment
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-${{ matrix.id }}
-          path: ${{ matrix.coverage.path }}
+          path: ${{ runner.temp }}/coverage-report/
           if-no-files-found: ignore
           retention-days: 3
 
