@@ -17,3 +17,12 @@
   nobody will answer questions. Never wait for a reply. If you are blocked,
   write the question into your deliverable (or comment + `needs-human` where
   your role allows) and finish.
+- **Code graph.** When `graphify-out/graph.json` exists, orient with
+  `graphify query "<question>"`, `graphify path "A" "B"` or `graphify explain "X"`
+  before reading raw files. After changing code, run `graphify update .` once,
+  just before your final commit, and commit `graphify-out/graph.json`,
+  `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` when they
+  changed: only those three, never `graph.html` or `graphify-out/cache/`. It
+  reads code only (no model, no key) and takes seconds; keeping the graph in
+  your PR spares a separate refresh PR after the merge. If the command is
+  missing or fails, skip it and say so in the PR body.

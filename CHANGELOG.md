@@ -7,11 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Code graph in the agent's own PR: implement, design, review-fix and mention agents may run `graphify query/path/explain` and `graphify update .`, and commit the three graph files with their change (`prompts/_shared/delivery.md`). `graph-refresh` skips pushes that already carry `graphify-out/graph.json` in its `if:`, so no runner starts; it only catches up after changes made without the graph. The reviewer leaves the graph diff out.
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
 - Packs `node-next` and `node-api`: the test command adds `--coverage` only when the project's test script does not already pass it; Vitest 4 stopped with "Expected a single value for option --coverage" on the second flag.
-- Router: the merge token can read checks and commit statuses, so `trivial-merge` and `self-merge` can evaluate the merge policy; they read the PR's check rollup, failed to, and declined every unattended merge ("could not read the PR — failing closed").
+- Router: the merge token can read checks, commit statuses and Actions (workflow names in the check rollup), so `trivial-merge` and `self-merge` can evaluate the merge policy; they read the PR's check rollup, failed to, and declined every unattended merge ("could not read the PR — failing closed").
 - Packs `node-next` and `node-api`: tests also write `coverage/lcov.info` (Vitest `--coverage.reporter=lcov`, Jest `--coverageReporters=lcov`), so coverage gates and comments work when the project's own reporters leave lcov out.
 
 ## [0.1.0.dev5] - 2026-10-31

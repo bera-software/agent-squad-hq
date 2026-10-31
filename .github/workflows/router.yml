@@ -2835,6 +2835,8 @@ jobs:
           # merge_policy reads the PR's check rollup; without these the read fails and it fails closed.
           permission-checks: read
           permission-statuses: read
+          # gh's check rollup also reads each check's workflow name (workflow runs): actions read.
+          permission-actions: read
       - &merge-token-broker
         id: ops-broker
         if: env.SQUADHQ_TOKEN_BROKER != ''
@@ -2843,7 +2845,7 @@ jobs:
           TOKEN_IDENTITY: ops
           TOKEN_REPOSITORIES: ${{ github.repository }},${{ env.HUB_REPO_IN }}
           TOKEN_PURPOSE: ${{ github.job }}
-          TOKEN_PERMISSIONS: contents=write,issues=write,pull-requests=write,checks=read,statuses=read
+          TOKEN_PERMISSIONS: contents=write,issues=write,pull-requests=write,checks=read,statuses=read,actions=read
         run: *broker-token
       - name: Enable auto-merge (squash)
         env:
@@ -3361,6 +3363,9 @@ jobs:
       - *broker-revoke
 
   graph-refresh:
+    # Agents refresh the graph in their own PR (prompts/_shared/delivery.md), so a push that
+    # already carries graphify-out/graph.json skips this whole job in its `if:` (no runner, no
+    # minutes); it only catches up after changes made without the graph (people's own PRs).
     # Keeps the committed graphify graph current, delivered as a PR (never a
     # direct push), in three jobs: this one (ops token, no repository code)
     # checks the self-loop guards; graph-build (no token) installs graphify from
@@ -3371,6 +3376,8 @@ jobs:
       github.event_name == 'push' && github.ref_name == github.event.repository.default_branch &&
       !contains(github.event.head_commit.message, 'refresh graphify') &&
       needs.detect-changes.outputs.code == 'true' &&
+      !contains(toJSON(github.event.head_commit.modified), 'graphify-out/graph.json') &&
+      !contains(toJSON(github.event.head_commit.added), 'graphify-out/graph.json') &&
       !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), ',graph-refresh,')
     concurrency:
       group: squadhq-graph-refresh-${{ github.repository }}

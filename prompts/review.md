@@ -200,6 +200,12 @@ refresh's `graphify-out/graph.json`, `graphify-out/GRAPH_REPORT.md` and
 APPROVE with `risk:low` (subject to the risk floor). One file outside that
 set makes it a normal PR.
 
+**Graph files in a normal PR.** Agents refresh those three `graphify-out/`
+files in the same PR as their code change. They are generated: do not read
+their diff (it can be very large). Review the rest with
+`git diff origin/<base>...HEAD -- . ':(exclude)graphify-out'`, and only check
+that no other file under `graphify-out/` was committed.
+
 ## Consistency
 
 Your standards are this prompt, the appended pack rules, `CLAUDE.md` and

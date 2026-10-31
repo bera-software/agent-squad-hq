@@ -466,5 +466,20 @@ def test_merge_tokens_can_read_the_check_rollup():
         steps = {s.get("id"): s for s in jobs[name]["steps"] if isinstance(s, dict)}
         app = steps["ops"]["with"]
         assert app.get("permission-checks") == "read" and app.get("permission-statuses") == "read", name
+        assert app.get("permission-actions") == "read", name  # the rollup reads workflow names
         perms = steps["ops-broker"]["env"]["TOKEN_PERMISSIONS"]
-        assert "checks=read" in perms and "statuses=read" in perms, name
+        assert "checks=read" in perms and "statuses=read" in perms and "actions=read" in perms, name
+
+
+def test_agents_keep_the_graph_in_their_pr_and_refresh_costs_nothing_then():
+    """Code-editing agents may query and refresh the graph; a push that already carries the
+    graph skips graph-refresh in its `if:`, before any runner starts."""
+    from squadhq.executors import tool_profiles as tp
+
+    edit = tp.claude_code_tools("edit-test")
+    assert {"Bash(graphify query *)", "Bash(graphify update .)"} <= set(edit)
+    assert not any("graphify" in t for t in tp.claude_code_tools("read-only"))
+    cond = _load(os.path.join(GH, "workflows", "router.yml"))["jobs"]["graph-refresh"]["if"]
+    assert "head_commit.modified), 'graphify-out/graph.json')" in cond
+    with open(os.path.join(ROOT, "prompts", "_shared", "delivery.md"), encoding="utf-8") as f:
+        assert "graphify update ." in f.read()

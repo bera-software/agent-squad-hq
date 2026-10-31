@@ -125,6 +125,9 @@ _EDIT_TEST = [
     "Bash(git checkout -b agent/*)", "Bash(git switch -c agent/*)",
     # Bring the base branch in by merging, never rebase + force-push.
     "Bash(git fetch origin)", "Bash(git fetch origin *)", "Bash(git merge origin/*)",
+    # The project's code graph (installed by run-agent when graphify-out/graph.json exists): read it
+    # instead of grepping, and refresh it in the same PR (AST only: no model, no key, seconds).
+    "Bash(graphify query *)", "Bash(graphify path *)", "Bash(graphify explain *)", "Bash(graphify update .)",
 ]
 _PUSH = [
     "Bash(git push origin HEAD:refs/heads/agent/*)",
