@@ -220,6 +220,19 @@ jobs:
           out = {"cost-usd": f"{num(res.get('total_cost_usd'), float):.6f}", "duration-ms": str(num(res.get("duration_ms"), int)),
                  "turns": str(num(res.get("num_turns"), int)), "is-error": "true" if res.get("is_error") else "false",
                  "error-text": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", text)[:300]}
+          # Denied tool calls: visible in the run, never silent.
+          denials = res.get("permission_denials") if isinstance(res.get("permission_denials"), list) else []
+          out["denials"] = str(len(denials))
+          lines = []
+          for d in denials[:20]:
+              d = d if isinstance(d, dict) else {}
+              inp = d.get("tool_input") if isinstance(d.get("tool_input"), dict) else {}
+              what = inp.get("command") or inp.get("file_path") or inp.get("path") or inp.get("pattern") or ""
+              lines.append(re.sub(r"[^A-Za-z0-9 .,:;_()/*=@+'-]", " ", f"{d.get('tool_name', '?')} {what}")[:160])
+          if denials:
+              print(f"::warning::{len(denials)} tool call(s) denied by the agent's permissions: " + " | ".join(lines[:5]))
+              with open(os.environ.get("GITHUB_STEP_SUMMARY") or os.devnull, "a", encoding="utf-8") as f:
+                  f.write(f"### {len(denials)} denied tool call(s)\n\n" + "".join(f"- `{x}`\n" for x in lines) + "\n")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               for k, v in out.items():
                   f.write(f"{k}={v}\n")
