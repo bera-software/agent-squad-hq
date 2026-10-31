@@ -3250,6 +3250,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      contents: read  # check out a private project repository
       id-token: write  # token broker (squadhq-token, ADR-0011)
     outputs:
       candidates: ${{ steps.plan.outputs.candidates }}
@@ -3328,6 +3329,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      contents: read  # check out a private project repository
       id-token: write  # token broker (squadhq-token, ADR-0011)
     steps:
       - *ops-plain
@@ -3443,6 +3445,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      contents: read  # check out a private project repository
       id-token: write  # token broker (squadhq-token, ADR-0011)
     concurrency:
       group: squadhq-graph-refresh-publish-${{ github.repository }}

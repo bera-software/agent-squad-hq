@@ -433,3 +433,18 @@ def test_agent_jobs_end_before_their_tokens_expire(name):
     assert agent, f"{name}: no agent jobs found"
     for n, job in agent.items():
         assert job.get("timeout-minutes", 360) <= 50, f"{name}: {n}"
+
+
+def test_jobs_that_check_out_with_their_own_token_can_read_private_repositories():
+    """A job's GITHUB_TOKEN reads a private repository only with ``contents: read``; a job that
+    lists its permissions without it fails to check out with "repository not found"."""
+    import glob
+
+    for wf in sorted(glob.glob(os.path.join(GH, "workflows", "*.yml"))):
+        data = _load(wf)
+        top = data.get("permissions")
+        for name, job in (data.get("jobs") or {}).items():
+            perms = job.get("permissions", top)
+            for step in job.get("steps") or []:
+                if "actions/checkout" in str(step.get("uses", "")) and not (step.get("with") or {}).get("token"):
+                    assert not isinstance(perms, dict) or "contents" in perms, (os.path.basename(wf), name)
