@@ -41,6 +41,8 @@ risk_paths:
   - "**/*rbac*.yaml"
   - "**/*networkpolic*.yaml"
 tools:
+  # Read-only registry lookup to pin images by digest (image:tag@sha256:...).
+  - "Bash(docker buildx imagetools inspect *)"
   - "Bash(hadolint *)"
   - "Bash(helm lint*)"
   - "Bash(helm template*)"

@@ -33,5 +33,6 @@ Project CLAUDE.md and ADRs override these defaults.
 - Dependency versions: change them only with
   `python -P -m squadhq.pin_install [--dir <package dir>] [--dev] <name>@<exact version> ...`
   (install scripts off, exact version saved, lockfile updated). Plain `npm install`,
-  ranges and tags are refused. Name the old and new version in the PR body, and
+  ranges and tags are refused. Look versions up with `npm view <name> versions --json` or
+  `npm view <name>@<range> version`. Name the old and new version in the PR body, and
   check the changelog of a major-version jump before using it.

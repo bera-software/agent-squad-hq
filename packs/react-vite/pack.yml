@@ -47,6 +47,8 @@ tools:
   - "Bash(npm ci)"
   # Dependency changes at exact versions, install scripts off (squadhq.pin_install).
   - "Bash(python -P -m squadhq.pin_install *)"
+  # Read-only registry lookups to choose those versions.
+  - "Bash(npm view *)"
   - "Bash(npm run *)"
   - "Bash(npm test*)"
   - "Bash(npx tsc *)"

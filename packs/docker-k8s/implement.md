@@ -37,3 +37,6 @@ Project CLAUDE.md and ADRs override these defaults.
 - NetworkPolicies kept or added for new workloads.
 - Render changed charts (`helm template`) and kustomizations to check they
   are valid before pushing.
+- Pin base images by digest when a ticket asks for it: look the digest up with
+  `docker buildx imagetools inspect <image>:<tag>` and write `<image>:<tag>@sha256:<digest>`;
+  never invent a digest.
