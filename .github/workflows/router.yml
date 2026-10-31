@@ -241,6 +241,9 @@ jobs:
           MANIFESTS: ${{ steps.filter.outputs.manifests }}
           IAC: ${{ steps.filter.outputs.iac }}
           FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          # Our agent's docs-only PRs are still reviewed: the reviewer's verdict is what
+          # lets the merge policy act; without it they would sit unlabelled.
+          AGENT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.type == 'Bot' && contains(fromJSON(format('["{0}","{1}"]', vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]', vars.SQUADHQ_BOT_LOGIN || 'squadhq-ops[bot]')), github.event.pull_request.user.login) && !startsWith(github.event.pull_request.head.ref, 'graph-refresh-') }}
         run: |
           echo "fork=$FORK" >> "$GITHUB_OUTPUT"
           if [ "$OUTCOME" != "success" ]; then
@@ -261,7 +264,7 @@ jobs:
             [ "$TRIVIAL_COUNT" = "$ALL_COUNT" ] && trivial_only=true
           fi
           needs_review=true
-          { [ "$docs_only" = true ] || [ "$trivial_only" = true ]; } && needs_review=false
+          { { [ "$docs_only" = true ] && [ "$AGENT_PR" != true ]; } || [ "$trivial_only" = true ]; } && needs_review=false
           scope=()
           [ "$CODE" = true ] && scope+=("code")
           [ "$MANIFESTS" = true ] && scope+=("dependencies")
@@ -1495,8 +1498,9 @@ jobs:
   #   <role>-post  fresh runner, fresh hub: the run artifact is data; ledger,
   #                capacity trip, failure handler.
   review-prep:
-    # Fresh eyes by design: no session resume. Skipped for docs-only, trivial,
-    # base-only and fork PRs (detect-changes review_required).
+    # Fresh eyes by design: no session resume. Skipped for trivial, base-only
+    # and fork PRs, and for docs-only PRs a human opened (detect-changes
+    # review_required); our agent's docs-only PRs are reviewed.
     needs: [detect-changes]
     if: >-
       github.event_name == 'pull_request' && github.event.action != 'labeled' &&

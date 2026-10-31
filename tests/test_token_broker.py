@@ -522,3 +522,13 @@ def test_every_workflow_passes_both_alias_variables():
         text = open(path).read()
         if "SQUADHQ_BOT_ALIASES:" in text:
             assert "SQUADHQ_AGENT_BOT_ALIASES: ${{ vars.SQUADHQ_AGENT_BOT_ALIASES }}" in text, path
+
+
+def test_agent_docs_only_prs_are_reviewed():
+    # A docs-only PR from our agent skipped review and then sat unlabelled: nothing applied
+    # ready-to-merge, so neither self-merge nor the approver path ever ran.
+    with open(os.path.join(ROOT, ".github", "workflows", "router.yml")) as f:
+        steps = yaml.safe_load(f)["jobs"]["detect-changes"]["steps"]
+    final = next(s for s in steps if s.get("id") == "final")
+    assert "AGENT_PR" in final["env"]
+    assert '[ "$docs_only" = true ] && [ "$AGENT_PR" != true ]' in final["run"]
