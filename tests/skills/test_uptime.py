@@ -146,3 +146,32 @@ def test_catalogue_uptime_config_is_valid():
     from squadhq.skills import loader
     skill = loader.get_skill("uptime-watcher")
     assert uptime.validate_config(skill.config) == []
+
+
+def test_squadhq_yml_without_checks_watches_every_environment_url(tmp_path):
+    cfg_file = tmp_path / "squadhq.yml"
+    cfg_file.write_text(yaml.safe_dump({"version": 1, "projects": [
+        {"name": "Shop", "repo": "acme/shop", "environments": {
+            "production": {"url": "https://shop.example.net", "api_url": "https://api.shop.example.net",
+                           "urls": {"mcp": "https://mcp.shop.example.net"}},
+            "staging": {"url": "https://staging.shop.example.net", "deploy": "vercel"},
+            "preview": {"url": "http://insecure.example.net"}}},
+        {"name": "docs", "repo": "acme/docs"}]}))
+    cfg = uptime.load_config(str(cfg_file))
+    assert uptime.validate_config(cfg) == []
+    by = {c["name"]: c for c in cfg["checks"]}
+    assert set(by) == {"shop-production-site", "shop-production-api", "shop-production-mcp", "shop-staging-site"}
+    assert by["shop-production-api"]["repo"] == "acme/shop" and "severity" not in by["shop-production-api"]
+    assert by["shop-staging-site"]["severity"] == "P2"
+    # An API root asking for credentials is up; a server error is down.
+    results, _ = uptime.run_checks(cfg, {}, fetch=lambda url, m, t: (401 if "api" in url else 200, ""))
+    assert all(r.ok for r in results)
+    results, _ = uptime.run_checks(cfg, {}, fetch=lambda url, m, t: (503, ""))
+    assert not any(r.ok for r in results)
+
+
+def test_explicit_uptime_checks_win_over_derived_ones(tmp_path):
+    cfg_file = tmp_path / "squadhq.yml"
+    cfg_file.write_text(yaml.safe_dump({"uptime": {"checks": [{"name": "home", "url": "https://x.example.net"}]},
+                                        "projects": [{"name": "a", "environments": {"production": {"url": "https://a.io"}}}]}))
+    assert [c["name"] for c in uptime.load_config(str(cfg_file))["checks"]] == ["home"]

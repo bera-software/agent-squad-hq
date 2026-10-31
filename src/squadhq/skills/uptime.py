@@ -1,7 +1,9 @@
 """Uptime watcher: deterministic health checks with incident open/close rules.
 
 No model is involved. Config (``skills/uptime-watcher/skill.yml`` ``config:``,
-or a ``squadhq.yml`` ``uptime:`` block, or a bare mapping)::
+or a ``squadhq.yml`` ``uptime:`` block, or a bare mapping). In ``squadhq.yml``
+without ``uptime.checks``, every project environment URL is checked
+(:func:`derive_checks`)::
 
     defaults: {interval: "5m", timeout_s: 10, failure_threshold: 3,
                recovery_threshold: 2, severity: P0, auto_close: true,
@@ -233,6 +235,42 @@ def run_checks(cfg: dict[str, Any], state: dict[str, Any], *, fetch: Fetcher = h
     return results, actions
 
 
+# A derived check is "up" while the host answers below 500: an API root that
+# asks for credentials (401) or redirects is alive; 5xx or no answer is not.
+REACHABLE = list(range(200, 500))
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slug(*parts: str) -> str:
+    return _SLUG_RE.sub("-", "-".join(parts).lower()).strip("-")
+
+
+def derive_checks(projects: Any) -> list[dict[str, Any]]:
+    """Checks from ``projects[].environments`` (url, api_url, urls.*), so every
+    onboarded project is watched without an ``uptime:`` block. Incidents go to
+    the project's repository; non-production environments are P2."""
+    checks: list[dict[str, Any]] = []
+    for proj in projects if isinstance(projects, list) else []:
+        if not isinstance(proj, dict) or not isinstance(proj.get("environments"), dict):
+            continue
+        name = str(proj.get("name") or proj.get("repo") or "project")
+        for env, spec in proj["environments"].items():
+            if not isinstance(spec, dict):
+                continue
+            urls = {"site": spec.get("url"), "api": spec.get("api_url")}
+            urls.update(spec.get("urls") if isinstance(spec.get("urls"), dict) else {})
+            for kind, url in urls.items():
+                if not isinstance(url, str) or not url.startswith("https://"):
+                    continue
+                check = {"name": _slug(name, str(env), str(kind)), "url": url, "expect_status": REACHABLE}
+                if proj.get("repo"):
+                    check["repo"] = proj["repo"]
+                if str(env) != "production":
+                    check["severity"] = "P2"
+                checks.append(check)
+    return checks
+
+
 def load_config(path: str) -> dict[str, Any]:
     with open(path, encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
@@ -241,8 +279,12 @@ def load_config(path: str) -> dict[str, Any]:
     if isinstance(data.get("config"), dict) and data.get("id") == "uptime-watcher":
         cfg: dict[str, Any] = data["config"]
         return cfg
-    if isinstance(data.get("uptime"), dict):
-        cfg = data["uptime"]
+    if isinstance(data.get("uptime"), dict) or "projects" in data:
+        # squadhq.yml: the uptime: block, with checks derived from the projects'
+        # environments when it lists none.
+        cfg = dict(data.get("uptime") or {})
+        if not cfg.get("checks"):
+            cfg["checks"] = derive_checks(data.get("projects"))
         return cfg
     return data
 

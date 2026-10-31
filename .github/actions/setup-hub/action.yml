@@ -239,6 +239,27 @@ runs:
       run: |
         set -euo pipefail
         home=$(cd "$HUB_PATH" && pwd)
+        # A sparse tooling checkout (a job that must not see org/ or state/) still
+        # installs the package, whose build bundles those folders: give each
+        # bundled path that is absent an empty placeholder. No content is added.
+        if [ "$(git -C "$home" config --get core.sparseCheckout 2>/dev/null || true)" = true ] && [ -f "$home/pyproject.toml" ]; then
+          python3 -I - "$home" <<'PY'
+        import os, sys, tomllib
+        home = sys.argv[1]
+        with open(os.path.join(home, "pyproject.toml"), "rb") as f:
+            wheel = tomllib.load(f).get("tool", {}).get("hatch", {}).get("build", {}).get("targets", {}).get("wheel", {})
+        for src in wheel.get("force-include", {}):
+            path = os.path.join(home, src)
+            if os.path.lexists(path) or ".." in src.split("/"):
+                continue
+            if os.path.splitext(src)[1]:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                open(path, "w").close()
+            else:
+                os.makedirs(path, exist_ok=True)
+            print(f"sparse tooling checkout: empty placeholder for {src}")
+        PY
+        fi
         # A hashed lock, when the hub ships one, pins every transitive dependency.
         lock="$home/requirements/actions.lock"
         if [ -f "$lock" ]; then

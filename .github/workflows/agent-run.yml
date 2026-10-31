@@ -578,7 +578,10 @@ jobs:
           br="${PREFIX}$(date -u +%Y-%m-%d)"
           git checkout -q -B "$br" "origin/$default"
           git apply --index "$patch"
-          title=$(head -c 200 "$RUN_DIR/pr-title.txt" 2>/dev/null | tr -d '\r' | head -1)
+          # No title file (the agent wrote none): fall back to the branch name. Under
+          # pipefail a failing `head` would end the step silently.
+          title=""
+          if [ -f "$RUN_DIR/pr-title.txt" ]; then title=$(head -c 200 "$RUN_DIR/pr-title.txt" | tr -d '\r' | head -1 || true); fi
           title="${title:-$br}"
           [ -f "$RUN_DIR/pr-body.md" ] || echo "Proposed by the ${PREFIX%-} agent." > "$RUN_DIR/pr-body.md"
           git commit -q -m "$title"

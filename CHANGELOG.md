@@ -7,11 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Uptime watch checks every project environment URL (`url`, `api_url`, `urls.*`) when `squadhq.yml` has no `uptime.checks`: any answer below 500 is up, incidents open in the project's repository, non-production environments are P2.
 - `squadhq.label_sync`, run by Stub Sync (also when `config/flows.yml` or `config/projects.json` changes): creates the registry's labels missing on each project, and the hub-only and `project:<name>` labels on the hub. Projects added without `squadhq onboard` (Agent Squad HQ Cloud) were missing them; a label GitHub refuses now fails the run instead of being skipped silently.
 - Code graph in the agent's own PR: implement, design, review-fix and mention agents may run `graphify query/path/explain` and `graphify update .`, and commit the three graph files with their change (`prompts/_shared/delivery.md`). `graph-refresh` skips pushes that already carry `graphify-out/graph.json` in its `if:`, so no runner starts; it only catches up after changes made without the graph. The reviewer leaves the graph diff out.
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- `agent-run` deliver (OKR tracker, lessons harvester) ended silently when the agent wrote no `pr-title.txt`: under `pipefail` the failing `head` stopped the step. The branch name is the fallback title.
+- Jobs with a sparse hub tooling checkout (ecosystem watch, which must not see `org/` or `state/`) could not install the package: its build bundles those folders. Setup creates empty placeholders for bundled paths the checkout left out.
 - A graph-refresh PR whose merge was refused stayed open for good: the stuck sweeper's retry (re-applying `ready-to-merge`) only reaches self-merge, which skips generated-only PRs. trivial-merge now answers it too.
 - Pushes: agents may use the usual spellings for their allowed branch (`git push origin <branch>`, `-u`, `-q`, `--set-upstream`, and `git push`/`git push origin HEAD` on a PR branch), not only `HEAD:refs/heads/<branch>`. The pre-push hook still enforces which branches. A mention run edited the file, then stopped silently when `git push -q origin agent/…` was refused.
 - Delivery rules tell agents which commands their shell accepts (one command per call, plain `git commit -m`, the edit tool instead of `sed -i`) and to always finish with a comment saying what they did or why they stopped.
