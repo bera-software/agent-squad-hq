@@ -21,6 +21,10 @@
   (also `issue --title "..." [--label L]`, `pr --title "..." --head <branch>`,
   `edit-issue <number>`; add `--repo owner/name` for another repository).
   Short plain bodies can stay inline (`--body "..."`). `--body-file` is refused.
+- **Dependencies** (JavaScript): `npm install` is refused. Change versions with
+  `python -P -m squadhq.pin_install [--dir <package dir>] [--dev] <name>@<exact version> ...`
+  (it updates package.json and the lockfile, install scripts off); look versions up
+  with `npm view <name> versions --json`. Never hand-edit a lockfile.
 - **Hand-off files** (`.squadhq-out/agent-findings.json`, `.squadhq-out/pr-title.txt`,
   `.squadhq-out/pr-body.md`, when your run asks for them): create them with
   your Write tool, which creates the folder too. Never with the shell

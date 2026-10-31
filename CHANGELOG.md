@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Changed
+- Base-branch moves bring only PRs with auto-merge armed up to date. PRs waiting for a person are no longer updated (and their whole CI, plus any per-PR deploys, re-run) after every merge to the base; they are updated once when merged (GitHub's "Update branch" under a strict ruleset), and conflicts are still handled. The `ci-gate` requirement on an up-to-date branch is unchanged.
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 
 ### Fixed

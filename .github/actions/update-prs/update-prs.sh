@@ -2,7 +2,7 @@
 # Keeps open PRs current with a moved base branch, in three isolated stages.
 #
 #   update-prs.sh plan     (privileged job, no repository code runs)
-#       GH_TOKEN REPO BRANCH -> merge-bound PRs: update-branch API; human PRs
+#       GH_TOKEN REPO BRANCH -> PRs with auto-merge armed: update-branch API; human PRs
 #       with conflicts: a comment; conflicting bot PRs: written to
 #       $CANDIDATES as a JSON list for the merge stage.
 #   update-prs.sh merge    (tokenless job, one PR per matrix entry)
@@ -49,10 +49,14 @@ plan() {
     num=$(jq -r .number <<< "$pr"); head=$(jq -r .headRefName <<< "$pr")
     case "$(jq -r .baseRefName <<< "$pr")" in agent/*|design/*) row "$num" "⏭ stacked PR — left alone"; continue ;; esac
     [ "$(jq -r .isCrossRepository <<< "$pr")" = true ] && { row "$num" "⏭ fork PR — left to its author"; continue; }
-    approved=$(jq -r '([.labels[].name] | any(. == "ready-to-merge" or . == "needs-approver-merge"))
-      or .reviewDecision == "APPROVED" or .autoMergeRequest != null' <<< "$pr")
+    # Only a PR that merges itself (auto-merge armed) is brought up to date on
+    # every base move: under a strict ruleset it cannot merge otherwise. A PR
+    # waiting for a person is updated once, when that person merges (GitHub's
+    # "Update branch"), so its CI is not re-run after every merge to the base
+    # while it waits; conflicts are still handled below.
+    approved=$(jq -r '.autoMergeRequest != null' <<< "$pr")
     if [ "$approved" = true ]; then
-      if out=$(gh api -X PUT "repos/$REPO/pulls/$num/update-branch" 2>&1); then row "$num" "✅ updated (merge-bound)"; continue; fi
+      if out=$(gh api -X PUT "repos/$REPO/pulls/$num/update-branch" 2>&1); then row "$num" "✅ updated (auto-merge armed)"; continue; fi
       printf '%s' "$out" | grep -qi "up to date" && { row "$num" "⏭ already up to date"; continue; }
     else
       m=""
@@ -61,7 +65,7 @@ plan() {
         { [ "$m" = true ] || [ "$m" = false ]; } && break
         sleep 5
       done
-      [ "$m" != false ] && { row "$num" "⏭ not merge-bound, no conflict — updated on approval"; continue; }
+      [ "$m" != false ] && { row "$num" "⏭ no conflict — updated when it merges (auto-merge or the approver's merge)"; continue; }
       [ "$(jq -r .isDraft <<< "$pr")" = true ] && { row "$num" "⏭ draft with conflicts — left to its author"; continue; }
     fi
     # Only PRs our own Apps authored are updated automatically (gh reports Apps
