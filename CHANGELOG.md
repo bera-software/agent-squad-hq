@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- `agent-run` loops (OKR tracker, lessons harvester, ecosystem watch, tech-debt scan, architect quarterly) failed in `prep` with "Can't find 'action.yml' … .squadhq/.github/actions/agent-prep": checking the subject out into the workspace root deleted the hub tooling checked out before it. The tooling is restored after the subject checkout.
 - Merges: GitHub refuses `gh pr merge --auto` on a PR that is already mergeable but has an optional check failing or pending ("unstable status"), so a ready graph-refresh PR stayed open. Trivial-merge, self-merge and approved-review merges now merge such a PR directly; the ruleset still enforces the required checks.
 - `iac-scan` fails only on findings the PR introduces (trivy on the base branch and the PR head, compared by file, check and resource). Findings already on the base branch are listed in the summary as a warning; before, any PR touching `infra/` was blocked by them.
 - Agents skipped `graphify update .` on docs- or comment-only PRs ("after changing code"), so a refresh PR followed their merge. The delivery rules now run it whatever changed.

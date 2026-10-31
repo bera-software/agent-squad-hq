@@ -493,3 +493,15 @@ def test_every_auto_merge_falls_back_to_a_direct_merge_when_already_mergeable():
     autos = text.count('--squash --auto --match-head-commit "$SHA"')
     fallbacks = text.count('"unstable status"*')
     assert autos == 3 and fallbacks == 3, (autos, fallbacks)
+
+
+def test_agent_run_prep_restores_the_hub_tooling_after_the_subject_checkout():
+    # actions/checkout into the workspace root deletes .squadhq (the root is not a clone yet),
+    # so the prep's own actions under .squadhq/ vanished and every agent-run loop failed.
+    with open(os.path.join(ROOT, ".github", "workflows", "agent-run.yml")) as f:
+        steps = yaml.safe_load(f)["jobs"]["prep"]["steps"]
+    names = [s.get("name") or s.get("id") for s in steps]
+    subject = names.index("Check out the subject (detection only; nothing is executed)")
+    restore = names.index("Restore the hub tooling (if the subject checkout removed it)")
+    first_use = next(i for i, s in enumerate(steps) if i > subject and str(s.get("uses", "")).startswith("./.squadhq/"))
+    assert subject < restore < first_use

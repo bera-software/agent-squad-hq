@@ -232,6 +232,14 @@ jobs:
           token: ${{ steps.hub.outputs.token }}
           clean: false
           persist-credentials: false
+      # A checkout into the workspace root deletes what is there when the root is
+      # not already that repository's clone, which takes .squadhq with it.
+      - name: Restore the hub tooling (if the subject checkout removed it)
+        if: hashFiles('.squadhq/.github/actions/agent-prep/action.yml') == ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .squadhq
+          persist-credentials: false
       - id: prep
         uses: ./.squadhq/.github/actions/agent-prep
         with:
