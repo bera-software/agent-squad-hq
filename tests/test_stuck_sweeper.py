@@ -627,6 +627,8 @@ class MergeRecheckTests(unittest.TestCase):
             failing = bot("[Self-Merge] This PR needs an approver to merge: failing checks: hub / ci-gate=cancelled.", 40)
             risky = bot("[Self-Merge] This PR needs an approver to merge: risk is risk:high.", 40)
             self.assertIsNotNone(sw.checks_recovered_since("acme/web", pr, [failing]))
+            later = bot("[Engineer] Branch already up to date.", 10)  # a later agent reply does not hide it
+            self.assertIsNotNone(sw.checks_recovered_since("acme/web", pr, [failing, later]))
             self.assertIsNone(sw.checks_recovered_since("acme/web", pr, [risky]))
             self.assertIsNone(sw.checks_recovered_since("acme/web", self.pr(["risk:medium", "ready-to-merge", "needs-approver-merge"]), [failing]))
         finally:

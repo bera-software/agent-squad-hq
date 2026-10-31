@@ -1122,7 +1122,7 @@ def checks_recovered_since(repo, pr, comments):
     labels = label_names(pr)
     if not {"needs-approver-merge", "ready-to-merge", "risk:low"} <= labels:
         return None
-    ours = [c for c in comments if bot_said(c)]
+    ours = [c for c in comments if bot_said(c, "[Self-Merge]")]
     if not ours or not SELF_MERGE_CHECKS_RE.match(ours[-1].get("body") or ""):
         return None
     data = gh_json(["pr", "view", str(pr["number"]), "-R", repo, "--json", "statusCheckRollup"])
