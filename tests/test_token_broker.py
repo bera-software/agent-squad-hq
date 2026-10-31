@@ -513,3 +513,12 @@ def test_trivial_merge_answers_the_sweepers_ready_to_merge_retry():
     with open(os.path.join(ROOT, ".github", "workflows", "router.yml")) as f:
         cond = yaml.safe_load(f)["jobs"]["trivial-merge"]["if"]
     assert "github.event.label.name == 'ready-to-merge'" in cond and "github.event.sender.type == 'Bot'" in cond
+
+
+def test_every_workflow_passes_both_alias_variables():
+    # Tickets and PRs written by an earlier agent App (e.g. the Claude App before a move) only
+    # count as ours when SQUADHQ_AGENT_BOT_ALIASES reaches the job, like SQUADHQ_BOT_ALIASES.
+    for path in glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml")):
+        text = open(path).read()
+        if "SQUADHQ_BOT_ALIASES:" in text:
+            assert "SQUADHQ_AGENT_BOT_ALIASES: ${{ vars.SQUADHQ_AGENT_BOT_ALIASES }}" in text, path
