@@ -456,3 +456,15 @@ def test_graph_build_uses_only_commands_the_locked_graphify_has():
     job = _load(os.path.join(GH, "workflows", "router.yml"))["jobs"]["graph-build"]
     run = "\n".join(s.get("run", "") for s in job["steps"])
     assert "graphify update ." in run and "graphify extract" not in run and "--code-only" not in run
+
+
+def test_merge_tokens_can_read_the_check_rollup():
+    """merge_policy reads ``statusCheckRollup``; a merge token without checks/statuses read makes
+    that read fail, and every unattended merge (trivial-merge, self-merge) then fails closed."""
+    jobs = _load(os.path.join(GH, "workflows", "router.yml"))["jobs"]
+    for name in ("trivial-merge", "self-merge"):
+        steps = {s.get("id"): s for s in jobs[name]["steps"] if isinstance(s, dict)}
+        app = steps["ops"]["with"]
+        assert app.get("permission-checks") == "read" and app.get("permission-statuses") == "read", name
+        perms = steps["ops-broker"]["env"]["TOKEN_PERMISSIONS"]
+        assert "checks=read" in perms and "statuses=read" in perms, name

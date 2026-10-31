@@ -2832,6 +2832,9 @@ jobs:
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
+          # merge_policy reads the PR's check rollup; without these the read fails and it fails closed.
+          permission-checks: read
+          permission-statuses: read
       - &merge-token-broker
         id: ops-broker
         if: env.SQUADHQ_TOKEN_BROKER != ''
@@ -2840,7 +2843,7 @@ jobs:
           TOKEN_IDENTITY: ops
           TOKEN_REPOSITORIES: ${{ github.repository }},${{ env.HUB_REPO_IN }}
           TOKEN_PURPOSE: ${{ github.job }}
-          TOKEN_PERMISSIONS: contents=write,issues=write,pull-requests=write
+          TOKEN_PERMISSIONS: contents=write,issues=write,pull-requests=write,checks=read,statuses=read
         run: *broker-token
       - name: Enable auto-merge (squash)
         env:

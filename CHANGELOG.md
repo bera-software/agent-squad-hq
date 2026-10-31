@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - Packs `node-next` and `node-api`: the test command adds `--coverage` only when the project's test script does not already pass it; Vitest 4 stopped with "Expected a single value for option --coverage" on the second flag.
+- Router: the merge token can read checks and commit statuses, so `trivial-merge` and `self-merge` can evaluate the merge policy; they read the PR's check rollup, failed to, and declined every unattended merge ("could not read the PR — failing closed").
 - Packs `node-next` and `node-api`: tests also write `coverage/lcov.info` (Vitest `--coverage.reporter=lcov`, Jest `--coverageReporters=lcov`), so coverage gates and comments work when the project's own reporters leave lcov out.
 
 ## [0.1.0.dev5] - 2026-10-31
