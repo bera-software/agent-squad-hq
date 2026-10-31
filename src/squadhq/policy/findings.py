@@ -1,6 +1,6 @@
 """What an agent's findings file may make the ops identity do.
 
-Debt-scan and quarterly-review agents write ``/tmp/agent-findings.json``; the
+Debt-scan and quarterly-review agents write ``.squadhq-out/agent-findings.json``; the
 post job creates issues from it with the ops token. The file is agent-written
 (untrusted), so:
 

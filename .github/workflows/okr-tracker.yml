@@ -44,7 +44,7 @@ jobs:
       prompt: |
         AUTOMATED UNATTENDED RUN. Nobody will answer questions: if blocked, say so in the PR body file and finish.
         Read agents/okr-tracker/prompt.md and follow it. Hub repo: ${{ github.repository }}. Registered projects: config/projects.json. Today: run `date -u +%Y-%m-%d`.
-        DELIVERY (overrides any branch/commit/push/PR step in that prompt): only edit the files, then write the PR title to /tmp/pr-title.txt and the PR body to /tmp/pr-body.md. Do NOT create branches, commit, push or open the PR: the workflow validates your change and does all of that. If nothing needs to change, edit nothing.
+        DELIVERY (overrides any branch/commit/push/PR step in that prompt): only edit the files, then write the PR title to .squadhq-out/pr-title.txt and the PR body to .squadhq-out/pr-body.md. Do NOT create branches, commit, push or open the PR: the workflow validates your change and does all of that. If nothing needs to change, edit nothing.
         Never merge. Never modify a workflow, prompt or config file.
     secrets:
       SQUADHQ_APP_PRIVATE_KEY: ${{ secrets.SQUADHQ_APP_PRIVATE_KEY }}

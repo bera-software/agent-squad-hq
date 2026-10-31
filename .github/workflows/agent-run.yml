@@ -86,7 +86,7 @@ on:
         required: false
         default: 45
       deliver:
-        description: '"" | findings (issues from /tmp/agent-findings.json) | pr (patch -> PR on the hub)'
+        description: '"" | findings (issues from .squadhq-out/agent-findings.json) | pr (patch -> PR on the hub)'
         type: string
         required: false
         default: ""
@@ -479,7 +479,7 @@ jobs:
               data = json.load(open(path))
               findings = data.get("findings", []) if isinstance(data, dict) else []
           except FileNotFoundError:
-              escalate(f"ESCALATION: {kind} produced no findings file ({repo})", "The agent run did not write /tmp/agent-findings.json.")
+              escalate(f"ESCALATION: {kind} produced no findings file ({repo})", "The agent run did not write .squadhq-out/agent-findings.json.")
               raise SystemExit(0)
           except ValueError as e:
               escalate(f"ESCALATION: {kind} findings file unparseable ({repo})", f"{e!r}")

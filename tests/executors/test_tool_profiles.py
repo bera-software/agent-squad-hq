@@ -373,8 +373,9 @@ def test_path_escape_denies_present():
         assert entry in deny
 
 
-def test_every_profile_may_write_only_the_hand_off_files_outside_the_checkout():
+def test_every_profile_may_write_the_hand_off_files():
     for profile in tp.PROFILES:
         tools = tp.claude_code_tools(profile)
-        outside = [t for t in tools if t.startswith(("Edit(/", "Write(/"))]
-        assert sorted(outside) == sorted(f"Edit(/{p})" for p in tp.HANDOFF_FILES), profile
+        assert {f"Edit({p})" for p in tp.HANDOFF_FILES} <= set(tools), profile
+        assert all(p.startswith(".squadhq-out/") for p in tp.HANDOFF_FILES)
+        assert not [t for t in tools if t.startswith(("Edit(/", "Write(/", "Edit(~", "Write(~"))], profile

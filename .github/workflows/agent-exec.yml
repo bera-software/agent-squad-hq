@@ -198,14 +198,14 @@ jobs:
           export PATH=/usr/bin:/bin
           mkdir -p "$OUT"
           if [ "$DELIVER" = pr ] && [ "$OUTCOME" = success ]; then
-            /usr/bin/git add -A -- . ':!.squadhq' 2>/dev/null || true
+            /usr/bin/git add -A -- . ':!.squadhq' ':!.squadhq-out' 2>/dev/null || true
             default=$(/usr/bin/git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
-            /usr/bin/git diff --cached --binary "$default" -- . ':!.squadhq' > "$OUT/change.patch" 2>/dev/null || true
-            for f in /tmp/pr-title.txt /tmp/pr-body.md; do [ -f "$f" ] && [ ! -L "$f" ] && /usr/bin/head -c 20000 "$f" > "$OUT/$(/usr/bin/basename "$f")"; done
+            /usr/bin/git diff --cached --binary "$default" -- . ':!.squadhq' ':!.squadhq-out' > "$OUT/change.patch" 2>/dev/null || true
           fi
-          if [ "$DELIVER" = findings ] && [ -f /tmp/agent-findings.json ] && [ ! -L /tmp/agent-findings.json ]; then
-            /usr/bin/head -c 2000000 /tmp/agent-findings.json > "$OUT/agent-findings.json"
-          fi
+          # Hand-off files (data): .squadhq-out/ in the checkout, /tmp from older prompts.
+          handoff() { for d in .squadhq-out /tmp; do [ -f "$d/$1" ] && [ ! -L "$d/$1" ] && [ ! -L "$d" ] && { /usr/bin/head -c "$2" "$d/$1" > "$OUT/$1"; return; }; done; }
+          if [ "$DELIVER" = pr ] && [ "$OUTCOME" = success ]; then handoff pr-title.txt 20000; handoff pr-body.md 20000; fi
+          if [ "$DELIVER" = findings ]; then handoff agent-findings.json 2000000; fi
           /usr/bin/python3 -I -S - <<'PY'
           import json, os, re
           data = []
