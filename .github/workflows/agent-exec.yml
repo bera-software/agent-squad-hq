@@ -90,6 +90,8 @@ permissions: {}
 env:
   SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
   SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Earlier bot logins whose comments still count as ours (e.g. after moving to a new App).
+  SQUADHQ_BOT_ALIASES: ${{ vars.SQUADHQ_BOT_ALIASES }}
   # Token-broker mode (ADR-0011): read for identity decisions only. This workflow's
   # job has no id-token: write, so it cannot ask the broker for anything.
   SQUADHQ_TOKEN_BROKER: ${{ vars.SQUADHQ_TOKEN_BROKER }}

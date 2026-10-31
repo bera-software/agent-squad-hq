@@ -14,6 +14,8 @@ permissions: {}
 env:
   SQUADHQ_AGENT_APP_CLIENT_ID: ${{ vars.SQUADHQ_AGENT_APP_CLIENT_ID }}
   SQUADHQ_AGENT_BOT_LOGIN: ${{ vars.SQUADHQ_AGENT_BOT_LOGIN || 'squadhq-agent[bot]' }}
+  # Earlier bot logins whose comments still count as ours (e.g. after moving to a new App).
+  SQUADHQ_BOT_ALIASES: ${{ vars.SQUADHQ_BOT_ALIASES }}
   # The checkout never shadows Python modules (CWD is not put on sys.path).
   PYTHONSAFEPATH: "1"
 
