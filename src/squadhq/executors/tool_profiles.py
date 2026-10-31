@@ -106,11 +106,16 @@ from squadhq.interfaces import ToolProfile
 
 PROFILES: tuple[str, ...] = tuple(get_args(ToolProfile))
 
+# Hand-off files the run's own steps read back as size-capped data (findings to
+# issues, PR title and body): the only paths outside the checkout an agent may
+# write. Claude Code matches every file-writing tool against Edit(path) rules.
+HANDOFF_FILES = ("/tmp/agent-findings.json", "/tmp/pr-title.txt", "/tmp/pr-body.md")
 _READ_ONLY = [
     "Read", "Glob", "Grep", "LS",
     "Bash(git status)", "Bash(git status *)", "Bash(git diff *)", "Bash(git log *)", "Bash(git show *)",
     "Bash(gh issue view *)", "Bash(gh issue list *)",
     "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
+    *(f"Edit(/{p})" for p in HANDOFF_FILES),
 ]
 _COMMENT = [
     "Bash(gh issue comment *)", "Bash(gh pr comment *)", "Bash(gh pr review *)",

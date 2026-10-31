@@ -21,3 +21,12 @@ def test_body_protocol_lines_and_markers_are_stripped():
 
 def test_body_is_bounded():
     assert len(findings.clean_body("x" * 10000, max_chars=100)) == 100
+
+
+def test_a_finding_goes_to_its_repo_only_when_it_is_the_hub_or_a_project():
+    from squadhq.policy.findings import target_repo
+    allowed = ["acme/hub", "acme/Shop"]
+    assert target_repo("acme/shop", default="acme/hub", allowed=allowed) == "acme/Shop"
+    assert target_repo("evil/repo", default="acme/hub", allowed=allowed) == "acme/hub"
+    assert target_repo(None, default="acme/hub", allowed=allowed) == "acme/hub"
+    assert target_repo(["acme/shop"], default="acme/hub", allowed=allowed) == "acme/hub"

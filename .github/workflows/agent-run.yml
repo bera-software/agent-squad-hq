@@ -500,14 +500,17 @@ jobs:
                   prior = debt_dedupe.prior_match(f, closed)
                   (suppressed.append((f, prior)) if prior else kept.append(f))
               findings = kept
-          from squadhq.policy.findings import allowed_labels, clean_body
+          from squadhq.policy.findings import allowed_labels, clean_body, target_repo
+          projects = [p.get("repo") for p in json.load(open(os.path.join(os.environ["SQUADHQ_HOME"], "config", "projects.json"))).get("projects", [])]
           created = []
           for f in findings[:5]:
-              # Agent-written: only allowlisted labels, protocol lines/markers stripped.
+              # Agent-written: only allowlisted labels, protocol lines/markers stripped,
+              # and a "repo" only when it is the hub or a configured project.
               title = " ".join(clean_body(f.get("title", ""), 200).split())
               body = clean_body(f.get("body", ""))
               labels = ",".join(allowed_labels(f.get("labels") or []))
-              cmd = ["gh", "issue", "create", "-R", repo, "-t", title, "-b", body]
+              dest = target_repo(f.get("repo"), default=repo, allowed=[hub, *projects])
+              cmd = ["gh", "issue", "create", "-R", dest, "-t", title, "-b", body]
               r = sh(cmd + (["-l", labels] if labels else []))
               if r.returncode != 0 and labels and "not found" in r.stderr.lower():
                   r = sh(cmd)

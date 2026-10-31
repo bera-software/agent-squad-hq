@@ -371,3 +371,10 @@ def test_path_escape_denies_present():
     deny = tp.claude_code_deny_list("read-only")
     for entry in ("Bash(* /*)", "Bash(* ~*)", "Bash(*../*)", "Bash(*environ*)", "Bash(*--no-index*)"):
         assert entry in deny
+
+
+def test_every_profile_may_write_only_the_hand_off_files_outside_the_checkout():
+    for profile in tp.PROFILES:
+        tools = tp.claude_code_tools(profile)
+        outside = [t for t in tools if t.startswith(("Edit(/", "Write(/"))]
+        assert sorted(outside) == sorted(f"Edit(/{p})" for p in tp.HANDOFF_FILES), profile

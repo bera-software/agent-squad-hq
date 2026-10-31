@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- Loops that hand results back through files (tech-debt scan and architect quarterly: `/tmp/agent-findings.json`; OKR tracker and lessons harvester: `/tmp/pr-title.txt`, `/tmp/pr-body.md`) could not write them: Claude Code refuses writes outside the checkout without a rule. Every profile now allows exactly those three files.
+- Ecosystem watch could never file its report: bodies quoting prices (`$`) or code are refused as inline shell arguments. It now writes its tickets and report to the findings file and the run creates them; a finding may name its `repo` (the hub or a configured project only).
 - `agent-run` deliver (OKR tracker, lessons harvester) ended silently when the agent wrote no `pr-title.txt`: under `pipefail` the failing `head` stopped the step. The branch name is the fallback title.
 - Jobs with a sparse hub tooling checkout (ecosystem watch, which must not see `org/` or `state/`) could not install the package: its build bundles those folders. Setup creates empty placeholders for bundled paths the checkout left out.
 - A graph-refresh PR whose merge was refused stayed open for good: the stuck sweeper's retry (re-applying `ready-to-merge`) only reaches self-merge, which skips generated-only PRs. trivial-merge now answers it too.

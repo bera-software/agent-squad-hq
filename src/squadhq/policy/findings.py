@@ -55,3 +55,14 @@ def clean_body(text: object, max_chars: int = 6000) -> str:
     body = _MARKER.sub("", body)
     body = _PROTOCOL_LINE.sub("", body)
     return untrusted.neutralise(body)[:max_chars]
+
+
+def target_repo(requested: object, *, default: str, allowed: Iterable[object]) -> str:
+    """Where a finding becomes an issue: its ``repo`` when that is one of
+    ``allowed`` (the hub and the configured projects), else ``default``."""
+    if isinstance(requested, str) and requested.strip():
+        want = requested.strip().lower()
+        for repo in allowed:
+            if isinstance(repo, str) and repo.lower() == want:
+                return repo
+    return default
