@@ -119,7 +119,11 @@ def test_designer_pushes_design_branches():
 def test_pr_branch_roles_push_to_head_branch():
     tools = tp.claude_code_tools("edit-test-push", role="review-fix", push_branch="refs/heads/agent/42-fix")
     pushes = [t for t in tools if t.startswith("Bash(git push")]
-    assert pushes == ["Bash(git push origin HEAD:refs/heads/agent/42-fix)"]
+    assert pushes[0] == "Bash(git push origin HEAD:refs/heads/agent/42-fix)"
+    # Only this branch, in the spellings agents use; the pre-push hook enforces it too.
+    assert all("agent/42-fix" in t or t in ("Bash(git push origin HEAD)", "Bash(git push)") for t in pushes)
+    assert "Bash(git push origin agent/42-fix)" in pushes and "Bash(git push -q origin agent/42-fix)" in pushes
+    assert not any("agent/*" in t for t in pushes)
     assert "Bash(git switch agent/42-fix)" in tools
     m = tp.claude_code_tools("edit-test-push", role="mention", push_branch="design/landing")
     assert "Bash(git push origin HEAD:refs/heads/design/landing)" in m

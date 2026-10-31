@@ -129,8 +129,20 @@ _EDIT_TEST = [
     # instead of grepping, and refresh it in the same PR (AST only: no model, no key, seconds).
     "Bash(graphify query *)", "Bash(graphify path *)", "Bash(graphify explain *)", "Bash(graphify update .)",
 ]
+# The spellings agents actually use for one target ({r}: a prefix glob or one
+# branch). Which branches may be pushed is enforced by the run's pre-push hook
+# (allowed branches only, never the default branch, fast-forward, secret scan),
+# so a refspec slipped into the glob is still refused there.
+_PUSH_FORMS = ("git push origin HEAD:refs/heads/{r}", "git push origin {r}", "git push -u origin {r}",
+               "git push -q origin {r}", "git push --set-upstream origin {r}")
+
+
+def _push_rules(target: str) -> list[str]:
+    return [f"Bash({f.format(r=target)})" for f in _PUSH_FORMS]
+
+
 _PUSH = [
-    "Bash(git push origin HEAD:refs/heads/agent/*)",
+    *_push_rules("agent/*"),
     "Bash(gh pr create *)",
 ]
 _REVIEW_API = [
@@ -316,8 +328,8 @@ def _role_entries(profile: str, role: str | None, push_branch: str | None) -> li
     if branch and edits:
         base += [f"Bash(git checkout {branch})", f"Bash(git switch {branch})"]
         if profile == "edit-test-push":
-            base = [f"Bash(git push origin HEAD:refs/heads/{branch})" if t.startswith("Bash(git push ") else t
-                    for t in base]
+            base = [t for t in base if not t.startswith("Bash(git push ")] + _push_rules(branch) \
+                + ["Bash(git push origin HEAD)", "Bash(git push)"]
     if r in REVIEW_API_ROLES:
         base += _REVIEW_API
     return base

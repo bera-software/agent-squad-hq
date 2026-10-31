@@ -7,6 +7,13 @@
   fails, do not ask anyone to push: comment `PUSH FAILED — work lost, run
   needs re-trigger` with the error verbatim, add `needs-human`, and treat the
   run as failed. Never describe work as done unless it is pushed.
+- **Commands your shell accepts.** One command per call (no `;`, `&&` or
+  pipes into another command). Commit with plain `git commit -m "<summary>"`,
+  repeating `-m` for more paragraphs: `$`, backticks, heredocs and `-F` are
+  refused. Edit files with your edit tool, not `sed -i`. A refused command is
+  not done: switch to the allowed form, and a push that was refused counts as
+  a failed push (above). Whatever happens, finish with a comment that says
+  what you did or why you stopped.
 - **Session continuity.** As your last action on a PR you opened, post a PR
   comment whose first line is exactly `<!-- session-context -->`, followed
   by a `## Notes` section: key decisions, alternatives rejected and why,
