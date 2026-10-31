@@ -483,3 +483,13 @@ def test_agents_keep_the_graph_in_their_pr_and_refresh_costs_nothing_then():
     assert "head_commit.modified), 'graphify-out/graph.json')" in cond
     with open(os.path.join(ROOT, "prompts", "_shared", "delivery.md"), encoding="utf-8") as f:
         assert "graphify update ." in f.read()
+
+
+def test_every_auto_merge_falls_back_to_a_direct_merge_when_already_mergeable():
+    # GitHub refuses --auto on a PR whose required checks already passed while an optional one
+    # failed or is pending ("unstable status"); without a fallback the PR sat unmerged.
+    with open(os.path.join(ROOT, ".github", "workflows", "router.yml")) as f:
+        text = f.read()
+    autos = text.count('--squash --auto --match-head-commit "$SHA"')
+    fallbacks = text.count('"unstable status"*')
+    assert autos == 3 and fallbacks == 3, (autos, fallbacks)

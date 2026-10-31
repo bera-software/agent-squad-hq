@@ -2885,8 +2885,13 @@ jobs:
           SHA: ${{ github.event.review.commit_id }}
         run: |
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no approved commit"; exit 1; }
-          gh pr merge "$PR" -R "$REPO" --squash --auto --match-head-commit "$SHA" \
-            || echo "⚠ auto-merge request failed for #$PR — enable 'Allow auto-merge' and 'Allow squash merging' in the repo settings." >> "$GITHUB_STEP_SUMMARY"
+          # GitHub refuses --auto on a PR that is already mergeable ("clean" or
+          # "unstable": required checks passed, an optional one did not): merge
+          # it now instead; the ruleset still enforces the required checks.
+          out=$(gh pr merge "$PR" -R "$REPO" --squash --auto --match-head-commit "$SHA" 2>&1) || case "$out" in
+            *"clean status"*|*"unstable status"*) gh pr merge "$PR" -R "$REPO" --squash --match-head-commit "$SHA" ;;
+            *) false ;;
+          esac || echo "⚠ auto-merge request failed for #$PR — enable 'Allow auto-merge' and 'Allow squash merging' in the repo settings." >> "$GITHUB_STEP_SUMMARY"
       - &update-branch
         if: always() && !startsWith(github.event.pull_request.base.ref, 'agent/') && !startsWith(github.event.pull_request.base.ref, 'design/')
         name: Bring the branch up to date
@@ -2972,6 +2977,10 @@ jobs:
           gh api "repos/$REPO/pulls/$PR/reviews" -f event=APPROVE -f commit_id="$SHA" \
             -f body="[Self-Merge] merge policy satisfied for $SHA ($why)" > /dev/null 2>&1
           out=$(gh pr merge "$PR" -R "$REPO" --squash --auto --match-head-commit "$SHA" 2>&1); rc=$?
+          case "$rc:$out" in  # already mergeable: --auto is refused, merge now (see above)
+            [1-9]*"clean status"*|[1-9]*"unstable status"*)
+              out=$(gh pr merge "$PR" -R "$REPO" --squash --match-head-commit "$SHA" 2>&1); rc=$? ;;
+          esac
           if [ "$rc" = 0 ]; then
             echo "AUTO_MERGED=true" >> "$GITHUB_ENV"
             echo "✅ auto-merge armed for #$PR — $why" >> "$GITHUB_STEP_SUMMARY"
@@ -3077,7 +3086,15 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           gh pr edit "$PR" -R "$REPO" --add-label ready-to-merge || true
-          if gh pr merge "$PR" -R "$REPO" --squash --auto --match-head-commit "$SHA"; then
+          merge_now() {  # already mergeable: --auto is refused, merge now (see above)
+            local out
+            out=$(gh pr merge "$PR" -R "$REPO" --squash --auto --match-head-commit "$SHA" 2>&1) && return 0
+            case "$out" in
+              *"clean status"*|*"unstable status"*) gh pr merge "$PR" -R "$REPO" --squash --match-head-commit "$SHA" ;;
+              *) echo "$out" >&2; return 1 ;;
+            esac
+          }
+          if merge_now; then
             echo "AUTO_MERGED=true" >> "$GITHUB_ENV"
             echo "⚡ trivial merge: generated files only, review skipped, merging after CI" >> "$GITHUB_STEP_SUMMARY"
           else
