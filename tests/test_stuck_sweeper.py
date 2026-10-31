@@ -602,3 +602,32 @@ class DebtIntakeTests(unittest.TestCase):
             self.prop(4, "KeyStoreLoader again", minutes=20)], [settled])
         self.assertEqual([(i["number"], a, d if a == "accept" else d["number"]) for i, a, d in plan],
                          [(1, "duplicate", 10), (2, "duplicate", 11), (3, "accept", "P2"), (4, "duplicate", 3)])
+
+
+class MergeRecheckTests(unittest.TestCase):
+    def pr(self, labels):
+        return {"number": 7, "labels": [{"name": l} for l in labels], "isDraft": False}
+
+    def test_recovered_checks_rerun_the_merge_decision(self):
+        labels = ["risk:low", "ready-to-merge", "needs-approver-merge"]
+        c = pctx() | {"checks_recovered_since": sw.parse_ts(ago(45))}
+        self.assertEqual(sw.classify_pr(self.pr(labels), c, NOW, TH)[0], "merge_recheck")
+        c = pctx() | {"checks_recovered_since": sw.parse_ts(ago(5))}
+        self.assertIsNone(sw.classify_pr(self.pr(labels), c, NOW, TH))  # self-merge just decided
+        c = pctx() | {"checks_recovered_since": None}
+        self.assertIsNone(sw.classify_pr(self.pr(labels), c, NOW, TH))  # still failing / other reason
+
+    def test_only_a_failing_checks_decision_is_rechecked(self):
+        orig = sw.gh_json
+        sw.gh_json = lambda args: {"statusCheckRollup": [
+            {"name": "ci-gate", "workflowName": "Agents", "conclusion": "CANCELLED", "completedAt": "2026-10-31T12:00:00Z"},
+            {"name": "ci-gate", "workflowName": "Agents", "conclusion": "SUCCESS", "completedAt": "2026-10-31T12:10:00Z"}]}
+        try:
+            pr = self.pr(["risk:low", "ready-to-merge", "needs-approver-merge"])
+            failing = bot("[Self-Merge] This PR needs an approver to merge: failing checks: hub / ci-gate=cancelled.", 40)
+            risky = bot("[Self-Merge] This PR needs an approver to merge: risk is risk:high.", 40)
+            self.assertIsNotNone(sw.checks_recovered_since("acme/web", pr, [failing]))
+            self.assertIsNone(sw.checks_recovered_since("acme/web", pr, [risky]))
+            self.assertIsNone(sw.checks_recovered_since("acme/web", self.pr(["risk:medium", "ready-to-merge", "needs-approver-merge"]), [failing]))
+        finally:
+            sw.gh_json = orig

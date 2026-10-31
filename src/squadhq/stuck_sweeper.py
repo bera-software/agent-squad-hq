@@ -24,6 +24,9 @@ Deterministic, no LLM. Each stuck state maps to exactly one re-fire:
   review_missing          review            draft toggle (fires ready_for_review)
   fix_round_not_started   review-fix        remove + re-add review:changes-requested
   merge_decision_missing  self-merge        remove + re-add ready-to-merge
+  merge_recheck           self-merge        risk:low PR sent to an approver only for failing
+                                            checks that pass now: drop needs-approver-merge,
+                                            re-add ready-to-merge
 
 First, each open ticket is RECONCILED with facts (reconcile_issue): its
 implementation PR (Closes #N) and design PR (Gate-for: #N) — open, merged or
@@ -423,6 +426,10 @@ def classify_pr(pr, ctx, now, th):
     if hit:
         return hit
     labels = label_names(pr)
+    recovered = ctx.get("checks_recovered_since")
+    if recovered and {"needs-approver-merge", "ready-to-merge"} <= labels and "needs-human" not in labels:
+        age = minutes_since(recovered, now)
+        return ("merge_recheck", age) if age and age > th["merge_decision_missing"] else None
     if labels & APPROVER_WAIT_LABELS or pr.get("isDraft"):
         return None
 
@@ -464,6 +471,7 @@ REFIRE_NOTE = {
     "review_missing": "No review verdict on the latest commit — re-requesting review (draft toggle).",
     "fix_round_not_started": "Changes were requested but no fix round started — re-applying `review:changes-requested`.",
     "merge_decision_missing": "Approved but the merge decision never ran — re-applying `ready-to-merge`.",
+    "merge_recheck": "Sent to an approver only for failing checks, which pass now — re-running the merge decision.",
 }
 # States that escalate straight away instead of re-firing, with the reason.
 NO_REFIRE = {
@@ -541,6 +549,10 @@ def refire(repo, item, state, is_pr, ctx, label_cache):
         r = relabel(repo, n, "review:changes-requested", True)
     elif state == "merge_decision_missing":
         r = relabel(repo, n, "ready-to-merge", True)
+    elif state == "merge_recheck":
+        r = remove_label(repo, n, "needs-approver-merge", True)
+        if r.returncode == 0:
+            r = relabel(repo, n, "ready-to-merge", True)
     elif state == "review_missing":
         r = gh(["pr", "ready", str(n), "-R", repo, "--undo"])
         if r.returncode == 0:
@@ -1091,10 +1103,35 @@ def find_items(repo):
         sha = pr["headRefOid"]
         commit = gh_json(["api", f"repos/{repo}/commits/{sha}"])
         runs = gh_json(["api", f"repos/{repo}/commits/{sha}/check-runs?per_page=100"])["check_runs"]
+        comments = gh_list(f"repos/{repo}/issues/{n}/comments")
         yield pr, True, {"events": gh_list(f"repos/{repo}/issues/{n}/events"),
-                         "comments": gh_list(f"repos/{repo}/issues/{n}/comments"),
+                         "comments": comments,
                          "head_committed_at": parse_ts(commit["commit"]["committer"]["date"]),
-                         "review_checks": [r for r in runs if is_review_check(r.get("name", ""))]}
+                         "review_checks": [r for r in runs if is_review_check(r.get("name", ""))],
+                         "checks_recovered_since": checks_recovered_since(repo, pr, comments)}
+
+
+SELF_MERGE_CHECKS_RE = re.compile(r"^\[Self-Merge\] This PR needs an approver to merge: failing checks:")
+
+
+def checks_recovered_since(repo, pr, comments):
+    """When self-merge sent this risk:low PR to an approver ONLY for failing
+    checks and every check's latest run now passes: the time of that decision
+    (the merge decision is re-run after the merge_decision_missing wait).
+    None otherwise; costs one rollup read, only for such PRs."""
+    labels = label_names(pr)
+    if not {"needs-approver-merge", "ready-to-merge", "risk:low"} <= labels:
+        return None
+    ours = [c for c in comments if bot_said(c)]
+    if not ours or not SELF_MERGE_CHECKS_RE.match(ours[-1].get("body") or ""):
+        return None
+    data = gh_json(["pr", "view", str(pr["number"]), "-R", repo, "--json", "statusCheckRollup"])
+    from squadhq.merge_policy import latest_checks
+    for c in latest_checks((data or {}).get("statusCheckRollup")):
+        concl = (c.get("conclusion") or c.get("state") or "").upper()
+        if concl not in ("SUCCESS", "SKIPPED", "NEUTRAL"):
+            return None  # still failing, or still running
+    return parse_ts(ours[-1]["created_at"])
 
 
 def as_fix(norm):
