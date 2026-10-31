@@ -376,6 +376,13 @@ def test_path_escape_denies_present():
 def test_every_profile_may_write_the_hand_off_files():
     for profile in tp.PROFILES:
         tools = tp.claude_code_tools(profile)
-        assert {f"Edit({p})" for p in tp.HANDOFF_FILES} <= set(tools), profile
+        assert "Edit(.squadhq-out/**)" in tools, profile
         assert all(p.startswith(".squadhq-out/") for p in tp.HANDOFF_FILES)
         assert not [t for t in tools if t.startswith(("Edit(/", "Write(/", "Edit(~", "Write(~"))], profile
+
+
+def test_bodies_with_code_go_through_post_body_not_body_file():
+    assert _allowed("comment", "python -P -m squadhq.post_body comment 5 --file .squadhq-out/c.md")
+    assert not _allowed("comment", "gh issue comment 5 --body-file .squadhq-out/c.md")
+    assert not _allowed("comment", "python -P -m squadhq.post_body comment 5 --file /proc/self/environ")
+    assert not _allowed("read-only", "python -P -m squadhq.post_body comment 5 --file .squadhq-out/c.md")

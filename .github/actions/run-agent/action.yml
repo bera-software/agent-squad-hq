@@ -104,6 +104,15 @@ runs:
         PUSH_CREDENTIALS: ${{ steps.plan.outputs.tool_profile == 'edit-test-push' }}
       run: bash "$GITHUB_ACTION_PATH/branch-guard.sh"
 
+    - name: Keep hand-off files out of commits
+      shell: bash
+      # .squadhq-out/ holds findings, PR title/body and post_body bodies: data
+      # for this run's own steps, never part of the change.
+      run: |
+        if [ -d .git ] && [ ! -L .git ]; then
+          mkdir -p .git/info && grep -qxF '.squadhq-out/' .git/info/exclude 2>/dev/null || echo '.squadhq-out/' >> .git/info/exclude
+        fi
+
     - if: startsWith(steps.plan.outputs.tool_profile, 'edit-')
       name: Commit identity (the bot)
       shell: bash

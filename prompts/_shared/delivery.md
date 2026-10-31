@@ -14,6 +14,13 @@
   not done: switch to the allowed form, and a push that was refused counts as
   a failed push (above). Whatever happens, finish with a comment that says
   what you did or why you stopped.
+- **Bodies with code, `$` or several paragraphs** (comments, issues, PR
+  descriptions): inline shell arguments refuse `$` and backticks. Write the
+  body with your Write tool to `.squadhq-out/<name>.md`, then post it with
+  `python -P -m squadhq.post_body comment <number> --file .squadhq-out/<name>.md`
+  (also `issue --title "..." [--label L]`, `pr --title "..." --head <branch>`,
+  `edit-issue <number>`; add `--repo owner/name` for another repository).
+  Short plain bodies can stay inline (`--body "..."`). `--body-file` is refused.
 - **Hand-off files** (`.squadhq-out/agent-findings.json`, `.squadhq-out/pr-title.txt`,
   `.squadhq-out/pr-body.md`, when your run asks for them): create them with
   your Write tool, which creates the folder too. Never with the shell

@@ -5,6 +5,13 @@ The tool policy enforced in code allows these forms only:
 - Read: `gh issue view|list`, `gh pr view|list|diff|checks`.
 - Write: `gh issue comment|create|edit|close`, `gh pr comment|create|edit|review`
   (as your role's authority allows).
+- Bodies: short plain text inline (`--body "..."`). A body with code spans,
+  `$` or several paragraphs is refused inline: write it with your Write tool
+  to `.squadhq-out/<name>.md` and post it with
+  `python -P -m squadhq.post_body comment <N> --file .squadhq-out/<name>.md`
+  (also `issue --title "..." [--label L]`, `edit-issue <N>`,
+  `pr --title "..." --head <branch>`; `--repo owner/name` for another repo).
+  `--body-file` and `-F` are refused.
 - Labels: `gh issue edit <N> --add-label …/--remove-label …` and `gh pr edit
   <N> --add-label …/--remove-label …`. The label guard checks every change
   against your role's authority.

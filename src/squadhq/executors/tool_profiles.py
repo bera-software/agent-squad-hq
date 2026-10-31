@@ -107,9 +107,10 @@ from squadhq.interfaces import ToolProfile
 PROFILES: tuple[str, ...] = tuple(get_args(ToolProfile))
 
 # Hand-off files the run's own steps read back as size-capped data (findings to
-# issues, PR title and body). They live in the checkout (Claude Code does not
-# write outside it in these runs) and never enter a patch. Every profile may
-# write exactly these; Claude Code matches all file-writing tools on Edit rules.
+# issues, PR title and body) and bodies for squadhq.post_body. They live in the
+# checkout (Claude Code does not write outside it in these runs), are git-excluded
+# and never enter a patch. Every profile may write under .squadhq-out/ only there;
+# Claude Code matches all file-writing tools on Edit rules.
 HANDOFF_DIR = ".squadhq-out"
 HANDOFF_FILES = tuple(f"{HANDOFF_DIR}/{n}" for n in ("agent-findings.json", "pr-title.txt", "pr-body.md"))
 _READ_ONLY = [
@@ -117,7 +118,7 @@ _READ_ONLY = [
     "Bash(git status)", "Bash(git status *)", "Bash(git diff *)", "Bash(git log *)", "Bash(git show *)",
     "Bash(gh issue view *)", "Bash(gh issue list *)",
     "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
-    *(f"Edit({p})" for p in HANDOFF_FILES),
+    f"Edit({HANDOFF_DIR}/**)",
 ]
 _COMMENT = [
     "Bash(gh issue comment *)", "Bash(gh pr comment *)", "Bash(gh pr review *)",
@@ -125,6 +126,9 @@ _COMMENT = [
     # (squadhq.label_guard), which refuses labels the role does not own.
     "Bash(gh issue edit *)", "Bash(gh pr edit *)",
     "Bash(gh issue create *)", "Bash(gh issue close *)",
+    # Bodies quoting code or prices ($ and backticks are refused inline): written
+    # with the Write tool to .squadhq-out/ and posted by this checked command.
+    "Bash(python -P -m squadhq.post_body *)", "Bash(python3 -P -m squadhq.post_body *)",
 ]
 _EDIT_TEST = [
     "Edit", "Write", "MultiEdit",

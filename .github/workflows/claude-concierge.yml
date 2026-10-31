@@ -47,7 +47,7 @@ jobs:
       prompt: |
         Follow .squadhq/prompts/_shared/subagents.md.
         You are the approver's operator for this agent squad. A trusted human commented on hub issue #${{ github.event.issue.number }} in ${{ github.repository }}.
-        IDENTITY: every comment you post starts with "[Concierge] ". Pass bodies inline (never --body-file).
+        IDENTITY: every comment you post starts with "[Concierge] ". Pass short bodies inline; for bodies with code, $ or several paragraphs use python -P -m squadhq.post_body; never --body-file.
         Read the issue and its thread, config/projects.json (registered project repos) and org/CLAUDE-org.md, then carry out the instruction in the latest comment from @${{ github.event.comment.user.login }}.
         You MAY: create issues in a REGISTERED repo (title, context from this thread, acceptance criteria); add/remove labels; comment on issues and PRs; close issues you are asked to close. You may NEVER merge, push code, deploy, edit workflows or act in unregistered repos.
         ROUTING: engineering work always goes to the relevant PROJECT repo, never to this hub. Create a PLAIN issue (no dispatch labels — never apply agent:implement or needs-design) whose body ends with exactly these three lines, so Product Owner intake can verify who asked:
