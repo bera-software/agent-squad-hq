@@ -206,7 +206,7 @@ jobs:
 
           URL_RE = re.compile(r"https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~%/-]*)?")
           NAME_RE = re.compile(r"[A-Za-z0-9_.-]{1,100}")
-          TOKEN_RE = re.compile(r"[A-Za-z0-9_]{20,255}")
+          TOKEN_RE = re.compile(r"[A-Za-z0-9_.-]{20,2048}")  # also GitHub's stateless ghs_APPID_JWT tokens (~520)
           LOGIN_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,33}\[bot\]")
           RETRY = (429, 500, 502, 503, 504)
           PERM_RE = re.compile(r"[a-z][a-z_-]{0,49}")

@@ -250,6 +250,29 @@ def test_token_exchange(env, monkeypatch, capsys):
     assert listed.read_text() == TOKEN + "\n" and listed.stat().st_mode & 0o777 == 0o600
 
 
+# GitHub's stateless installation token format (rolled out 2026): ghs_<app id>_<JWT>, about 520 characters.
+STATELESS = "ghs_123456_" + "eyJhbGciOiJFUzI1NiJ9." + "eyJzdWIiOiJhcHAifQ-_" * 22 + ".c2lnbmF0dXJl"
+
+
+def test_stateless_tokens_are_accepted(env):
+    assert len(STATELESS) > 255
+    mod = _broker()
+    _fake(mod, broker_body={"token": STATELESS, "expires_at": "2026-10-26T12:00:00Z", "identity": "ops",
+                            "login": "agent-squad-hq[bot]"})
+    mod.token()
+    assert dict(ln.split("=", 1) for ln in env.read_text().splitlines())["token"] == STATELESS
+
+
+@pytest.mark.parametrize("bad", ["ghs_short", "ghs_" + "a" * 40 + "\nnext=1", "ghs_" + "a" * 40 + " x",
+                                 "ghs_" + "a" * 2100])
+def test_unusable_tokens_are_refused(env, bad):
+    mod = _broker()
+    _fake(mod, broker_body={"token": bad})
+    with pytest.raises(SystemExit):
+        mod.token()
+    assert "token=" not in env.read_text()
+
+
 def test_permissions_narrow_like_the_app_key_path(env, monkeypatch):
     mod = _broker()
     seen = _fake(mod)
