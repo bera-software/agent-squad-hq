@@ -36,3 +36,6 @@ Project CLAUDE.md and ADRs override these defaults.
   ranges and tags are refused. Look versions up with `npm view <name> versions --json` or
   `npm view <name>@<range> version`. Name the old and new version in the PR body, and
   check the changelog of a major-version jump before using it.
+- Package in a subfolder (for example `frontend/`): run its scripts with
+  `npm --prefix frontend run <script>` / `npm --prefix frontend test`, one command
+  per call (`cd` and pipes are refused).

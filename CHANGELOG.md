@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 
 ### Fixed
+- Node packs: agents could not build or test a package in a subfolder (a `frontend/` pack root): `cd` and `npm --prefix` were refused, so a requested dependency bump stopped without a push. `npm --prefix <dir> ci|run|test` are allowed (absolute and parent paths stay refused).
 - Coverage comment on multi-module builds said "no coverage information present for the Files changed": the combined report was rebuilt from line data, without the per-file INSTRUCTION/BRANCH counters the comment reads. JaCoCo module reports are now merged as they are, every counter kept.
 - A design ticket whose implementation the PO cut as a separate ticket (`After: #<design>`) got the Engineer dispatched onto it when its design PR merged, and stayed open, so the implementation ticket waited forever. It now closes, which releases the follow-up.
 - Type errors in the uptime and coverage changes (Hub CI mypy).

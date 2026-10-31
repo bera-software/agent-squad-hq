@@ -54,6 +54,11 @@ tools:
   - "Bash(python -P -m squadhq.pin_install *)"
   # Read-only registry lookups to choose those versions.
   - "Bash(npm view *)"
+  # A package in a subfolder (pack root such as frontend/): the same commands
+  # with --prefix (absolute and parent paths stay refused).
+  - "Bash(npm --prefix * ci)"
+  - "Bash(npm --prefix * run *)"
+  - "Bash(npm --prefix * test*)"
   - "Bash(npm run *)"
   - "Bash(npx tsc *)"
   - "Bash(npx jest *)"
