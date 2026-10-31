@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0.0, minor releases may contain breaking changes; each one is called out under **Changed** with upgrade steps.
 
+## [0.1.0.dev5] - 2026-10-31
+
+### Added
+- Providers: `stream_reply()` yields text as it is written, then the whole reply, for every provider; Anthropic streams natively, the others answer in one piece.
+- Providers: messages can carry images (`squadhq.interfaces.Image`) for Anthropic, OpenAI (chat and responses), Azure OpenAI, Gemini and Bedrock; the price catalogue marks vision-capable models.
+- Price catalogue: Claude Opus 5.5.
+
+### Fixed
+- Token-broker mode: the token client accepts GitHub's stateless App installation tokens (`ghs_<app id>_<JWT>`, about 520 characters). Every broker-mode job failed with "token broker answered 200 without a usable token" once GitHub made them the default.
+- Router: `update-prs`, `update-prs-publish` and `graph-publish` ask for `contents: read`, so they can check out private projects instead of failing with "repository not found".
+- Router: `graph-build` runs graphify's code-only `update`, which needs no AI key; the flags it passed do not exist in the locked graphify and the fallback asked for an LLM key.
+- Release: dev, alpha, beta and rc tags are published as GitHub prereleases.
+
+### Upgrading
+- Hubs: take the hub upgrade pull request (or Stub Sync) for this version, then move each project's hub pin. In token-broker mode also set the repository variables `SQUADHQ_BOT_LOGIN` and `SQUADHQ_AGENT_BOT_LOGIN` to your Apps' bot logins (Agent Squad HQ Cloud sets them for you), so graph refreshes and the squad's own pull requests are recognised.
+
+## [0.1.0.dev4] - 2026-10-30
+
+### Fixed
+- Container image: the build context keeps `docs/FLOW-DIAGRAM.md`. First release with the container image and a GitHub release.
+
+## [0.1.0.dev3] - 2026-10-30
+
+### Fixed
+- Release: the container image is tagged with the PEP 440 version.
+
+## [0.1.0.dev2] - 2026-10-30
+
+First published developer preview: everything listed under 0.1.0 below.
+
 ## [0.1.0] - Unreleased
 
 First public developer preview. The code was imported from an earlier private deployment with a fresh history, then generalised, packaged and hardened.
@@ -96,4 +126,8 @@ First public developer preview. The code was imported from an earlier private de
 - Executors other than Claude Code cannot run in Actions mode yet.
 - The deployment examples have been linted and validated but not applied to real cloud accounts.
 
+[0.1.0.dev5]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev5
+[0.1.0.dev4]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev4
+[0.1.0.dev3]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev3
+[0.1.0.dev2]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0.dev2
 [0.1.0]: https://github.com/bera-software/agent-squad-hq/releases/tag/v0.1.0
