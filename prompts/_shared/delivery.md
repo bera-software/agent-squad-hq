@@ -24,7 +24,10 @@
 - **Dependencies** (JavaScript): `npm install` is refused. Change versions with
   `python -P -m squadhq.pin_install [--dir <package dir>] [--dev] <name>@<exact version> ...`
   (it updates package.json and the lockfile, install scripts off); look versions up
-  with `npm view <name> versions --json`. Never hand-edit a lockfile.
+  with `npm view <name> versions --json`. Never hand-edit a lockfile. When you
+  pick a version, take the newest patch of the target line that has no known
+  security advisory (the `sca` check fails a PR that introduces one); never stop
+  at a version with published advisories just because it satisfies the ticket.
 - **Hand-off files** (`.squadhq-out/agent-findings.json`, `.squadhq-out/pr-title.txt`,
   `.squadhq-out/pr-body.md`, when your run asks for them): create them with
   your Write tool, which creates the folder too. Never with the shell
