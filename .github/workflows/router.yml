@@ -2313,7 +2313,7 @@ jobs:
           prompt: |
             Read .squadhq/prompts/product-owner.md and follow it exactly for issue #${{ github.event.issue.number }} in ${{ github.repository }}. Run the CLASSIFY phase.
             Trigger: ${{ github.event.action }}. If it is "labeled" (agent:shape), this is a RE-SHAPE of an issue whose earlier intake did not land: read the existing comments first, do not re-post a proposal or classification you already posted, and finish whatever labels are missing.
-            MISSING IMPACT CONTEXT: if the issue is already shaped (triaged:ready or agent:implement) and its body has no "Why this matters" section, append one (gh issue edit --body with the full text inline, keep the existing text, add "**Why this matters:**" with a Business and a Technical line) and change nothing else.
+            MISSING IMPACT CONTEXT: if the issue is already shaped (triaged:ready or agent:implement) and neither its body nor one of your earlier comments has a "Why this matters:" section, post one comment starting "[Product Owner]" with "**Why this matters:**" and a Business and a Technical line (the dispatcher reads it there; leave the body as the author wrote it), and change nothing else.
       - *broker-revoke
 
   po-shape:
