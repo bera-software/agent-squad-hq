@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- Agents skipped `graphify update .` on docs- or comment-only PRs ("after changing code"), so a refresh PR followed their merge. The delivery rules now run it whatever changed.
 - Dispatch: a ticket the Product Owner shaped (its "Why this matters" posted as a comment, as the prompt asks, so the author's text stays theirs) was never dispatched: the stuck sweeper only read the section from the issue body. A "Why this matters:" section in one of our comments now counts; the implement prompt checks the comment too.
 - Product Owner: a title that is a pasted paragraph is replaced with a short summary.
 - Agents could not read any file on GitHub-hosted runners: the deny rule `Read(~/**)` (also Grep and Glob) covered `$HOME`, and the checkout lives in `/home/runner/work`, inside it. Every agent stopped after a few denied reads while its run stayed green. Only the home directory's hidden entries (`~/.*`) are denied now.

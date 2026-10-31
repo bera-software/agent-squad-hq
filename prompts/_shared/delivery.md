@@ -19,8 +19,8 @@
   your role allows) and finish.
 - **Code graph.** When `graphify-out/graph.json` exists, orient with
   `graphify query "<question>"`, `graphify path "A" "B"` or `graphify explain "X"`
-  before reading raw files. After changing code, run `graphify update .` once,
-  just before your final commit, and commit `graphify-out/graph.json`,
+  before reading raw files. Whatever you changed (code, comments, docs or
+  config), run `graphify update .` once, just before your final commit, and commit `graphify-out/graph.json`,
   `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` when they
   changed: only those three, never `graph.html` or `graphify-out/cache/`. It
   reads code only (no model, no key) and takes seconds; keeping the graph in
