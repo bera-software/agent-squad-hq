@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `squadhq.pin_install`: agents on the Node packs (node-next, node-api, react-vite, react-native-expo) can change dependency versions at exact versions only (`name@1.2.3`; no ranges, tags, URLs or flags), with install scripts off and the exact version saved, using the project's npm, pnpm or yarn. Plain `npm install` stays refused. Dependency-upgrade tickets no longer stop at `needs-human`.
 - `squadhq.post_body`: agents post comments, issues and PRs whose body quotes code, prices or spans several paragraphs from a file in `.squadhq-out/` (Write tool), since `$` and backticks are refused in shell arguments and `--body-file` stays denied. Only regular files inside `.squadhq-out/` are accepted; the directory is git-excluded in every agent run. (A Product Owner comment quoting `next/font/local` was refused, leaving a ticket shaped without its "Why this matters".)
 - Stuck sweeper `merge_recheck`: a `risk:low` approved PR that self-merge sent to an approver only for failing checks has its merge decision re-run once every check's latest run passes (a transient failure no longer parks it for good).
 - Deterministic debt intake in the stuck sweeper: a bot-written `debt-proposal` with a "Why this matters" section becomes `debt` with a priority (severity:high/critical P0, else its P-label or P2), or is closed as a duplicate of open or recently settled debt (same file/class anchors). Left to the Chief of Staff's model, proposals sat unaccepted.

@@ -29,3 +29,8 @@ Project CLAUDE.md and ADRs override these defaults.
   the rules or add a suppression to get it green; that needs an approved design.
 - Run the lint/format check `npm run lint && npx --no-install prettier --check .` before pushing (the `lint`
   gate); fix the findings rather than disabling rules.
+- Dependency versions: change them only with
+  `python -P -m squadhq.pin_install [--dir <package dir>] [--dev] <name>@<exact version> ...`
+  (install scripts off, exact version saved, lockfile updated). Plain `npm install`,
+  ranges and tags are refused. Name the old and new version in the PR body, and
+  check the changelog of a major-version jump before using it.

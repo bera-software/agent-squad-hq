@@ -55,6 +55,8 @@ risk_paths:
   - "vercel.json"
 tools:
   - "Bash(npm ci)"
+  # Dependency changes at exact versions, install scripts off (squadhq.pin_install).
+  - "Bash(python -P -m squadhq.pin_install *)"
   - "Bash(npm run *)"
   - "Bash(npm test*)"
   - "Bash(npx tsc *)"

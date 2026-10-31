@@ -50,6 +50,8 @@ risk_paths:
   - ".env*"
 tools:
   - "Bash(npm ci)"
+  # Dependency changes at exact versions, install scripts off (squadhq.pin_install).
+  - "Bash(python -P -m squadhq.pin_install *)"
   - "Bash(npm run *)"
   - "Bash(npx tsc *)"
   - "Bash(npx jest *)"
