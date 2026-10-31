@@ -143,6 +143,12 @@ inputs:
     description: Agent token pull-requests permission.
     required: false
     default: write
+  permission-checks:
+    description: >
+      Agent token checks permission. Read by default, so agents can see CI
+      results (gh pr checks) instead of guessing whether lint or scans passed.
+    required: false
+    default: read
   hub-read:
     description: '"true" also mints a contents:read token for the hub checkout in the agent job.'
     required: false
@@ -331,6 +337,7 @@ runs:
         permission-contents: ${{ inputs.permission-contents }}
         permission-issues: ${{ inputs.permission-issues }}
         permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        permission-checks: ${{ inputs.permission-checks }}
         # Must outlive this job: the agent job uses it and the post job
         # revokes it (DELETE /installation/token); it expires within the hour.
         skip-token-revoke: "true"
