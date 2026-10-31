@@ -347,7 +347,7 @@ def classify_issue(issue, ctx, now, th):
         return None
     n = issue["number"]
     if labels & {"triaged:ready", "agent:implement"} and not labels & STATUS \
-            and n not in ctx["open_pr_closes"] and not has_why(issue):
+            and n not in ctx["open_pr_closes"] and not has_why(issue, ctx["comments"]):
         since = last_labeled_at(ctx["events"], "agent:shape") if "agent:shape" in labels else None
         age = minutes_since(since or parse_ts(issue["createdAt"]), now)
         return ("impact_missing", age) if age and age > th["impact_missing"] else None
@@ -630,10 +630,39 @@ AFTER_RE = re.compile(r"After:\s*#(\d+)", re.I)
 DEPENDENCY_RE = re.compile(r"depend", re.I)
 
 
-def has_why(issue):
-    """The body has a "Why this matters" section AND was written by the bot or
-    a trusted author — otherwise anyone could make their issue dispatchable."""
-    return bool(WHY_RE.search(issue.get("body") or "")) and trusted_author(issue)
+def has_why(issue, comments=None):
+    """A "Why this matters" assessment exists: in the body of a bot- or
+    trusted-authored issue (otherwise anyone could make their issue
+    dispatchable), or in one of OUR comments — the Product Owner posts it as a
+    comment so the author's text stays theirs. ``comments`` (REST) when the
+    caller has them; else the flag :func:`enrich_why` set."""
+    if WHY_RE.search(issue.get("body") or "") and trusted_author(issue):
+        return True
+    if comments is not None:
+        return why_commented(comments)
+    return bool(issue.get("_why_comment"))
+
+
+# The section itself ("**Why this matters:**"), not a mention of it such as the
+# Engineer's "Blocked — missing Why this matters".
+WHY_SECTION_RE = re.compile(r"why\s+this\s+matters\s*\**\s*:", re.I)
+
+
+def why_commented(comments):
+    return any(bot_said(c) and WHY_SECTION_RE.search(c.get("body") or "") for c in comments or [])
+
+
+WHY_LOOKUP_LABELS = {"triaged:ready", "debt", "agent:implement"}
+
+
+def enrich_why(repo, issues):
+    """Mark ready tickets whose "Why this matters" is in one of our comments
+    (one comments call per ready ticket lacking it in the body)."""
+    for it in issues or []:
+        if not label_names(it) & WHY_LOOKUP_LABELS or has_why(it):
+            continue
+        it["_why_comment"] = why_commented(gh_list(f"repos/{repo}/issues/{it['number']}/comments"))
+    return issues
 
 
 def after_dep(issue):
@@ -663,7 +692,7 @@ def engineer_block(ctx, since, issue):
     if not eng:
         return None
     last = eng[-1]
-    if WHY_RE.search(last.get("body") or "") and has_why(issue):
+    if WHY_RE.search(last.get("body") or "") and has_why(issue, ctx["comments"]):
         return None
     return last
 
@@ -1292,6 +1321,7 @@ def run_dispatch(repo, dry_run, now):
                         "--json", "number,body,author,closingIssuesReferences,mergedAt,closedAt"], 100)
     for batch in (issues, prs, closed):
         enrich_trust(repo, batch)
+    enrich_why(repo, issues)
     facts = pr_facts(prs, closed, wip_limit(), issues)
     facts["closed_issues"] = closed_issue_numbers(repo)
     share = float(str(flow_reader.get_flood_guard("debt_refactor_share_target")["value"]).strip("~%")) / 100

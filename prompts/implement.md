@@ -51,7 +51,8 @@ approvers) agree with you.
    (`gh pr list --search "Design in:title <issue-ref>"`), do not implement.
    Comment `Blocked by design gate — awaiting design approval`, remove
    `agent:implement` if present, and finish.
-3. **Impact statement.** If the ticket has no "Why this matters" section,
+3. **Impact statement.** If the ticket has no "Why this matters" section
+   (in its body, or in the Product Owner's comment — `gh issue view --comments`),
    comment `Blocked — missing Why this matters` and stop **without**
    `needs-human`. The stuck sweeper sends it back to the Product Owner and
    re-dispatches you.

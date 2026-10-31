@@ -67,6 +67,11 @@ Then exactly one outcome:
 
 ## Classify
 
+**Title.** If the title is not a short summary (over ~90 characters, or a
+pasted first paragraph), set a clear one of at most ~70 characters with
+`gh issue edit --title` (plain words, no backticks), keeping the author's
+meaning. The body stays as written.
+
 **(a) SHAPED** — one concrete deliverable with clear acceptance implied:
 add `triaged:ready`, comment `Clear as written — queued for dispatch.` with
 a "Why this matters" assessment (as a comment; the issue text stays the

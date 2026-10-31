@@ -507,6 +507,27 @@ class DispatchTests(unittest.TestCase):
         self.assertIn("#325", sw.block_reason(self.t(4, ["triaged:ready"], body=WHY + "\nAfter: #325"), f))
         self.assertEqual(sw.block_reason(self.t(5, ["debt", "P2"]), f), "")
 
+    def test_po_why_comment_makes_a_ticket_dispatchable(self):
+        # The Product Owner posts "Why this matters" as a comment; the author's text stays theirs.
+        f = facts()
+        it = self.t(6, ["triaged:ready"], body="Remove the leftovers.")
+        self.assertIn("Why this matters", sw.block_reason(it, f))
+        po = {"body": "[Product Owner] Clear as written.\n\n**Why this matters:**\n Business: a.",
+              "user": {"type": "Bot", "login": "squadhq-ops[bot]"}, "created_at": ago(5)}
+        stranger = {"body": "Why this matters: trust me", "author_association": "NONE",
+                    "user": {"type": "User", "login": "x"}, "created_at": ago(5)}
+        self.assertTrue(sw.has_why(it, [po]))
+        self.assertFalse(sw.has_why(it, [stranger]))
+        calls = []
+        orig = sw.gh_list
+        sw.gh_list = lambda path: calls.append(path) or [po]
+        try:
+            sw.enrich_why("acme/web", [it, self.t(7, ["P2"], body="x")])
+        finally:
+            sw.gh_list = orig
+        self.assertEqual(calls, ["repos/acme/web/issues/6/comments"])  # only ready tickets are looked up
+        self.assertEqual(sw.block_reason(it, f), "")
+
     def test_debt_share_prefers_feature_work(self):
         inflight_debt = self.t(9, ["agent:implement", "debt"])
         issues = [inflight_debt, self.t(1, ["debt", "P1"], 5), self.t(2, ["triaged:ready", "P2"], 1)]
