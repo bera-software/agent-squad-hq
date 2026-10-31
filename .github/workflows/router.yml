@@ -3428,7 +3428,9 @@ jobs:
         run: |
           set -euo pipefail
           python -P -m pip install --disable-pip-version-check --quiet --require-hashes -r "$RUNNER_TEMP/graph-kit/graph.lock"
-          graphify update . --code-only --no-viz || graphify extract . --code-only --no-viz
+          # Code only, no AI key: graphify 0.9 `update` re-extracts code and keeps a richer committed
+          # graph (it does not overwrite one with more nodes). `extract` would need an LLM key.
+          graphify update .
           mkdir -p "$RUNNER_TEMP/graph-out"
           for f in graph.json GRAPH_REPORT.md manifest.json; do
             [ -f "graphify-out/$f" ] && cp "graphify-out/$f" "$RUNNER_TEMP/graph-out/$f"

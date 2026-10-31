@@ -448,3 +448,11 @@ def test_jobs_that_check_out_with_their_own_token_can_read_private_repositories(
             for step in job.get("steps") or []:
                 if "actions/checkout" in str(step.get("uses", "")) and not (step.get("with") or {}).get("token"):
                     assert not isinstance(perms, dict) or "contents" in perms, (os.path.basename(wf), name)
+
+
+def test_graph_build_uses_only_commands_the_locked_graphify_has():
+    """graph-build has no AI key: it must run graphify's code-only ``update`` (no ``extract``,
+    which needs an LLM, and no flags the locked version lacks)."""
+    job = _load(os.path.join(GH, "workflows", "router.yml"))["jobs"]["graph-build"]
+    run = "\n".join(s.get("run", "") for s in job["steps"])
+    assert "graphify update ." in run and "graphify extract" not in run and "--code-only" not in run
