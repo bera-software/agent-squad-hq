@@ -3473,6 +3473,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    outputs:
+      changed: ${{ steps.regen.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -3484,13 +3486,32 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - name: Regenerate the graph
+      - id: regen
+        name: Regenerate the graph
         run: |
           set -euo pipefail
           python -P -m pip install --disable-pip-version-check --quiet --require-hashes -r "$RUNNER_TEMP/graph-kit/graph.lock"
+          git show HEAD:graphify-out/manifest.json > "$RUNNER_TEMP/manifest.before.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/manifest.before.json"
           # Code only, no AI key: graphify 0.9 `update` re-extracts code and keeps a richer committed
           # graph (it does not overwrite one with more nodes). `extract` would need an LLM key.
           graphify update .
+          # graphify rewrites every file even when nothing changed (checkout mtimes in the
+          # manifest, randomly numbered communities): refresh only when an indexed file's
+          # content hash, or the set of files, changed.
+          changed=$(python3 -I - "$RUNNER_TEMP/manifest.before.json" graphify-out/manifest.json <<'PY'
+          import json, sys
+          def content(path):
+              try:
+                  data = json.load(open(path))
+              except (OSError, ValueError):
+                  return None
+              return {k: (v.get("ast_hash"), v.get("semantic_hash")) for k, v in data.items() if isinstance(v, dict)}
+          before, after = content(sys.argv[1]), content(sys.argv[2])
+          print("true" if before is None or after is None or before != after else "false")
+          PY
+          )
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          if [ "$changed" != true ]; then echo "⏭ graph content unchanged (only mtimes/community numbering differ): no refresh PR" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           mkdir -p "$RUNNER_TEMP/graph-out"
           for f in graph.json GRAPH_REPORT.md manifest.json; do
             [ -f "graphify-out/$f" ] && cp "graphify-out/$f" "$RUNNER_TEMP/graph-out/$f"
@@ -3504,6 +3525,7 @@ jobs:
 
   graph-publish:
     needs: [graph-build]
+    if: needs.graph-build.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

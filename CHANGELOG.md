@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- Graph refresh opened a PR after every merge: `graphify update` rewrites all three files even when nothing changed (checkout mtimes in the manifest, randomly numbered communities). The refresh now publishes only when an indexed file's content hash, or the set of files, changed.
+- Agents wrote hand-off files with shell heredocs, which are refused; prompts now say to use the Write tool (it creates `.squadhq-out/`).
 - Workflows pass `SQUADHQ_AGENT_BOT_ALIASES` too, so tickets and PRs an earlier agent App wrote (for example the Claude App before moving to Agent Squad HQ) count as ours: their "Why this matters" is read and they can be dispatched. Only the ops aliases reached the jobs before.
 - Re-shape of a ticket missing "Why this matters" told the Product Owner to append it to the issue body, an inline edit refused whenever the body has backticks or `$`; the ticket bounced until it escalated. The PO now posts it as a comment, which dispatch reads.
 - Loops that hand results back through files (tech-debt scan and architect quarterly: findings; OKR tracker and lessons harvester: PR title and body) could not write them: Claude Code does not write outside the checkout in these runs. The hand-off files now live in `.squadhq-out/` inside the checkout (never part of a patch), and every profile may write exactly those three.

@@ -14,6 +14,10 @@
   not done: switch to the allowed form, and a push that was refused counts as
   a failed push (above). Whatever happens, finish with a comment that says
   what you did or why you stopped.
+- **Hand-off files** (`.squadhq-out/agent-findings.json`, `.squadhq-out/pr-title.txt`,
+  `.squadhq-out/pr-body.md`, when your run asks for them): create them with
+  your Write tool, which creates the folder too. Never with the shell
+  (`mkdir`, `cat >`, heredocs are refused), never anywhere else.
 - **Session continuity.** As your last action on a PR you opened, post a PR
   comment whose first line is exactly `<!-- session-context -->`, followed
   by a `## Notes` section: key decisions, alternatives rejected and why,
