@@ -7,10 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `squadhq.label_sync`, run by Stub Sync (also when `config/flows.yml` or `config/projects.json` changes): creates the registry's labels missing on each project, and the hub-only and `project:<name>` labels on the hub. Projects added without `squadhq onboard` (Agent Squad HQ Cloud) were missing them; a label GitHub refuses now fails the run instead of being skipped silently.
 - Code graph in the agent's own PR: implement, design, review-fix and mention agents may run `graphify query/path/explain` and `graphify update .`, and commit the three graph files with their change (`prompts/_shared/delivery.md`). `graph-refresh` skips pushes that already carry `graphify-out/graph.json` in its `if:`, so no runner starts; it only catches up after changes made without the graph. The reviewer leaves the graph diff out.
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- Stuck Sweeper: the sweep token reads checks and commit statuses (every PR was skipped with "Resource not accessible by integration" while the run stayed green), and a repository it cannot read now fails the run.
+- Stuck Sweeper: mentions older than 7 days are not asked about again (it re-asked about mentions from a previous setup). Set `SQUADHQ_BOT_ALIASES` to an earlier bot login so its comments still count as the sweeper's.
 - Packs `node-next` and `node-api`: the test command adds `--coverage` only when the project's test script does not already pass it; Vitest 4 stopped with "Expected a single value for option --coverage" on the second flag.
 - Router: the merge token can read checks, commit statuses and Actions (workflow names in the check rollup), so `trivial-merge` and `self-merge` can evaluate the merge policy; they read the PR's check rollup, failed to, and declined every unattended merge ("could not read the PR — failing closed").
 - Packs `node-next` and `node-api`: tests also write `coverage/lcov.info` (Vitest `--coverage.reporter=lcov`, Jest `--coverageReporters=lcov`), so coverage gates and comments work when the project's own reporters leave lcov out.

@@ -95,6 +95,9 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
           permission-actions: read
+          # Reads each open PR's checks (find_items); without these every PR is skipped.
+          permission-checks: read
+          permission-statuses: read
       - name: Sweep
         env:
           GH_TOKEN: ${{ steps.hub.outputs.token }}

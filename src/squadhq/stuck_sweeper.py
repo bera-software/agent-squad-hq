@@ -290,6 +290,9 @@ def mention_phrases():
     return {settings.trigger_phrase(), "@claude"}
 
 
+MENTION_MAX_AGE_MIN = 7 * 24 * 60
+
+
 def mention_unanswered(ctx, now, th):
     """A human's @claude comment no bot answered — the mention job was skipped
     (capacity) or failed. Only a HUMAN comment can start that job, so the
@@ -306,6 +309,8 @@ def mention_unanswered(ctx, now, th):
     if any(is_sweeper(c) and "state=mention_unanswered" in (c.get("body") or "") for c in after):
         return None  # already asked about this one
     age = minutes_since(parse_ts(comments[last]["created_at"]), now)
+    if age and age > MENTION_MAX_AGE_MIN:
+        return None  # old enough that asking again is noise (e.g. mentions from a previous setup)
     return ("mention_unanswered", age) if age and age > th["mention_unanswered"] else None
 
 
@@ -1522,7 +1527,8 @@ def main(argv=None):
     if summary:
         with open(summary, "a") as f:
             f.write(body + "\n")
-    return 0
+    # A repository the sweep could not read is a failed run (and escalates), not a green one.
+    return 1 if any(r.startswith("|") and r.split("|")[2].strip() == "error" for r in rows) else 0
 
 
 if __name__ == "__main__":

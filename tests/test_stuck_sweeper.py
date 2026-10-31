@@ -249,6 +249,11 @@ class ApproverAndMentionTests(unittest.TestCase):
         asked = bot(f"{sw.BADGE}reply again <!-- stuck-sweeper state=mention_unanswered -->", 30)
         self.assertIsNone(self.state(issue(["status:in-review"]), [ask, asked]))
 
+    def test_old_mentions_are_left_alone(self):
+        # Mentions from a previous setup (weeks old) must not be re-asked about.
+        old = human("@claude can you rebase this", sw.MENTION_MAX_AGE_MIN + 60)
+        self.assertIsNone(self.state(issue(["status:in-review"]), [old]))
+
     def test_mention_answered_by_bot(self):
         cs = [human("@claude why?", 90), bot("Because ...", 80)]
         self.assertIsNone(self.state(issue(["status:in-review"]), cs))

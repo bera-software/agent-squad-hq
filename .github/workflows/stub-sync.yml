@@ -5,8 +5,10 @@ name: Stub Sync
 on:
   push:
     branches: [main]
-    # The manifest changes when a hub upgrade (squadhq.hub_upgrade) is merged.
-    paths: ["onboarding/agents.yml.stub", ".github/squadhq-manifest.json"]
+    # The manifest changes when a hub upgrade (squadhq.hub_upgrade) is merged; the label
+    # registry and the project list decide which labels every repository needs.
+    paths: ["onboarding/agents.yml.stub", ".github/squadhq-manifest.json", "config/flows.yml",
+            "config/projects.json"]
   release:
     types: [published]
   workflow_dispatch:
@@ -60,6 +62,8 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
           permission-workflows: write
+          # Label sync creates missing labels on the hub and the projects.
+          permission-issues: write
       - id: ref
         name: Hub ref to pin
         env:
@@ -83,6 +87,12 @@ jobs:
           SQUADHQ_STUB_FOLLOW: ${{ vars.SQUADHQ_STUB_FOLLOW }}
           DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python -P -m squadhq.stub_sync ${DRY_RUN:+"$DRY_RUN"}
+      - name: Sync labels
+        if: "!cancelled()"
+        env:
+          GH_TOKEN: ${{ steps.hub.outputs.token }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -P -m squadhq.label_sync ${DRY_RUN:+"$DRY_RUN"}
       - if: always()
         uses: ./.github/actions/agent-post
         env:
