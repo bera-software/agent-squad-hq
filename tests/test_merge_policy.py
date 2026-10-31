@@ -169,6 +169,19 @@ class AutoMergeTierTest(unittest.TestCase):
         ok, why = self.decide(pr_data=data, dc_backend="false", dc_frontend="false")
         self.assertTrue(ok, why)
 
+    def test_a_superseded_cancelled_run_is_not_a_failure(self):
+        # A reopened PR (or a re-run) leaves the older run CANCELLED next to the newer one.
+        data = pr()
+        data["statusCheckRollup"] = [
+            {"name": "ci-gate", "workflowName": "Agents", "conclusion": "CANCELLED", "completedAt": "2026-10-31T12:30:00Z"},
+            {"name": "ci-gate", "workflowName": "Agents", "conclusion": "SUCCESS", "completedAt": "2026-10-31T12:40:00Z"}]
+        ok, why = self.decide(pr_data=data, dc_backend="false", dc_frontend="false")
+        self.assertTrue(ok, why)
+        data["statusCheckRollup"] = data["statusCheckRollup"][:1]  # cancelled and nothing newer: still a failure
+        ok, why = self.decide(pr_data=data, dc_backend="false", dc_frontend="false")
+        self.assertFalse(ok)
+        self.assertIn("ci-gate=cancelled", why)
+
     def test_skipped_check_is_not_a_failure(self):
         ok, why = self.decide(pr_data=pr(checks=(("backend-ci", "SKIPPED"),)),
                               dc_backend="false", dc_frontend="false")

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- Merge policy: a check run superseded by a newer run of the same check (often CANCELLED by its concurrency group after a re-run or reopen) no longer counts as failing; only each check's latest run does.
 - Docs-only PRs from our agent skipped review and then sat without any label, since only a review verdict leads to self-merge or the approver. They are reviewed now; a human's docs-only PR still skips review.
 - Graph refresh opened a PR after every merge: `graphify update` rewrites all three files even when nothing changed (checkout mtimes in the manifest, randomly numbered communities). The refresh now publishes only when an indexed file's content hash, or the set of files, changed.
 - Agents wrote hand-off files with shell heredocs, which are refused; prompts now say to use the Write tool (it creates `.squadhq-out/`).

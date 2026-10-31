@@ -240,6 +240,21 @@ def verdict_provenance(events, comments, head_sha, ops_logins, labels):
     return True, ""
 
 
+def latest_checks(rollup):
+    """One entry per check (workflow + name, or status context): the latest run.
+    A re-run or a reopened PR leaves the superseded run in the rollup, often
+    CANCELLED by the newer run's concurrency group; only the newest counts."""
+    latest = {}
+    for c in rollup or []:
+        if not isinstance(c, dict):
+            continue
+        key = (c.get("workflowName") or "", c.get("name") or c.get("context") or "")
+        when = c.get("completedAt") or c.get("startedAt") or c.get("createdAt") or ""
+        if key not in latest or when >= latest[key][0]:
+            latest[key] = (when, c)
+    return [c for _, c in latest.values()]
+
+
 class Evaluator:
     """Holds the per-PR facts every condition draws on, fetched once."""
 
@@ -379,7 +394,7 @@ class Evaluator:
         if rollup is None:
             return False, "could not read the check rollup"
         bad = []
-        for c in rollup:
+        for c in latest_checks(rollup):
             concl = (c.get("conclusion") or c.get("state") or "").upper()
             if concl in ("FAILURE", "ERROR", "CANCELLED", "TIMED_OUT",
                          "ACTION_REQUIRED", "STARTUP_FAILURE"):
