@@ -257,8 +257,10 @@ def derive_checks(projects: Any) -> list[dict[str, Any]]:
         for env, spec in proj["environments"].items():
             if not isinstance(spec, dict):
                 continue
-            urls = {"site": spec.get("url"), "api": spec.get("api_url")}
-            urls.update(spec.get("urls") if isinstance(spec.get("urls"), dict) else {})
+            urls: dict[str, Any] = {"site": spec.get("url"), "api": spec.get("api_url")}
+            extra = spec.get("urls")
+            if isinstance(extra, dict):
+                urls.update(extra)
             for kind, url in urls.items():
                 if not isinstance(url, str) or not url.startswith("https://"):
                     continue

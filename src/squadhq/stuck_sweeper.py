@@ -847,6 +847,14 @@ def reconcile_issue(issue, ctx):
     if n in f["open_impl"]:
         return fix(f"PR #{f['open_impl'][n]} is open for it — it is in review.",
                    remove={"status:in-progress"}, add=["status:in-review"])
+    if n in f["gate_merged"] and f.get("followups", {}).get(n):
+        # The PO cut the implementation as its own ticket ("After: #n"): the merged
+        # design finishes this one, and closing it releases the follow-up.
+        nxt = ", ".join(f"#{m}" for m in sorted(f["followups"][n]))
+        return fix(f"design PR #{f['gate_merged'][n]} is merged and the implementation is its own ticket ({nxt}) "
+                   "— this design ticket is done.",
+                   remove=status | {"needs-design", "agent:implement", "triaged:ready"},
+                   close=f"design merged; implementation continues in {nxt}")
     if "needs-design" in labels:
         if n in f["gate_merged"]:
             nxt = "agent:implement" if f["wip_free"] else "triaged:ready"
@@ -1048,7 +1056,13 @@ def pr_facts(open_prs, closed_prs, limit, issues=None):
     f = {"open_impl": {}, "merged_impl": {}, "closed_impl": {},
          "gate_open": {}, "gate_merged": {}, "gate_closed": {},
          "wip_free": wip_slots(open_prs, issues, limit) > 0,
-         "open_pr_count": open_pr_count(open_prs)}
+         "open_pr_count": open_pr_count(open_prs),
+         # design ticket -> the open tickets that wait on it ("After: #N")
+         "followups": {}}
+    for it in issues or []:
+        dep = after_dep(it)
+        if dep is not None:
+            f["followups"].setdefault(dep, []).append(it["number"])
     for p in sorted(open_prs, key=lambda p: p["number"]):
         for n in gates(p):
             f["gate_open"][n] = p["number"]

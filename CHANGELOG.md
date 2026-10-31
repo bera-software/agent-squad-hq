@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- A design ticket whose implementation the PO cut as a separate ticket (`After: #<design>`) got the Engineer dispatched onto it when its design PR merged, and stayed open, so the implementation ticket waited forever. It now closes, which releases the follow-up.
+- Type errors in the uptime and coverage changes (Hub CI mypy).
 - Stuck sweeper: a review job that finished without recording a verdict for the PR's head (for example every tool call denied) now counts as a missing review and is re-requested; before, any successful review job counted as reviewed.
 - Merge policy: a check run superseded by a newer run of the same check (often CANCELLED by its concurrency group after a re-run or reopen) no longer counts as failing; only each check's latest run does.
 - Docs-only PRs from our agent skipped review and then sat without any label, since only a review verdict leads to self-merge or the approver. They are reviewed now; a human's docs-only PR still skips review.

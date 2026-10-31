@@ -494,9 +494,9 @@ def dump(report: Report, fmt: str) -> bytes:
                                        "lines-covered": str(covered), "lines-valid": str(total)})
         classes = ET.SubElement(ET.SubElement(ET.SubElement(root, "packages"), "package", name=""), "classes")
         for path in sorted(report):
-            lines = ET.SubElement(ET.SubElement(classes, "class", name=path, filename=path), "lines")
+            lines_el = ET.SubElement(ET.SubElement(classes, "class", name=path, filename=path), "lines")
             for nr in sorted(report[path]):
-                ET.SubElement(lines, "line", number=str(nr), hits=str(report[path][nr]))
+                ET.SubElement(lines_el, "line", number=str(nr), hits=str(report[path][nr]))
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
     root = ET.Element("report", name="combined")
     packages: dict[str, ET.Element] = {}

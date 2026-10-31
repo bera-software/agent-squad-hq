@@ -327,6 +327,16 @@ class ReconcileTests(unittest.TestCase):
         self.assertEqual(fx["remove"], {"needs-design", "status:in-review"})
         self.assertEqual(fx["add"], ["agent:implement"])
 
+    def test_merged_design_with_its_own_implementation_ticket_closes(self):
+        # The PO cut design (#1) and implementation ("After: #1") as two tickets: the merged design
+        # finishes #1 instead of dispatching an Engineer onto the design ticket.
+        for labels in (["needs-design", "status:in-review"], ["status:in-review"], ["agent:implement"]):
+            fx = self.rec(labels, facts(gate_merged={1: 277}, followups={1: [9]}))
+            self.assertEqual(fx["add"], [])
+            self.assertIn("#9", fx["close"])
+        f = sw.pr_facts([], [], 5, [issue(["needs-design"], n=9, body=WHY + "\nAfter: #1")])
+        self.assertEqual(f["followups"], {1: [9]})
+
     def test_merged_design_at_wip_limit_queues(self):
         fx = self.rec(["needs-design", "status:in-review"], facts(gate_merged={1: 277}, wip_free=False))
         self.assertEqual(fx["add"], ["triaged:ready"])
