@@ -11,6 +11,8 @@ There are two things to keep in step:
 
 The SHA comes from `SQUADHQ_STUB_REF` when onboarding and stub sync render the stub. The onboarding workflow sets it from `vars.SQUADHQ_HUB_REF` (default `main`).
 
+**Following a branch instead (opt-in).** Set the hub variable `SQUADHQ_STUB_FOLLOW` to a branch (for example `main`) and stub sync writes that branch into every stub instead of a SHA. The stub then never changes, so no pin pull requests are opened, and every change merged to that branch reaches all projects on their next run, together with the secrets they pass to the router. Use it only when you control the hub and its branch is protected (pull requests and review); leave it unset to keep reviewed, pinned upgrades.
+
 ## Agent Squad HQ Cloud
 
 On Cloud you do not merge anything by hand. When a new version ships, Cloud opens a pull request

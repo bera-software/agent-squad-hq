@@ -124,6 +124,7 @@ Inside workflows, `setup-hub` exports `SQUADHQ_HOME` (the hub checkout), `SQUADH
 | `SQUADHQ_CONFIG` | `squadhq` CLI | Path to `squadhq.yml` |
 | `SQUADHQ_HOME` | everything | Hub root |
 | `SQUADHQ_STUB_REF` | onboarding, stub sync | Hub ref to pin stubs to |
+| `SQUADHQ_STUB_FOLLOW` | stub sync | Opt-in: a hub branch (e.g. `main`) projects track instead of a pinned SHA; no pin PRs. See [Upgrading](../getting-started/upgrading.md) |
 | `SQUADHQ_DEFAULT_PROVIDER` | providers | Provider for bare model ids (default `anthropic`) |
 | `SQUADHQ_PRICES_FILE` | providers | Replacement price catalogue |
 | `SQUADHQ_GH_TIMEOUT` | `squadhq.github` | Timeout for `gh` calls |

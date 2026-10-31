@@ -76,6 +76,19 @@ def test_placeholders_resolve_ref_to_sha():
             ss.placeholders(ref="nope")
 
 
+def test_following_a_branch_skips_the_pin(monkeypatch):
+    fake = FakeGH({})
+    monkeypatch.setenv("SQUADHQ_STUB_FOLLOW", "main")
+    with mock.patch.object(ss, "gh", fake):
+        subs = ss.placeholders()
+    assert subs["__HUB_REF__"] == "main" and subs["__HUB_TAG__"] == "main" and fake.calls == []
+    assert "router.yml@main" in ss.render(subs)
+    for bad in ("a" * 40, "x..y", "-rf", "main; rm"):
+        monkeypatch.setenv("SQUADHQ_STUB_FOLLOW", bad)
+        with pytest.raises(ss.StubError, match="branch name"):
+            ss.placeholders()
+
+
 def test_non_sha_answer_is_rejected():
     def gh(args, input_text=None):
         return subprocess.CompletedProcess(args, 0, "main\n", "")

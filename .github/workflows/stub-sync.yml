@@ -79,6 +79,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.hub.outputs.token }}
           SQUADHQ_STUB_REF: ${{ steps.ref.outputs.ref }}
+          # Opt-in: projects track this hub branch instead of a pinned commit (no pin PRs).
+          SQUADHQ_STUB_FOLLOW: ${{ vars.SQUADHQ_STUB_FOLLOW }}
           DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python -P -m squadhq.stub_sync ${DRY_RUN:+"$DRY_RUN"}
       - if: always()

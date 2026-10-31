@@ -92,9 +92,26 @@ def resolve_ref(hub_repo, ref):
     return sha
 
 
+BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_./-]{0,99}$")
+
+
+def follow_branch():
+    """``SQUADHQ_STUB_FOLLOW``: a hub branch projects track directly instead of a pinned commit
+    (opt-in, e.g. ``main`` for an owner's own projects). Stubs then never change on a hub
+    release, so no sync PR is opened; every change merged to that branch reaches the projects,
+    with their secrets, on their next run. Empty (the default) pins by commit SHA."""
+    branch = (os.environ.get("SQUADHQ_STUB_FOLLOW") or "").strip()
+    if branch and (not BRANCH_RE.match(branch) or ".." in branch or SHA_RE.match(branch)):
+        raise StubError(f"SQUADHQ_STUB_FOLLOW must be a branch name, not {branch!r}")
+    return branch
+
+
 def placeholders(hub_repo=None, ref=None):
-    """{placeholder: value} for the stubs. Resolves the hub ref once."""
+    """{placeholder: value} for the stubs. Resolves the hub ref once (or follows a branch)."""
     hub_repo = hub_repo or settings.hub_repo()
+    branch = follow_branch()
+    if branch:
+        return {"__HUB_REPO__": hub_repo, "__HUB_REF__": branch, "__HUB_TAG__": branch}
     ref = ref or os.environ.get("SQUADHQ_STUB_REF") or "main"
     return {"__HUB_REPO__": hub_repo, "__HUB_REF__": resolve_ref(hub_repo, ref), "__HUB_TAG__": ref}
 
