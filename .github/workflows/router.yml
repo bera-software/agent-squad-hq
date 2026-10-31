@@ -1127,7 +1127,9 @@ jobs:
           curl -sSfL -o "$RUNNER_TEMP/trivy.tgz" "https://github.com/aquasecurity/trivy/releases/download/v$v/trivy_${v}_Linux-64bit.tar.gz"
           echo "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0  $RUNNER_TEMP/trivy.tgz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/trivy.tgz" -C "$RUNNER_TEMP" trivy
-          scan() { "$RUNNER_TEMP/trivy" config --quiet --format json --severity "$SEVERITY" --skip-dirs .squadhq --skip-dirs .squadhq-iac-base --skip-dirs node_modules -o "$2" "$1"; }
+          # Each tree is scanned from inside it, so findings carry the same
+          # repo-relative paths and the head scan never sees the base copy.
+          scan() { (cd "$1" && "$RUNNER_TEMP/trivy" config --quiet --format json --severity "$SEVERITY" --skip-dirs .squadhq --skip-dirs .squadhq-iac-base --skip-dirs node_modules -o "$2" .); }
           scan . "$RUNNER_TEMP/iac-head.json"
           scan .squadhq-iac-base "$RUNNER_TEMP/iac-base.json" || echo '{}' > "$RUNNER_TEMP/iac-base.json"
           python3 -I - "$RUNNER_TEMP/iac-base.json" "$RUNNER_TEMP/iac-head.json" <<'PY'
@@ -1143,7 +1145,8 @@ jobs:
               for r in data.get("Results") or []:
                   for m in r.get("Misconfigurations") or []:
                       cause = m.get("CauseMetadata") or {}
-                      key = (r.get("Target"), m.get("AVDID") or m.get("ID"), cause.get("Resource") or m.get("Message"))
+                      target = (r.get("Target") or "").removeprefix("./")
+                      key = (target, m.get("AVDID") or m.get("ID"), cause.get("Resource") or m.get("Message"))
                       out[key] = f"{m.get('AVDID') or m.get('ID')} ({m.get('Severity')}) {r.get('Target')}:{cause.get('StartLine', '?')} {m.get('Title') or m.get('Message')}"
               return out
           base, head = findings(sys.argv[1]), findings(sys.argv[2])
