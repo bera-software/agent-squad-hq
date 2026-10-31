@@ -224,11 +224,13 @@ class SweeperMainTests(unittest.TestCase):
         rc, out, _ = run_main(fake)
         self.assertIn("already escalated, waiting on approver", out)
 
-    def test_broken_repo_is_reported_not_fatal(self):
+    def test_broken_repo_is_reported_and_fails_the_run(self):
+        # Reported in the table (the sweep of other repos carries on), and the run fails so it
+        # escalates instead of looking green.
         fake = FakeGH()
         fake.fail_on = (("issue", "list", "-R", REPO),)
         rc, out, _ = run_main(fake)
-        self.assertEqual(rc, 0)
+        self.assertEqual(rc, 1)
         self.assertIn("| o/r | error |", out)
 
     def test_cap_warning_in_summary(self):
