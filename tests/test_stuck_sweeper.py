@@ -633,3 +633,19 @@ class MergeRecheckTests(unittest.TestCase):
             self.assertIsNone(sw.checks_recovered_since("acme/web", self.pr(["risk:medium", "ready-to-merge", "needs-approver-merge"]), [failing]))
         finally:
             sw.gh_json = orig
+
+
+class ReviewVerdictTests(unittest.TestCase):
+    def test_a_review_run_without_a_verdict_is_missing(self):
+        pr = {"number": 7, "labels": [], "isDraft": False, "headRefOid": "a" * 40}
+        done = {"status": "completed", "conclusion": "success"}
+        c = pctx(head=600, checks=(done,))
+        self.assertEqual(sw.classify_pr(pr, c, NOW, TH)[0], "review_missing")
+        mark = bot(f"<!-- squadhq:verdict sha={'a' * 40} verdict=approve risk=low -->\n[Reviewer] verdict", 500)
+        c = pctx(head=600, checks=(done,)) | {"comments": [mark]}
+        self.assertIsNone(sw.classify_pr(pr, c, NOW, TH))
+        old = bot(f"<!-- squadhq:verdict sha={'b' * 40} verdict=approve risk=low -->", 500)  # an earlier head
+        c = pctx(head=600, checks=(done,)) | {"comments": [old]}
+        self.assertEqual(sw.classify_pr(pr, c, NOW, TH)[0], "review_missing")
+        c = pctx(head=600, checks=({"status": "completed", "conclusion": "skipped"},))
+        self.assertIsNone(sw.classify_pr(pr, c, NOW, TH))

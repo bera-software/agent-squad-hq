@@ -450,8 +450,12 @@ def classify_pr(pr, ctx, now, th):
     checks = ctx["review_checks"]
     if any(c.get("status") != "completed" for c in checks):
         return None  # queued / running
-    if any(c.get("conclusion") in ("success", "skipped", "neutral") for c in checks):
-        return None  # reviewer ran (or was gated off as docs/trivial-only)
+    if any(c.get("conclusion") in ("skipped", "neutral") for c in checks):
+        return None  # gated off (trivial-only, base-only, a human's docs-only PR)
+    if any(c.get("conclusion") == "success" for c in checks) and (
+            not pr.get("headRefOid") or verdict_recorded(ctx.get("comments") or [], pr["headRefOid"])):
+        return None  # reviewer ran and recorded a verdict for this head (a run that ended
+        #              without one, e.g. every tool call denied, still needs a review)
     age = minutes_since(ctx["head_committed_at"], now)
     return ("review_missing", age) if age and age > th["review_missing"] else None
 
@@ -1109,6 +1113,15 @@ def find_items(repo):
                          "head_committed_at": parse_ts(commit["commit"]["committer"]["date"]),
                          "review_checks": [r for r in runs if is_review_check(r.get("name", ""))],
                          "checks_recovered_since": checks_recovered_since(repo, pr, comments)}
+
+
+VERDICT_MARK_RE = re.compile(r"<!--\s*squadhq:verdict sha=([0-9a-f]{7,40})")
+
+
+def verdict_recorded(comments, sha):
+    """review-post recorded a verdict (our marker comment) for this head."""
+    return any(untrusted.by_automation(c) and m.group(1).startswith(sha[:7]) and sha.startswith(m.group(1))
+               for c in comments for m in [VERDICT_MARK_RE.search(c.get("body") or "")] if m)
 
 
 SELF_MERGE_CHECKS_RE = re.compile(r"^\[Self-Merge\] This PR needs an approver to merge: failing checks:")
