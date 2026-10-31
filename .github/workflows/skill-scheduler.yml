@@ -140,8 +140,10 @@ jobs:
           set -euo pipefail
           # No state yet on the first run (404): start empty. Decide on the exit
           # code; gh still prints the error body, which is not base64.
-          if gh api "repos/$REPO/contents/state/uptime.json" --jq .content > "$RUNNER_TEMP/uptime.b64" 2>/dev/null; then
-            base64 -d < "$RUNNER_TEMP/uptime.b64" > "$RUNNER_TEMP/uptime.json"
+          sha=""
+          if gh api "repos/$REPO/contents/state/uptime.json" > "$RUNNER_TEMP/uptime.api.json" 2>/dev/null; then
+            sha=$(jq -r .sha "$RUNNER_TEMP/uptime.api.json")
+            jq -r .content "$RUNNER_TEMP/uptime.api.json" | base64 -d > "$RUNNER_TEMP/uptime.json"
           fi
           python -P -m squadhq.skills.uptime run --config squadhq.yml --state "$RUNNER_TEMP/uptime.json" > "$RUNNER_TEMP/actions.json"
           python - "$RUNNER_TEMP/actions.json" "$RUNNER_TEMP/uptime.json" <<'PY'
