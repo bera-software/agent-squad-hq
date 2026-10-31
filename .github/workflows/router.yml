@@ -3043,12 +3043,14 @@ jobs:
   trivial-merge:
     # Generated files only (merge_policy.trivial_paths): no reviewer runs, so
     # this job applies ready-to-merge itself. Only graph-refresh PRs opened by
-    # our App qualify. The file-path gate is checked twice: detect-changes'
+    # our App qualify. It also answers our bot re-applying ready-to-merge (the
+    # stuck sweeper's retry after a refused merge). The file-path gate is checked twice: detect-changes'
     # strict filter and merge_policy's own re-fetch.
     needs: [detect-changes]
     if: >-
       github.event_name == 'pull_request' &&
-      contains(fromJSON('["opened","synchronize","reopened","ready_for_review"]'), github.event.action) &&
+      (contains(fromJSON('["opened","synchronize","reopened","ready_for_review"]'), github.event.action) ||
+       (github.event.action == 'labeled' && github.event.label.name == 'ready-to-merge')) &&
       !github.event.pull_request.draft && needs.detect-changes.outputs.trivial_only == 'true' &&
       startsWith(github.event.pull_request.head.ref, 'graph-refresh-') &&
       github.event.pull_request.head.repo.full_name == github.repository &&

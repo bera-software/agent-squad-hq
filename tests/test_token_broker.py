@@ -505,3 +505,11 @@ def test_agent_run_prep_restores_the_hub_tooling_after_the_subject_checkout():
     restore = names.index("Restore the hub tooling (if the subject checkout removed it)")
     first_use = next(i for i, s in enumerate(steps) if i > subject and str(s.get("uses", "")).startswith("./.squadhq/"))
     assert subject < restore < first_use
+
+
+def test_trivial_merge_answers_the_sweepers_ready_to_merge_retry():
+    # A refused merge leaves ready-to-merge on a graph-refresh PR; the stuck sweeper re-applies it.
+    # self-merge skips generated-only PRs, so trivial-merge must take that event or the PR sits.
+    with open(os.path.join(ROOT, ".github", "workflows", "router.yml")) as f:
+        cond = yaml.safe_load(f)["jobs"]["trivial-merge"]["if"]
+    assert "github.event.label.name == 'ready-to-merge'" in cond and "github.event.sender.type == 'Bot'" in cond

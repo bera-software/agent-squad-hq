@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Fixed
+- A graph-refresh PR whose merge was refused stayed open for good: the stuck sweeper's retry (re-applying `ready-to-merge`) only reaches self-merge, which skips generated-only PRs. trivial-merge now answers it too.
 - Pushes: agents may use the usual spellings for their allowed branch (`git push origin <branch>`, `-u`, `-q`, `--set-upstream`, and `git push`/`git push origin HEAD` on a PR branch), not only `HEAD:refs/heads/<branch>`. The pre-push hook still enforces which branches. A mention run edited the file, then stopped silently when `git push -q origin agent/…` was refused.
 - Delivery rules tell agents which commands their shell accepts (one command per call, plain `git commit -m`, the edit tool instead of `sed -i`) and to always finish with a comment saying what they did or why they stopped.
 - Uptime watch failed on its first run: with no `state/uptime.json` yet, the 404 body was piped into `base64 -d`. The state is read only when the request succeeds.
