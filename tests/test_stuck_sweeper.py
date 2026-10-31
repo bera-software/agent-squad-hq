@@ -570,3 +570,35 @@ class IdleAlarmTests(unittest.TestCase):
 
     def test_shipped_threshold(self):
         self.assertEqual(flow_reader.get_flood_guard("stuck_sweeper")["idle_alarm_hours"], 24)
+
+
+class DebtIntakeTests(unittest.TestCase):
+    def prop(self, n, title, labels=("debt-proposal", "dept:backend"), bot=True, body=WHY, minutes=60):
+        return issue(list(labels), n=n, created=ago(minutes), bot=bot, body=f"{title}\n\n{body}") | {"title": title}
+
+    def test_bot_proposals_with_why_are_accepted_with_a_priority(self):
+        plan = sw.plan_debt_intake([
+            self.prop(1, "Split OrderService.java"),
+            self.prop(2, "CVE in log4j", labels=("debt-proposal", "severity:high")),
+            self.prop(3, "Old P1 item ReportBuilder", labels=("debt-proposal", "P1"))], [])
+        self.assertEqual([(i["number"], a, d) for i, a, d in plan],
+                         [(1, "accept", "P2"), (2, "accept", "P0"), (3, "accept", "P1")])
+
+    def test_untrusted_or_unjustified_or_held_proposals_wait(self):
+        plan = sw.plan_debt_intake([
+            self.prop(1, "Split OrderService.java", bot=False),
+            self.prop(2, "Split PaymentService.java", body="no section"),
+            self.prop(3, "Split RefundService.java", labels=("debt-proposal", "needs-human"))], [])
+        self.assertEqual(plan, [])
+
+    def test_repeats_of_open_or_settled_debt_are_duplicates(self):
+        open_debt = issue(["debt", "P2"], n=10, body="Split OrderService.java\n\n" + WHY) | {"title": "Split OrderService.java"}
+        settled = {"number": 11, "title": "Refactor InvoiceMapper", "body": "", "author": {"login": "app/squadhq-ops", "is_bot": True}}
+        plan = sw.plan_debt_intake([
+            open_debt,
+            self.prop(1, "OrderService.java is too large", minutes=50),
+            self.prop(2, "InvoiceMapper duplicates code", minutes=40),
+            self.prop(3, "Cache config KeyStoreLoader", minutes=30),
+            self.prop(4, "KeyStoreLoader again", minutes=20)], [settled])
+        self.assertEqual([(i["number"], a, d if a == "accept" else d["number"]) for i, a, d in plan],
+                         [(1, "duplicate", 10), (2, "duplicate", 11), (3, "accept", "P2"), (4, "duplicate", 3)])

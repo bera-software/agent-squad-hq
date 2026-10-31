@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Deterministic debt intake in the stuck sweeper: a bot-written `debt-proposal` with a "Why this matters" section becomes `debt` with a priority (severity:high/critical P0, else its P-label or P2), or is closed as a duplicate of open or recently settled debt (same file/class anchors). Left to the Chief of Staff's model, proposals sat unaccepted.
 - Uptime watch checks every project environment URL (`url`, `api_url`, `urls.*`) when `squadhq.yml` has no `uptime.checks`: any answer below 500 is up, incidents open in the project's repository, non-production environments are P2.
 - `squadhq.label_sync`, run by Stub Sync (also when `config/flows.yml` or `config/projects.json` changes): creates the registry's labels missing on each project, and the hub-only and `project:<name>` labels on the hub. Projects added without `squadhq onboard` (Agent Squad HQ Cloud) were missing them; a label GitHub refuses now fails the run instead of being skipped silently.
 - Code graph in the agent's own PR: implement, design, review-fix and mention agents may run `graphify query/path/explain` and `graphify update .`, and commit the three graph files with their change (`prompts/_shared/delivery.md`). `graph-refresh` skips pushes that already carry `graphify-out/graph.json` in its `if:`, so no runner starts; it only catches up after changes made without the graph. The reviewer leaves the graph diff out.

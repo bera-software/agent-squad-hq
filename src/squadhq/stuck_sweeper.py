@@ -84,7 +84,7 @@ import re
 import subprocess
 import sys
 
-from squadhq import capacity_gate, flow_reader, github, settings, untrusted
+from squadhq import capacity_gate, debt_dedupe, flow_reader, github, settings, untrusted
 from squadhq.paths import hub_path
 from squadhq.policy import implementer
 
@@ -1311,6 +1311,74 @@ def implementer_for(issue, specialists):
     return implementer.choose(label_names(issue), issue.get("body"), specialists)
 
 
+DEBT_INTAKE_MAX_PER_RUN = 5
+DEBT_HOLD_LABELS = {"needs-human", "verdict:decline", "verdict:backlog", "P3"}
+
+
+def plan_debt_intake(issues, closed_debt):
+    """DETERMINISTIC DEBT INTAKE (the Chief of Staff's rule, in code like
+    dispatch: left to the model, proposals sat unaccepted). A bot-written
+    ``debt-proposal`` with a "Why this matters" section is accepted as ``debt``
+    with a priority (severity:high/critical -> P0, an existing P0/P1/P2, else
+    P2) unless it repeats an open or recently settled debt issue (same file or
+    class anchors), which closes it as a duplicate. Oldest first; a proposal
+    accepted here counts as open debt for the ones after it.
+    -> [(issue, "accept", priority) | (issue, "duplicate", prior issue)]."""
+    open_debt = [it for it in issues if "debt" in label_names(it)]
+    out = []
+    for it in sorted(issues, key=lambda i: i.get("createdAt") or ""):
+        ls = label_names(it)
+        if "debt-proposal" not in ls or ls & DEBT_HOLD_LABELS:
+            continue
+        if not untrusted.by_automation(it) or not WHY_RE.search(it.get("body") or ""):
+            continue
+        finding = {"title": it.get("title"), "body": it.get("body"), "labels": sorted(ls)}
+        prior = debt_dedupe.prior_match(finding, open_debt + list(closed_debt or []))
+        if prior is not None and prior.get("number") != it.get("number"):
+            out.append((it, "duplicate", prior))
+            continue
+        prio = "P0" if ls & {"severity:high", "severity:critical"} else \
+            next((p for p in ("P0", "P1", "P2") if p in ls), "P2")
+        out.append((it, "accept", prio))
+        open_debt.append(it)
+        if len(out) >= DEBT_INTAKE_MAX_PER_RUN:
+            break
+    return out
+
+
+def run_debt_intake(repo, issues, dry_run):
+    since = (datetime.datetime.now(datetime.timezone.utc).date()
+             - datetime.timedelta(days=debt_dedupe.WINDOW_DAYS)).isoformat()
+    closed_debt = gh_capped(["issue", "list", "-R", repo, "--state", "closed", "--label", "debt",
+                             "--search", f"closed:>={since}", "--json", "number,title,body,author"], 100)
+    rows = []
+    for it, action, detail in plan_debt_intake(issues, closed_debt):
+        n = it["number"]
+        if action == "accept":
+            act = f"accepted as debt, {detail}"
+            if not dry_run:
+                r = gh(["issue", "edit", str(n), "-R", repo, "--remove-label", "debt-proposal",
+                        "--add-label", f"debt,{detail}"])
+                if r.returncode:
+                    act += f" FAILED: {r.stderr.strip()[:120]}"
+                else:
+                    it["labels"] = [l for l in it.get("labels", []) if l.get("name") != "debt-proposal"] \
+                        + [{"name": "debt"}, {"name": detail}]
+                    comment(repo, n, "debt_intake", f"Accepted as debt ({detail}); the dispatcher schedules it "
+                                                    "within the debt share of WIP.")
+        else:
+            act = f"duplicate of #{detail['number']}"
+            if not dry_run:
+                r = gh(["issue", "close", str(n), "-R", repo, "--reason", "not planned", "--comment",
+                        f"{BADGE}Closed as a duplicate of #{detail['number']} (same files or classes)."])
+                if r.returncode:
+                    act += f" FAILED: {r.stderr.strip()[:120]}"
+                else:
+                    it["_closed"] = True
+        rows.append(f"| {repo}#{n} | debt_intake | - | {act} |")
+    return rows
+
+
 def run_dispatch(repo, dry_run, now):
     guard = flow_reader.get_flood_guard("stuck_sweeper")
     issues = gh_capped(["issue", "list", "-R", repo, "--state", "open",
@@ -1322,11 +1390,13 @@ def run_dispatch(repo, dry_run, now):
     for batch in (issues, prs, closed):
         enrich_trust(repo, batch)
     enrich_why(repo, issues)
+    intake = run_debt_intake(repo, issues, dry_run)
+    issues = [it for it in issues if not it.get("_closed")]
     facts = pr_facts(prs, closed, wip_limit(), issues)
     facts["closed_issues"] = closed_issue_numbers(repo)
     share = float(str(flow_reader.get_flood_guard("debt_refactor_share_target")["value"]).strip("~%")) / 100
     plan = plan_dispatch(issues, facts, wip_limit(), guard["dispatch_max_per_run"], share, now)
-    rows = []
+    rows = list(intake)
     specialists = implementer.enabled_specialists() if plan else set()
     for it, reason in plan:
         who = implementer_for(it, specialists)

@@ -80,7 +80,8 @@ DUTIES, in priority order:
    starts a second agent run. Your part: correct dept + priority, needs-design
    for big items, debt accepted with a priority. Never comment about dispatch,
    WIP or impact context.
-3. DEBT INTAKE: for "debt-proposal" issues, dedupe against open "debt" issues
+3. DEBT INTAKE (the stuck sweeper also applies this rule in code every hour;
+   act only on what it left): for "debt-proposal" issues, dedupe against open "debt" issues
    AND recently_closed_debt (fixed or declined in the last 90 days; similar
    titles or paths = duplicate → close as not planned, linking the original).
    IMPACT CHECK: use the computed "has_why_this_matters", never your reading
