@@ -23,18 +23,18 @@ def _fake(have, refuse=()):
 
 
 def test_only_missing_labels_are_created_and_the_hub_gets_project_labels(tmp_path, monkeypatch):
-    projects = [{"name": "AgentGuard", "repo": "acme/agentguard"}]
+    projects = [{"name": "Shop", "repo": "acme/shop"}]
     plan = dict(ls.plan(projects, "acme/hub"))
-    registry = [n for n, _ in plan["acme/agentguard"]]
+    registry = [n for n, _ in plan["acme/shop"]]
     assert "needs-approver-merge" in registry and "status:in-review" in registry
-    assert {"daily-brief", "weekly-rollup", "project:agentguard"} <= {n for n, _ in plan["acme/hub"]}
+    assert {"daily-brief", "weekly-rollup", "project:shop"} <= {n for n, _ in plan["acme/hub"]}
 
-    gh, calls = _fake({"acme/agentguard": registry[1:]})
+    gh, calls = _fake({"acme/shop": registry[1:]})
     with mock.patch.object(ls, "gh", gh):
-        created, failed = ls.ensure("acme/agentguard", plan["acme/agentguard"])
+        created, failed = ls.ensure("acme/shop", plan["acme/shop"])
     assert created == [registry[0]] and failed == []
-    assert [c for c in calls if c[0] == "label"] == [["label", "create", registry[0], "-R", "acme/agentguard",
-                                                      "--color", plan["acme/agentguard"][0][1]]]
+    assert [c for c in calls if c[0] == "label"] == [["label", "create", registry[0], "-R", "acme/shop",
+                                                      "--color", plan["acme/shop"][0][1]]]
 
 
 def test_a_refused_label_fails_the_run(tmp_path, monkeypatch):
