@@ -516,6 +516,26 @@ def dump(report: Report, fmt: str) -> bytes:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
+def merge_jacoco(paths: list[str]) -> bytes:
+    """Several JaCoCo module reports as one, keeping every original element and
+    counter (INSTRUCTION, BRANCH, LINE, ...): the PR coverage comment reads the
+    per-file counters, which a report rebuilt from line data would lack."""
+    root = ET.Element("report", name="combined")
+    totals: dict[str, list[int]] = {}
+    for p in paths:
+        rep = _safe_xml(read_capped(p))
+        for child in list(rep):
+            if child.tag in ("package", "group"):
+                root.append(child)
+            elif child.tag == "counter":
+                t = totals.setdefault(child.get("type") or "", [0, 0])
+                t[0] += _int(child.get("missed")) or 0
+                t[1] += _int(child.get("covered")) or 0
+    for kind, (missed, covered) in totals.items():
+        ET.SubElement(root, "counter", type=kind, missed=str(missed), covered=str(covered))
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
 def overall(fmt: str, path: str, root: str, minimum: float, out_dir: str | None, summary: str = "") -> int:
     """Overall line coverage gate. Writes the report it used to ``out_dir`` (one file,
     named like the configured report) for the changed-lines and comment jobs."""
@@ -537,7 +557,12 @@ def overall(fmt: str, path: str, root: str, minimum: float, out_dir: str | None,
         os.makedirs(out_dir, exist_ok=True)
         dest = os.path.join(out_dir, os.path.basename(path) or f"coverage.{fmt}")
         with open(dest, "wb") as f:
-            f.write(read_capped(used[0]) if len(used) == 1 else dump(report, fmt))
+            if len(used) == 1:
+                f.write(read_capped(used[0]))
+            elif fmt == "jacoco":
+                f.write(merge_jacoco(used))
+            else:
+                f.write(dump(report, fmt))
     covered, total = line_counts(report)
     pct = 100.0 * covered / max(total, 1)
     ok = pct >= minimum

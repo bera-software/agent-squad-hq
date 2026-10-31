@@ -316,3 +316,22 @@ def test_overall_cli(tmp_path, monkeypatch):
     summary = tmp_path / "summary.md"
     rc = C.main(["overall", "--format", "jacoco", "--report", REL, "--min", "60", "--summary", str(summary)])
     assert rc == 0 and "100.0%" in summary.read_text()
+
+
+def test_merged_jacoco_keeps_every_counter(tmp_path, monkeypatch):
+    # The PR coverage comment reads INSTRUCTION counters per source file.
+    monkeypatch.chdir(tmp_path)
+    mod = (b'<?xml version="1.0"?><report name="m"><package name="p{n}"><sourcefile name="A{n}.java">'
+           b'<line nr="1" mi="0" ci="3" mb="0" cb="0"/><counter type="INSTRUCTION" missed="1" covered="3"/>'
+           b'<counter type="LINE" missed="0" covered="1"/></sourcefile></package>'
+           b'<counter type="INSTRUCTION" missed="1" covered="3"/><counter type="LINE" missed="0" covered="1"/></report>')
+    _write(tmp_path, REL, JACOCO_EMPTY)
+    _write(tmp_path, f"a/{REL}", mod.replace(b"{n}", b"1"))
+    _write(tmp_path, f"b/{REL}", mod.replace(b"{n}", b"2"))
+    out = tmp_path / "out"
+    assert C.overall("jacoco", REL, ".", 60, str(out)) == 0
+    root = C._safe_xml((out / "jacocoTestReport.xml").read_bytes())
+    files = [sf for sf in root.iter("sourcefile")]
+    assert {sf.get("name") for sf in files} == {"A1.java", "A2.java"}
+    assert all(sf.find("counter[@type='INSTRUCTION']") is not None for sf in files)
+    assert root.find("counter[@type='INSTRUCTION']").attrib == {"type": "INSTRUCTION", "missed": "2", "covered": "6"}
