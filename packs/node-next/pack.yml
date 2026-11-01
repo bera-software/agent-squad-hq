@@ -55,6 +55,7 @@ risk_paths:
   - "vercel.json"
 tools:
   - "Bash(npm ci)"
+  - "Bash(npm ci --ignore-scripts)"
   # Dependency changes at exact versions, install scripts off (squadhq.pin_install).
   - "Bash(python -P -m squadhq.pin_install *)"
   # Read-only registry lookups to choose those versions.
@@ -62,6 +63,7 @@ tools:
   # A package in a subfolder (pack root such as frontend/): the same commands
   # with --prefix (absolute and parent paths stay refused).
   - "Bash(npm --prefix * ci)"
+  - "Bash(npm --prefix * ci --ignore-scripts)"
   - "Bash(npm --prefix * run *)"
   - "Bash(npm --prefix * test*)"
   - "Bash(npm run *)"

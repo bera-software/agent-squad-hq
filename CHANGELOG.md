@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 
 ### Fixed
+- Node packs: `npm ci --ignore-scripts` (and with `--prefix <dir>`) is allowed. Agents chose the safer form, and only plain `npm ci` was allowed, so an Engineer could not install dependencies and stopped.
 - Hub CI ran no Python tests in a hub created from the template, so engine changes made in a hub went untested. Lint, types and tests now run on hub pull requests, and the committed-config test checks a hub's `config/*.json` against its own `squadhq.yml`.
 - Agent jobs without a label-owner role (skills, scheduled skills, hub-repo agents) ran without the `gh` wrapper, so their comments, issues and PRs were not scanned for secrets. The wrapper is now installed in every agent job; without a role it skips only the label check.
 - `squadhq render` and `doctor --check reserved` no longer warn that escalation notifications to Slack, Teams, Discord, PagerDuty or webhooks are unsent in Actions mode: failed jobs already notify every escalation channel. The warning now covers digest notifications only.
