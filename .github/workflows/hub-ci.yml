@@ -26,8 +26,9 @@ concurrency:
 
 jobs:
   python:
-    # The project's own CI and release: never run in a hub created from the template.
-    if: github.repository == 'bera-software/agent-squad-hq'
+    # The project's own CI on every change; in a hub created from the template, on pull
+    # requests (hubs change engine code too, and state commits to main need no test run).
+    if: github.repository == 'bera-software/agent-squad-hq' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -52,6 +53,10 @@ jobs:
         continue-on-error: true
         run: mypy src/squadhq
       - name: pytest
+        env:
+          # Tests set their own identities; a hub's alias variables must not leak in.
+          SQUADHQ_BOT_ALIASES: ""
+          SQUADHQ_AGENT_BOT_ALIASES: ""
         run: python -P -m pytest --cov=squadhq --cov-report=term-missing:skip-covered --cov-report=xml -q
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

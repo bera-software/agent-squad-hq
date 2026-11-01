@@ -28,14 +28,19 @@ def cfg_from(**over):
     return cfg
 
 
-def test_committed_config_equals_example_render():
-    """config/*.json are generated from squadhq.example.yml (the single source of truth)."""
+def test_committed_config_equals_render():
+    """config/*.json are generated from squadhq.yml in a hub, from squadhq.example.yml in the template."""
     root = os.path.dirname(EXAMPLE)
-    cfg = loader.load(EXAMPLE, hub_root=root)
+    hub_yml = os.path.join(root, "squadhq.yml")
+    source = hub_yml if os.path.exists(hub_yml) else EXAMPLE
+    cfg = loader.load(source, hub_root=root)
     for name, obj in (("models.json", RN.render_models(cfg)), ("auth.json", RN.render_auth(cfg)),
                       ("projects.json", RN.render_projects(cfg))):
         with open(os.path.join(REPO_CONFIG, name)) as f:
-            assert f.read() == RN.dump_json(obj), f"config/{name} is stale: squadhq render --config squadhq.example.yml"
+            assert f.read() == RN.dump_json(obj), \
+                f"config/{name} is stale: squadhq render --config {os.path.basename(source)}"
+    if source != EXAMPLE:
+        return  # the checks below describe the example config
     models = RN.render_models(cfg)
     heavy = models["tiers"]["heavy"]["jobs"]
     assert "quarterly-review" in heavy and "accessibility-designer" in models["tiers"]["light"]["jobs"]
