@@ -34,7 +34,6 @@ Only `version`, `org` (with `name` and `approvers`) and `hub` (with `repo`) are 
 | `working_hours` | `HH:MM-HH:MM` | `09:00-18:00` | Enforced: the window for `... during working_hours` schedules (end exclusive) |
 | `working_days` | `daily` \| `weekdays` \| `weekends` \| `mon-fri` \| `sun,wed` … | `mon-fri` | Enforced: the days of the working-hours window |
 | `approvers` | list of `@user` or `@org/team` | required, at least one | Rendered into `config/projects.json` (`merge.approvers`) and `SQUADHQ_APPROVERS`. **Not enforced yet**: in Actions mode, who may merge is decided by `SQUADHQ_MERGE_ASSOCIATIONS` (default `OWNER,MEMBER`) and by who can apply labels |
-| `operating_model` | `solo` \| `team` | `team` | Not enforced yet |
 | `dst` | `daylight` \| `standard` | `daylight` | Enforced: which UTC offset GitHub crons are rendered for. See [schedules and time zones](schedules-and-timezones.md) |
 
 ## `hub`
@@ -105,10 +104,10 @@ providers:
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
-| `monthly_usd` | number ≥ 0 | `100` | Enforced for hub loops: rendered to `SQUADHQ_MONTHLY_BUDGET_USD`. Coding agents are recorded, not capped ([budgets](../concepts/budgets-and-costs.md)) |
-| `per_project_usd` | `name: number` (`default` allowed) | none | Rendered into `config/projects.json` `budget_usd`. Not enforced yet. Warns when a value exceeds `monthly_usd` or names no project |
-| `per_run_usd` | `job: number` | none | Not enforced yet. Warns on unknown job names |
-| `on_exceed` | `pause` \| `downgrade` \| `notify` | `pause` | Not enforced yet (the hub-loop cap always pauses) |
+| `monthly_usd` | number ≥ 0 | `100` | One monthly cap for hub loops and API-billed agent runs together, rendered to `SQUADHQ_MONTHLY_BUDGET_USD` ([budgets](../concepts/budgets-and-costs.md)) |
+| `per_project_usd` | `name: number` (`default` allowed) | none | Monthly cap per project for API-billed agent runs, rendered into `config/projects.json` `budget_usd`. Warns when a value exceeds `monthly_usd` or names no project |
+| `per_run_usd` | `job: number` (`default` allowed) | none | Cap per API-billed agent run (Claude Code `--max-budget-usd`). Warns on unknown job names |
+| `on_exceed` | `pause` \| `downgrade` \| `notify` | `pause` | What happens at the monthly or a project cap: stop agent runs, run them on the cheapest configured model, or keep running and notify |
 
 ## `trackers`
 
@@ -125,8 +124,8 @@ Tracker credentials are environment variables ([trackers](../concepts/trackers.m
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
-| `escalations` | list of channels | `[github_issue]` | Validated. **Not wired yet**: escalations go to hub issues |
-| `digest` | list of channels | `[github_issue]` | As above |
+| `escalations` | list of channels | `[github_issue]` | Notified when an agent or hub job fails ([notifications](../concepts/notifications.md)) |
+| `digest` | list of channels | `[github_issue]` | Receive the Daily Brief and Weekly Rollup. `email` and `expo_push` need server mode |
 
 A channel is `github_issue`, `slack:#channel`, `email:addr`, `teams:<url>`, `webhook:<url>` or `discord:<url>`. See [notifications](../concepts/notifications.md).
 
@@ -159,10 +158,7 @@ Known names: `product_owner`, `architect`, `designer`, `engineer`, `reviewer`, `
 | `merge.mode` | `approvers` \| `risk_based` \| `auto` | `approvers` | Enforced through `config/projects.json`. `risk_based` behaves like `approvers` today. `auto` warns. See [merge policy](../concepts/merge-and-risk-policy.md#merge-modes) |
 | `merge.risk_based.max_risk` | `low` \| `medium` \| `high` | `low` | Not enforced yet |
 | `merge.risk_based.require_checks` | list of gates | `[sast, sca, secrets]` | Not enforced yet |
-| `merge.risk_based.require_security_agent` | bool | `true` | Not enforced yet |
-| `merge.always_human` | list of `auth`, `payments`, `migrations`, `workflows`, `infra`, `deps-major`, `secrets`, `pii` | first six | Rendered into `config/projects.json`. Not enforced yet; the core [risk floor](../concepts/merge-and-risk-policy.md#risk-floor) already forces most of these to `high` |
-| `release.strategy` | `merge_is_prod` \| `release_tag` \| `promote_branch` | `merge_is_prod` | Not enforced yet |
-| `release.promote_branch` | string | empty | Required when `strategy: promote_branch` |
+| `merge.always_human` | list of `auth`, `payments`, `migrations`, `workflows`, `infra`, `deps-major`, `secrets` | first six | Rendered into `config/projects.json`. Not enforced yet; the core [risk floor](../concepts/merge-and-risk-policy.md#risk-floor) already forces most of these to `high` |
 
 ## `security`
 
@@ -194,7 +190,7 @@ A list. Each entry:
 | `product.notes` | string | | Context: positioning and what the product must never claim |
 | `agents` | as top-level `agents` | | Per-project switches for catalogue skills; rendered into `config/projects.json` |
 | `merge_mode` | `approvers` \| `risk_based` \| `auto` | `policies.merge.mode` | Enforced, per project |
-| `budget_usd` | number | from `budgets.per_project_usd` | Not enforced yet |
+| `budget_usd` | number | from `budgets.per_project_usd` | Monthly cap for this project's API-billed agent runs |
 | `quality.arch` | `auto` \| `required` \| `off` | `auto` | Enforced. Architecture gate (ci-gate sub-check `arch`): `auto` runs the pack's arch tool when its config exists in the repo; `required` also fails when the config is missing |
 | `quality.lint` | `auto` \| `default` \| `off` | `auto` | Enforced. Lint/format gate (sub-check `lint`): `auto` runs when a linter config exists or the linter needs none; `default` also uses the pack's default config when the repo has none |
 | `quality.changed_coverage` | `enforce` \| `report` \| `off` | `report` | `report`: changed-lines coverage in the job summary only. `enforce`: required sub-check `changed-coverage`, failing below the pack's `min_changed` (only when `min_changed` > 0 and a coverage report exists) |

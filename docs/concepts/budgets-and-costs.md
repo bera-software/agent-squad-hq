@@ -24,18 +24,18 @@ Agent Squad HQ spends money in three places: model calls by coding agents, model
 - **Prices** come from `src/squadhq/providers/prices.yml` (USD per million tokens, with cache and long-context pricing). Ecosystem Watch is meant to keep it current; verify prices against your provider before relying on them. Unknown models price as `None` with a warning.
 - **Server mode** exposes `GET /api/v1/costs?month=YYYY-MM` (spend by project, role and model) from the runs recorded in its database.
 
-## Validated but not enforced yet
+## Caps
 
-These `squadhq.yml` keys are accepted and rendered, but no runtime code enforces them yet:
+`squadhq.budget_gate` runs in `agent-prep` before every coding-agent job (implement, review, design, mention, skills and the rest). It checks only API-billed runs: a subscription run adds no marginal spend.
 
-| Key | Today |
+| Key | Effect |
 |---|---|
-| `budgets.per_project_usd` | Rendered into `config/projects.json` as `budget_usd`; server mode reports it at `GET /api/v1/schedules`. Not enforced |
-| `budgets.per_run_usd` | Validated against known job names. Not enforced |
-| `budgets.on_exceed` (`pause`, `downgrade`, `notify`) | Validated. The hub-loop cap always pauses |
-| `projects[].budget_usd` | As `per_project_usd` |
+| `budgets.monthly_usd` | One cap for the month: hub-loop usage plus every API-billed agent run in the cost ledger. Hub loops stop at it (`squadhq.agent_runner`), and so do agent jobs |
+| `budgets.per_project_usd`, `projects[].budget_usd` | A monthly cap per project, counted from the ledger lines for that repository |
+| `budgets.per_run_usd` | A cap per run, by job name or `default`, passed to Claude Code as `--max-budget-usd` |
+| `budgets.on_exceed` | At a monthly or project cap: `pause` (the agent does not start; the issue or PR gets a notice), `downgrade` (the run uses the cheapest configured model), or `notify` (the run goes ahead). Every action opens one `BUDGET CAP HIT` escalation issue in the hub per month |
 
-They are part of the [roadmap](../ROADMAP.md).
+The gate fails open: if the ledger or usage file cannot be read, the run goes ahead and the step summary says the budget was not checked.
 
 ## Keeping costs down
 

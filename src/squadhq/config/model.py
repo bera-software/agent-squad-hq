@@ -16,7 +16,6 @@ class Org:
     working_hours: str = "09:00-18:00"
     working_days: str = "mon-fri"
     approvers: list[str] = field(default_factory=list)
-    operating_model: str = "team"
     dst: str = "daylight"
 
 
@@ -125,7 +124,6 @@ class AgentConf:
 class RiskBased:
     max_risk: str = "low"
     require_checks: list[str] = field(default_factory=lambda: ["sast", "sca", "secrets"])
-    require_security_agent: bool = True
 
 
 @dataclass
@@ -137,18 +135,11 @@ class Merge:
 
 
 @dataclass
-class Release:
-    strategy: str = "merge_is_prod"
-    promote_branch: str = ""
-
-
-@dataclass
 class Policies:
     wip_limit: int = 5
     review_fix_rounds: int = 2
     allowed_associations: list[str] = field(default_factory=lambda: ["OWNER", "MEMBER", "COLLABORATOR"])
     merge: Merge = field(default_factory=Merge)
-    release: Release = field(default_factory=Release)
 
 
 @dataclass

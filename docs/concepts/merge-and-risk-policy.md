@@ -52,7 +52,7 @@ Before you set `merge_policy.auto_merge.enabled: true` in `config/flows.yml` (an
 - [ ] You are comfortable that the Reviewer's `risk:low` label plus a `low` path floor is enough for your change classes. Everything in the [risk floor](#risk-floor) list still needs a human.
 - [ ] You keep `flows.yml` changes in your hub under review: it is an engine file and upgrades may change it.
 
-These `squadhq.yml` settings are validated and rendered, but **not yet enforced** by the merge evaluator: `policies.merge.risk_based.max_risk`, `require_checks`, `require_security_agent`, and `policies.merge.always_human`. Today automatic merging is limited to `low` risk regardless of `max_risk`, and the areas in `always_human` (`auth`, `payments`, `migrations`, `workflows`, `infra`, `deps-major`) are already forced to `high` by the core risk floor below, so they never merge automatically.
+In `risk_based` mode the merge evaluator applies `policies.merge.risk_based.max_risk` (the highest final risk that may merge without a human) and `policies.merge.always_human` (a change touching one of those areas always waits for an approver). Every CI check must pass, which covers the gates in `require_checks`.
 
 ## Risk floor
 

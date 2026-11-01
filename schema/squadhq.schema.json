@@ -47,13 +47,8 @@
           "description": "Users/teams who approve merges. Rendered to SQUADHQ_APPROVERS and projects[].merge.approvers; who may TRIGGER jobs is policies.triggers.allowed_associations."
         },
         "operating_model": {
-          "type": "string",
-          "enum": [
-            "solo",
-            "team"
-          ],
-          "description": "solo | team. RESERVED (server mode only): validated, not enforced in Actions mode.",
-          "default": "team"
+          "deprecated": true,
+          "description": "No longer used; remove it."
         },
         "dst": {
           "type": "string",
@@ -726,7 +721,7 @@
             "type": "number",
             "minimum": 0
           },
-          "description": "Project name (or default) -> USD. RESERVED (server mode only): validated, not enforced in Actions mode."
+          "description": "Project name (or default) -> monthly USD for its API-billed agent runs."
         },
         "per_run_usd": {
           "type": "object",
@@ -734,7 +729,7 @@
             "type": "number",
             "minimum": 0
           },
-          "description": "Job -> USD per run. RESERVED (server mode only): validated, not enforced in Actions mode."
+          "description": "Job name (or default) -> USD cap per API-billed agent run (Claude Code --max-budget-usd)."
         },
         "on_exceed": {
           "type": "string",
@@ -743,7 +738,7 @@
             "downgrade",
             "notify"
           ],
-          "description": "Actions mode always pauses at monthly_usd; downgrade and notify are RESERVED (server mode only): validated, not enforced in Actions mode.",
+          "description": "At a monthly or project cap: pause agent runs, downgrade them to the cheapest configured model, or notify and keep running",
           "default": "pause"
         }
       },
@@ -1503,9 +1498,8 @@
                   "uniqueItems": true
                 },
                 "require_security_agent": {
-                  "type": "boolean",
-                  "default": true,
-                  "description": "RESERVED (server mode only): validated, not enforced in Actions mode."
+                  "deprecated": true,
+                  "description": "No longer used; remove it."
                 }
               },
               "additionalProperties": false
@@ -1521,34 +1515,18 @@
                   "workflows",
                   "infra",
                   "deps-major",
-                  "secrets",
-                  "pii"
+                  "secrets"
                 ]
               },
               "uniqueItems": true,
-              "description": "Areas that never auto-merge, by risk path category ('pii' has no detector yet)"
+              "description": "Areas that never auto-merge, by risk path category"
             }
           },
           "additionalProperties": false
         },
         "release": {
-          "type": "object",
-          "properties": {
-            "strategy": {
-              "type": "string",
-              "enum": [
-                "merge_is_prod",
-                "release_tag",
-                "promote_branch"
-              ],
-              "description": "merge_is_prod is the Actions behaviour; the others are RESERVED (server mode only): validated, not enforced in Actions mode.",
-              "default": "merge_is_prod"
-            },
-            "promote_branch": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
+          "deprecated": true,
+          "description": "No longer used; remove it."
         }
       },
       "additionalProperties": false
@@ -1763,7 +1741,7 @@
           "budget_usd": {
             "type": "number",
             "minimum": 0,
-            "description": "Per-project budget. RESERVED (server mode only): validated, not enforced in Actions mode."
+            "description": "This project's monthly cap for API-billed agent runs (overrides budgets.per_project_usd)."
           },
           "quality": {
             "type": "object",

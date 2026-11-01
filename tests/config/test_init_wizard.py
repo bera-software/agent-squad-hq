@@ -64,7 +64,7 @@ def test_interview_and_yaml_roundtrip(tmp_path):
 
     a = W.interview(gh_for_repo(), ask, root=root)
     assert a.owner == "acme" and a.hub_repo == "acme/agent-squad-hq"
-    assert a.approvers == ["@acme/leads", "@bob"] and a.operating_model == "team"
+    assert a.approvers == ["@acme/leads", "@bob"]
     assert a.monthly_usd == 100.0 and a.auth == "subscription"
     assert a.projects[0].branch == "trunk" and a.projects[0].pack_roots == {"node-next": "web"}
     text = W.generate_yaml(a)
@@ -79,7 +79,7 @@ def test_interview_with_defaults_solo():
     d = W.Answers(org_name="Solo", owner="me", hub_repo="me/hq", approvers=["@me"], monthly_usd=20, app_slug="me-sq",
                   projects=[W.ProjectAnswer(repo="me/app")])
     a = W.interview(FakeGh(), lambda q, default: default, defaults=d)
-    assert a.operating_model == "solo" and a.app_slug == "me-sq" and a.monthly_usd == 20.0
+    assert a.app_slug == "me-sq" and a.monthly_usd == 20.0
     text = W.generate_yaml(a)
     assert "app: me-sq" in text
     assert load_text(text)[0] is not None

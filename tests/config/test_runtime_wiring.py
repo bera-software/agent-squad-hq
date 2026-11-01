@@ -105,14 +105,12 @@ def test_reserved_notes_only_for_non_defaults():
     cfg, _ = cfg_from(budgets={"per_project_usd": {"default": 5}, "per_run_usd": {"implement": 1},
                                "on_exceed": "notify"},
                       providers={"anthropic": {}, "executor": "codex"},
-                      policies={"release": {"strategy": "release_tag"},
-                                "merge": {"mode": "risk_based", "always_human": ["pii"]}},
-                      notifications={"digest": ["email:a@b.co"]})
-    cfg.org.operating_model = "solo"
+                      notifications={"digest": ["email:a@b.co", "slack:#d"]})
     notes = "\n".join(RN.reserved_notes(cfg))
-    for needle in ("per_project_usd", "per_run_usd", "on_exceed", "release.strategy", "executor", "operating_model",
-                   "require_security_agent", "'pii'", "notifications.digest"):
+    assert "slack:#d" not in notes
+    for needle in ("executor", "notifications.digest"):
         assert needle in notes, needle
+    assert "budgets" not in notes  # enforced by squadhq.budget_gate
 
 
 def test_merge_modes_render_distinctly():

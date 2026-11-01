@@ -25,7 +25,6 @@ org:
   working_hours: "07:00-20:00"     # used by "... during working_hours" schedules (end exclusive)
   working_days: mon-fri            # daily | weekdays | weekends | mon-fri | sun,wed ...
   approvers: ["@acme/leads"]       # GitHub users ("@alice") or teams ("@acme/leads") who approve merges
-  operating_model: team            # solo | team: changes prompt wording and approval defaults
   dst: daylight                    # daylight | standard: GitHub cron is UTC-only; "daylight" renders
                                    # crons for summer time, so jobs run 1h EARLIER (never late) in winter
 
@@ -90,15 +89,14 @@ providers:
 # Spend limits (USD).
 # ---------------------------------------------------------------------------
 budgets:
-  monthly_usd: 100                 # enforced: hub loops pause at the cap (SQUADHQ_MONTHLY_BUDGET_USD)
-  # The keys below are RESERVED (server mode only): validated, rendered, not enforced in Actions mode.
-  per_project_usd:
+  monthly_usd: 100                 # hub loops and API-billed agent runs together (SQUADHQ_MONTHLY_BUDGET_USD)
+  per_project_usd:                 # monthly cap per project for API-billed agent runs
     default: 40
     Storefront: 60
-  per_run_usd:
+  per_run_usd:                     # cap per API-billed agent run, by job (Claude Code --max-budget-usd)
     implement: 3
     review: 1
-  on_exceed: pause                 # pause (Actions mode) | downgrade | notify (server mode only)
+  on_exceed: pause                 # at a cap: pause | downgrade (cheapest model) | notify (keep running)
 
 # ---------------------------------------------------------------------------
 # Where tickets live. GitHub Issues needs no settings.
@@ -178,10 +176,7 @@ policies:
     risk_based:                    # used when mode: risk_based
       max_risk: low                # low | medium | high
       require_checks: [sast, sca, secrets]
-      require_security_agent: true # reserved (server mode only)
     always_human: [auth, payments, migrations, workflows, infra, deps-major]
-  release:
-    strategy: merge_is_prod        # merge_is_prod (Actions) | release_tag | promote_branch (server mode only)
 
 security:
   gates: [sast, sca, secrets, iac, license, sbom]

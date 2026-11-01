@@ -768,8 +768,18 @@ def save_usage(u, before=None):
     return ok
 
 
-def budget_guard(u, mode):
-    if u["est_cost_usd"] >= BUDGET:
+def budget_guard(u, mode, ledger_usd=None):
+    """Stop the loop at the monthly cap. Hub loops and API-billed agent runs
+    (the cost ledger; squadhq.budget_gate checks the same total) share it."""
+    spent = u["est_cost_usd"]
+    if spent < BUDGET:
+        if ledger_usd is None:
+            try:
+                ledger_usd = load_cost_ledger()["total_usd"]
+            except Exception:
+                ledger_usd = 0.0
+        spent += ledger_usd
+    if spent >= BUDGET:
         # Open (or find) an escalation issue and stop. Any OPEN issue with the
         # exact title counts — the title is month-scoped already.
         title = f"BUDGET CAP HIT: ${BUDGET:.0f} for {u['month']}"
@@ -1446,6 +1456,7 @@ def execute(actions, dry_run=False, system=False):
                     n = int(url_match.group(1))
                     url = url_match.group(0)
                     rec["number"] = n
+                    rec["url"], rec["title"], rec["body"] = url, title, str(a.get("body") or "")
                     if labels_missing:
                         rec["result"] = (f"created #{n} {url} "
                                           f"(labels missing: {label_str} — create them in {repo})")
@@ -1948,12 +1959,43 @@ def main(argv=None):
     return 0
 
 
+DIGEST_MODES = ("brief", "rollup")
+
+
+def send_digest(mode, records, env=None):
+    """The brief and the rollup are digests: besides the hub issue, send them
+    to every non-GitHub channel in squadhq.yml notifications.digest
+    (SQUADHQ_NOTIFY_DIGEST). Best effort; returns the channels it tried."""
+    env = os.environ if env is None else env
+    if mode not in DIGEST_MODES:
+        return []
+    from squadhq.interfaces import Notification
+    from squadhq.notify import fan_out, parse_targets
+    targets = [t for t in parse_targets(env.get("SQUADHQ_NOTIFY_DIGEST") or "")
+               if not t.startswith("github_issue")]
+    rec = next((r for r in records if r.get("kind") == "create_issue" and r.get("url")), None)
+    if not targets or rec is None:
+        return []
+    n = Notification(title=rec["title"], body_markdown=redact(rec.get("body") or "")[:3000], kind="digest",
+                     url=rec["url"], dedupe_key=f"{mode}:{_utc_today()}")
+    try:
+        results = fan_out(n, targets)
+    except Exception as e:
+        print(f"digest: not sent ({e!r})", flush=True)
+        return targets
+    for target, err in results.items():
+        print(f"digest -> {target}: {'ok' if err is None else 'FAILED ' + err}", flush=True)
+    return targets
+
+
 def _after_call(mode, reply_obj, usage_delta):
     reply = reply_obj.text
     actions, parsed_ok = parse_actions(reply)
     if not reply.strip() or not parsed_ok:
         _log_diagnostics(mode, reply_obj, parsed_ok, len(actions))
     results, ok, fail, records = execute(actions, dry_run=DRY_RUN)
+    if not DRY_RUN:
+        send_digest(mode, records)
 
     if DRY_RUN:
         if not parsed_ok:

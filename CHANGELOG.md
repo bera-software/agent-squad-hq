@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Budgets for coding agents (`squadhq.budget_gate`, in `agent-prep`): API-billed agent runs now stop at `budgets.monthly_usd` (one total with the hub loops), at a project's `per_project_usd` / `budget_usd`, and are capped per run by `per_run_usd` (Claude Code `--max-budget-usd`). `budgets.on_exceed` chooses pause, downgrade to the cheapest configured model, or notify. Subscription runs are not metered.
+- The Daily Brief and Weekly Rollup are also sent to the non-GitHub channels in `notifications.digest` (Slack, Teams, Discord, PagerDuty, webhook).
 - `squadhq.pin_install`: agents on the Node packs (node-next, node-api, react-vite, react-native-expo) can change dependency versions at exact versions only (`name@1.2.3`; no ranges, tags, URLs or flags), with install scripts off and the exact version saved, using the project's npm, pnpm or yarn. Plain `npm install` stays refused. Agents pick the newest patch without known advisories (a version bump stopped at a vulnerable `next` release). Dependency-upgrade tickets no longer stop at `needs-human`. Read-only registry lookups are allowed to choose versions and digests: `npm view` (Node packs) and `docker buildx imagetools inspect` (docker-k8s).
 - `squadhq.post_body`: agents post comments, issues and PRs whose body quotes code, prices or spans several paragraphs from a file in `.squadhq-out/` (Write tool), since `$` and backticks are refused in shell arguments and `--body-file` stays denied. Only regular files inside `.squadhq-out/` are accepted; the directory is git-excluded in every agent run. (A Product Owner comment quoting `next/font/local` was refused, leaving a ticket shaped without its "Why this matters".)
 - Stuck sweeper `merge_recheck`: a `risk:low` approved PR that self-merge sent to an approver only for failing checks has its merge decision re-run once every check's latest run passes (a transient failure no longer parks it for good).
@@ -17,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Changed
+- Hub loops count API-billed agent runs (the cost ledger) toward `budgets.monthly_usd`, not only their own usage.
+- Removed settings that nothing acted on: `org.operating_model`, `policies.release`, `policies.merge.risk_based.require_security_agent` and the `pii` area in `merge.always_human`. A config that still sets them validates with a "no longer used" warning; `squadhq init --operating-model` is gone.
 - Base-branch moves bring only PRs with auto-merge armed up to date. PRs waiting for a person are no longer updated (and their whole CI, plus any per-PR deploys, re-run) after every merge to the base; they are updated once when merged (GitHub's "Update branch" under a strict ruleset), and conflicts are still handled. The `ci-gate` requirement on an up-to-date branch is unchanged.
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 

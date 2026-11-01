@@ -37,7 +37,6 @@ from .model import (
     ProviderConf,
     Quality,
     Providers,
-    Release,
     RiskBased,
     Security,
     Tier,
@@ -241,7 +240,8 @@ def _org(v: _V, raw: Any) -> Org:
         v.err("org.approvers", "must list at least one approver", 'e.g. approvers: ["@acme/leads"]')
     elif "approvers" not in d:
         v.err("org.approvers", "is required", 'who may approve merges, e.g. approvers: ["@acme/leads"]')
-    o.operating_model = v.string(d, "operating_model", "org", "team", choices=R.OPERATING_MODELS)
+    if "operating_model" in d:
+        v.warn("org.operating_model", "is no longer used", "remove it; approvers and merge.mode decide who merges")
     o.dst = v.string(d, "dst", "org", "daylight", choices=R.DST_POLICIES)
     return o
 
@@ -573,24 +573,25 @@ def _policies(v: _V, raw: Any) -> Policies:
     m = Merge(mode=v.string(md, "mode", "policies.merge", "approvers", choices=R.MERGE_MODES))
     rd = v.mapping(md.get("risk_based"), "policies.merge.risk_based",
                    {"max_risk", "require_checks", "require_security_agent"})
+    if "require_security_agent" in rd:
+        v.warn("policies.merge.risk_based.require_security_agent", "is no longer used",
+               "remove it; the security gates in security.gates and require_checks are the check")
     m.risk_based = RiskBased(
         max_risk=v.string(rd, "max_risk", "policies.merge.risk_based", "low", choices=R.RISK_LEVELS),
         require_checks=v.str_list(rd, "require_checks", "policies.merge.risk_based",
                                   RiskBased().require_checks, choices=R.GATES),
-        require_security_agent=v.boolean(rd, "require_security_agent", "policies.merge.risk_based", True),
     )
+    if isinstance(md.get("always_human"), list) and "pii" in md["always_human"]:
+        v.warn("policies.merge.always_human", "'pii' is no longer a category (no path can show it)",
+               "remove it; mark personal-data code paths with a CODEOWNERS approver instead")
+        md = {**md, "always_human": [a for a in md["always_human"] if a != "pii"]}
     m.always_human = v.str_list(md, "always_human", "policies.merge", m.always_human, choices=R.ALWAYS_HUMAN_AREAS)
     if m.mode == "auto":
         v.warn("policies.merge.mode", "auto merges every reviewer-approved PR with no human click",
                "only use with a ruleset requiring `hub / ci-gate`; `squadhq doctor` checks it")
     p.merge = m
-    reld = v.mapping(d.get("release"), "policies.release", {"strategy", "promote_branch"})
-    p.release = Release(strategy=v.string(reld, "strategy", "policies.release", "merge_is_prod",
-                                          choices=R.RELEASE_STRATEGIES),
-                        promote_branch=v.string(reld, "promote_branch", "policies.release", ""))
-    if p.release.strategy == "promote_branch" and not p.release.promote_branch:
-        v.err("policies.release.promote_branch", "is required when strategy is promote_branch",
-              'e.g. promote_branch: "production"')
+    if "release" in d:
+        v.warn("policies.release", "is no longer used", "remove it; your own deploy pipelines decide releases")
     return p
 
 

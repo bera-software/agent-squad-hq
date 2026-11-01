@@ -120,7 +120,7 @@ def build() -> S:
         "agents": {"type": "object", "additionalProperties": _AGENT},
         "skills": {"type": "object", "additionalProperties": _AGENT, "description": "Per-project skill switches"},
         "merge_mode": _enum(R.MERGE_MODES, "Overrides policies.merge.mode for this project"),
-        "budget_usd": {"type": "number", "minimum": 0, "description": "Per-project budget." + RESERVED},
+        "budget_usd": {"type": "number", "minimum": 0, "description": "This project's monthly cap for API-billed agent runs (overrides budgets.per_project_usd)."},
         "quality": _obj({
             "arch": _enum(ARCH_MODES, "Architecture gate: auto = runs when the pack's arch config exists in the "
                           "repo; required = a missing config fails ci-gate; off = never", "auto"),
@@ -151,7 +151,7 @@ def build() -> S:
                                    "Users/teams who approve merges. Rendered to SQUADHQ_APPROVERS and "
                                    "projects[].merge.approvers; who may TRIGGER jobs is "
                                    "policies.triggers.allowed_associations."),
-                "operating_model": _enum(R.OPERATING_MODELS, "solo | team." + RESERVED, default="team"),
+                "operating_model": {"deprecated": True, "description": "No longer used; remove it."},
                 "dst": _enum(R.DST_POLICIES, "Which UTC offset crons are rendered for", "daylight"),
             }, required=["name", "approvers"]),
             "hub": _obj({
@@ -201,11 +201,11 @@ def build() -> S:
             "budgets": _obj({
                 "monthly_usd": {"type": "number", "minimum": 0, "default": 100},
                 "per_project_usd": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0},
-                                    "description": "Project name (or default) -> USD." + RESERVED},
+                                    "description": "Project name (or default) -> monthly USD for its API-billed agent runs."},
                 "per_run_usd": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0},
-                                "description": "Job -> USD per run." + RESERVED},
-                "on_exceed": _enum(R.ON_EXCEED, "Actions mode always pauses at monthly_usd; downgrade and "
-                                   "notify are" + RESERVED, default="pause"),
+                                "description": "Job name (or default) -> USD cap per API-billed agent run (Claude Code --max-budget-usd)."},
+                "on_exceed": _enum(R.ON_EXCEED, "At a monthly or project cap: pause agent runs, downgrade them to the "
+                                   "cheapest configured model, or notify and keep running", default="pause"),
             }),
             "trackers": _obj({
                 "default": _enum(R.TRACKERS, default="github"),
@@ -234,15 +234,11 @@ def build() -> S:
                     "risk_based": _obj({"max_risk": _enum(R.RISK_LEVELS, "Highest final risk that may "
                                                           "auto-merge", default="low"),
                                         "require_checks": _list(_enum(R.GATES)),
-                                        "require_security_agent": {"type": "boolean", "default": True,
-                                                                   "description": RESERVED.strip()}}),
+                                        "require_security_agent": {"deprecated": True, "description": "No longer used; remove it."}}),
                     "always_human": _list(_enum(R.ALWAYS_HUMAN_AREAS),
-                                          "Areas that never auto-merge, by risk path category ('pii' has no "
-                                          "detector yet)"),
+                                          "Areas that never auto-merge, by risk path category"),
                 }),
-                "release": _obj({"strategy": _enum(R.RELEASE_STRATEGIES, "merge_is_prod is the Actions "
-                                                   "behaviour; the others are" + RESERVED, default="merge_is_prod"),
-                                 "promote_branch": _str()}),
+                "release": {"deprecated": True, "description": "No longer used; remove it."},
             }),
             "security": _obj({"gates": {**_list(_enum(R.GATES)), "default": list(R.DEFAULT_GATES),
                                         "description": "Rendered to SQUADHQ_GATES"},

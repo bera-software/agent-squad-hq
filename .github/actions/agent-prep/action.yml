@@ -167,7 +167,7 @@ outputs:
     value: ${{ steps.seal.outputs.run || 'false' }}
   auth-mode:
     description: api | subscription | skip
-    value: ${{ steps.gate.outputs.auth_mode }}
+    value: ${{ steps.budget.outputs.auth_mode }}
   account:
     description: Pool account id the run uses ("" = the single credential). A slug, not a secret.
     value: ${{ steps.gate.outputs.account }}
@@ -218,6 +218,20 @@ runs:
         COMMENT_ON_SKIP: ${{ inputs.comment-on-skip }}
       run: python -P -m squadhq.capacity_gate resolve || true
 
+    - id: budget
+      if: inputs.run == 'true'
+      name: Budget (monthly, per project, per run)
+      shell: bash
+      env:
+        JOB: ${{ inputs.role }}
+        GH_TOKEN: ${{ inputs.ops-token }}
+        REPO: ${{ inputs.subject-repo || github.repository }}
+        AUTH_MODE: ${{ steps.gate.outputs.auth_mode }}
+        ISSUE_OR_PR: ${{ inputs.number }}
+        COMMENT_ON_SKIP: ${{ inputs.comment-on-skip }}
+      # Fails open: on any error the gate's auth_mode stands.
+      run: python -P -m squadhq.budget_gate check || echo "auth_mode=$AUTH_MODE" >> "$GITHUB_OUTPUT"
+
     - id: skill
       if: inputs.run == 'true' && inputs.skill != ''
       name: Render the skill prompt
@@ -244,7 +258,7 @@ runs:
         JOB: ${{ inputs.role }}
         GH_TOKEN: ${{ inputs.ops-token }}
         RUN_REPO: ${{ github.repository }}
-        MODEL_IN: ${{ inputs.model || steps.skill.outputs.model }}
+        MODEL_IN: ${{ steps.budget.outputs.model || inputs.model || steps.skill.outputs.model }}
       run: |
         if [ -n "$MODEL_IN" ]; then
           { echo "resolved_model=$MODEL_IN"; echo "used_fallback=false"; } >> "$GITHUB_OUTPUT"
@@ -267,7 +281,7 @@ runs:
         PROMPT_STATIC: ${{ inputs.prompt }}
         PLAN_DIR: ${{ runner.temp }}/squadhq-prep
         MODEL: ${{ steps.model.outputs.resolved_model }}
-        AUTH_MODE: ${{ steps.gate.outputs.auth_mode }}
+        AUTH_MODE: ${{ steps.budget.outputs.auth_mode }}
         ACCOUNT: ${{ steps.gate.outputs.account }}
         USED_FALLBACK: ${{ steps.model.outputs.used_fallback }}
         GUARD_ROLE: ${{ steps.skill.outputs.role || inputs.label-guard-role }}
@@ -275,6 +289,7 @@ runs:
         ALLOWED_BOTS: ${{ inputs.allowed-bots }}
         FAIL_ON_SKIP: ${{ inputs.fail-on-skip }}
         NUMBER: ${{ inputs.number }}
+        MAX_BUDGET_USD: ${{ steps.budget.outputs.max_budget_usd }}
       run: |
         set -euo pipefail
         mkdir -p "$PLAN_DIR"
@@ -296,7 +311,7 @@ runs:
             "used_fallback": E("USED_FALLBACK") or "false", "label_guard_role": E("GUARD_ROLE") or "",
             "push_branches": E("PUSH_BRANCHES") or "none", "allowed_bots": E("ALLOWED_BOTS") or "",
             "fail_on_skip": E("FAIL_ON_SKIP") == "true", "number": E("NUMBER") or "",
-            "account": E("ACCOUNT") or "",
+            "account": E("ACCOUNT") or "", "max_budget_usd": E("MAX_BUDGET_USD") or "",
         }
         with open(os.path.join(os.environ["PLAN_DIR"], "plan.json"), "w", encoding="utf-8") as f:
             json.dump(plan, f)
@@ -324,7 +339,7 @@ runs:
         echo "list=$list" >> "$GITHUB_OUTPUT"
 
     - id: agent-token
-      if: inputs.run == 'true' && steps.gate.outputs.auth_mode != 'skip'
+      if: inputs.run == 'true' && steps.budget.outputs.auth_mode != 'skip'
       name: Mint the agent token (repo-scoped, least permissions)
       uses: ./.squadhq/.github/actions/squadhq-token
       with:
@@ -358,7 +373,7 @@ runs:
 
     - id: hub-token
       # Both modes: contents:read on the hub only (the broker narrows to the same set).
-      if: inputs.run == 'true' && steps.gate.outputs.auth_mode != 'skip' && inputs.hub-read == 'true'
+      if: inputs.run == 'true' && steps.budget.outputs.auth_mode != 'skip' && inputs.hub-read == 'true'
       name: Mint a hub read token
       uses: ./.squadhq/.github/actions/squadhq-token
       with:
@@ -375,14 +390,14 @@ runs:
       shell: bash
       env:
         RUN_IN: ${{ inputs.run }}
-        AUTH_MODE: ${{ steps.gate.outputs.auth_mode }}
+        AUTH_MODE: ${{ steps.budget.outputs.auth_mode }}
         ACCOUNT: ${{ steps.gate.outputs.account }}
         AGENT_TOKEN: ${{ steps.agent-token.outputs.token }}
         HUB_TOKEN: ${{ steps.hub-token.outputs.token }}
         PLAN_DIR: ${{ runner.temp }}/squadhq-prep
         SINGLE_APP: ${{ steps.mode.outputs.single_app }}
         IKM_HANDOFF: ${{ inputs.handoff-key }}
-        IKM_LLM: ${{ steps.gate.outputs.auth_mode == 'api' && inputs.anthropic-api-key || inputs.claude-code-oauth-token }}
+        IKM_LLM: ${{ steps.budget.outputs.auth_mode == 'api' && inputs.anthropic-api-key || inputs.claude-code-oauth-token }}
         SALT: ${{ github.run_id }}:${{ inputs.artifact-name || format('squadhq-prep-{0}', github.job) }}
       run: |
         set -euo pipefail

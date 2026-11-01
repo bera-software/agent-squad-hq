@@ -30,7 +30,6 @@ from typing import Any
 
 from squadhq import __version__
 from squadhq.config import loader
-from squadhq.config import registry as R
 from squadhq.config import render as RN
 from squadhq.config.gh import Gh
 from squadhq.paths import hub_root
@@ -237,7 +236,7 @@ def _answers_from_flags(args: argparse.Namespace) -> Any:
                 p.packs = [x for x in ids.split(",") if x]
     return Answers(org_name=args.org_name or owner, owner=owner, hub_repo=args.hub_repo or f"{owner}/agent-squad-hq",
                    timezone=args.timezone or detect_timezone(), working_hours=args.working_hours,
-                   approvers=args.approver or [f"@{owner}"], operating_model=args.operating_model,
+                   approvers=args.approver or [f"@{owner}"],
                    auth=args.auth, monthly_usd=args.budget, app_slug=args.app_slug or "",
                    agent_app_slug=args.agent_app_slug or "", single_app=args.single_app, projects=projects,
                    token_broker=args.token_broker or "")
@@ -590,7 +589,6 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--timezone")
     i.add_argument("--working-hours", default="09:00-18:00")
     i.add_argument("--approver", action="append", help="repeatable: @user or @org/team")
-    i.add_argument("--operating-model", choices=R.OPERATING_MODELS, default="team")
     i.add_argument("--auth", choices=("api", "subscription"), default="api")
     i.add_argument("--budget", type=float, default=100.0)
     i.add_argument("--project", action="append", help="repeatable: owner/repo")

@@ -131,6 +131,13 @@ jobs:
           LMSTUDIO_API_KEY: ${{ secrets.LMSTUDIO_API_KEY }}
           SQUADHQ_MONTHLY_BUDGET_USD: ${{ vars.SQUADHQ_MONTHLY_BUDGET_USD || '50' }}
           MONTHLY_BUDGET_USD: ${{ vars.SQUADHQ_MONTHLY_BUDGET_USD || '50' }}
+          # Digest channels for the brief and the rollup (squadhq.yml notifications.digest).
+          SQUADHQ_NOTIFY_DIGEST: ${{ (inputs.mode == 'brief' || inputs.mode == 'rollup') && vars.SQUADHQ_NOTIFY_DIGEST || '' }}
+          SLACK_WEBHOOK_URL: ${{ (inputs.mode == 'brief' || inputs.mode == 'rollup') && secrets.SLACK_WEBHOOK_URL || '' }}
+          TEAMS_WEBHOOK_URL: ${{ (inputs.mode == 'brief' || inputs.mode == 'rollup') && secrets.TEAMS_WEBHOOK_URL || '' }}
+          DISCORD_WEBHOOK_URL: ${{ (inputs.mode == 'brief' || inputs.mode == 'rollup') && secrets.DISCORD_WEBHOOK_URL || '' }}
+          SQUADHQ_WEBHOOK_URL: ${{ (inputs.mode == 'brief' || inputs.mode == 'rollup') && secrets.SQUADHQ_WEBHOOK_URL || '' }}
+          SQUADHQ_WEBHOOK_SECRET: ${{ (inputs.mode == 'brief' || inputs.mode == 'rollup') && secrets.SQUADHQ_WEBHOOK_SECRET || '' }}
         run: python -P -m squadhq.agent_runner "$MODE"
       - if: always()
         uses: ./.github/actions/agent-post

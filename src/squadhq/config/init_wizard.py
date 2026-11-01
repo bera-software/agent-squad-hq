@@ -61,7 +61,6 @@ class Answers:
     timezone: str = "UTC"
     working_hours: str = "09:00-18:00"
     approvers: list[str] = field(default_factory=list)
-    operating_model: str = "team"
     auth: str = "api"
     monthly_usd: float = 100.0
     app_slug: str = ""
@@ -175,7 +174,6 @@ def generate_yaml(a: Answers) -> str:
         f"  timezone: {a.timezone}",
         f"  working_hours: {_q(a.working_hours)}",
         f"  approvers: {_flow(a.approvers)}",
-        f"  operating_model: {a.operating_model}",
         "",
         "hub:",
         f"  repo: {a.hub_repo}",
@@ -260,7 +258,6 @@ def interview(gh: Gh, ask: Ask = _default_ask, *, defaults: Answers | None = Non
     approvers = [x.strip() for x in ask("Approvers (comma-separated @user or @org/team)",
                                        ",".join(defaults.approvers) if defaults and defaults.approvers
                                        else (f"@{login}" if login else f"@{owner}")).split(",") if x.strip()]
-    model = "solo" if len(approvers) == 1 and "/" not in approvers[0] else "team"
     auth = ask("Anthropic auth: api (API key) or subscription (Claude Max token)",
                (defaults.auth if defaults else "") or "api")
     slug = ask("Ops GitHub App slug (routing and merges; login is <slug>[bot])",
@@ -287,7 +284,7 @@ def interview(gh: Gh, ask: Ask = _default_ask, *, defaults: Answers | None = Non
     except ValueError:
         budget_f = 100.0
     return Answers(org_name=org_name, owner=owner, hub_repo=hub_repo, timezone=tz, working_hours=hours,
-                   approvers=approvers, operating_model=model, auth=auth, monthly_usd=budget_f,
+                   approvers=approvers, auth=auth, monthly_usd=budget_f,
                    app_slug=slug, agent_app_slug=agent_slug, single_app=single, projects=projects)
 
 

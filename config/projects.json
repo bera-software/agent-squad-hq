@@ -15,6 +15,14 @@
     "wip_limit": 5,
     "review_fix_rounds": 2
   },
+  "budgets": {
+    "monthly_usd": 100.0,
+    "per_run_usd": {
+      "implement": 3.0,
+      "review": 1.0
+    },
+    "on_exceed": "pause"
+  },
   "projects": [
     {
       "name": "Storefront",

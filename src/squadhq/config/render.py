@@ -181,8 +181,7 @@ def _project_entry(cfg: Config, p: Project) -> dict[str, Any]:
     }
     if mode == "risk_based":
         rb = cfg.policies.merge.risk_based
-        e["merge"]["risk_based"] = {"max_risk": rb.max_risk, "require_checks": list(rb.require_checks),
-                                    "require_security_agent": rb.require_security_agent}
+        e["merge"]["risk_based"] = {"max_risk": rb.max_risk, "require_checks": list(rb.require_checks)}
     if p.product.brief_file:
         e["brief_file"] = p.product.brief_file
     switches = {**p.agents, **p.skills}
@@ -226,6 +225,9 @@ def render_projects(cfg: Config) -> dict[str, Any]:
         },
         # Read by squadhq.stuck_sweeper.wip_limit() (falls back to flows.yml).
         "policies": {"wip_limit": cfg.policies.wip_limit, "review_fix_rounds": cfg.policies.review_fix_rounds},
+        # Read by squadhq.budget_gate (agent jobs); per-project caps are projects[].budget_usd.
+        "budgets": {"monthly_usd": cfg.budgets.monthly_usd, "per_run_usd": dict(cfg.budgets.per_run_usd),
+                    "on_exceed": cfg.budgets.on_exceed},
         "projects": [_project_entry(cfg, p) for p in cfg.projects],
     }
 
@@ -363,6 +365,7 @@ def pool_secret_commands(cfg: Config, scope: str = "org") -> list[str]:
     return out
 
 
+ACTIONS_UNSENT_CHANNELS = ("email", "expo_push")
 RESERVED = "reserved (server mode only): validated, not enforced in Actions mode"
 
 
@@ -371,33 +374,15 @@ def reserved_notes(cfg: Config) -> list[str]:
     (yet). Only reported when set to something other than the default, so a
     plain config renders without noise. Shown by render and `doctor --check reserved`."""
     out: list[str] = []
-    b = cfg.budgets
-    if b.per_project_usd or any(p.budget_usd is not None for p in cfg.projects):
-        out.append(f"budgets.per_project_usd / projects[].budget_usd: {RESERVED}; Actions mode enforces only "
-                   "budgets.monthly_usd (SQUADHQ_MONTHLY_BUDGET_USD)")
-    if b.per_run_usd:
-        out.append(f"budgets.per_run_usd: {RESERVED}")
-    if b.on_exceed != "pause":
-        out.append(f"budgets.on_exceed: {b.on_exceed!r} is {RESERVED}; Actions mode always pauses at the cap")
-    if cfg.policies.release.strategy != "merge_is_prod":
-        out.append(f"policies.release.strategy: {cfg.policies.release.strategy!r} is {RESERVED}")
     if cfg.providers.executor not in R.ACTIONS_EXECUTORS:
         out.append(f"providers.executor: {cfg.providers.executor!r} is {RESERVED}; Actions mode runs claude-code")
-    if cfg.org.operating_model != "team":
-        out.append(f"org.operating_model: {RESERVED}")
-    modes = {p.merge_mode or cfg.policies.merge.mode for p in cfg.projects} or {cfg.policies.merge.mode}
-    rb = cfg.policies.merge.risk_based
-    if "risk_based" in modes and rb.require_security_agent:
-        out.append("policies.merge.risk_based.require_security_agent: reserved (server mode only); in Actions "
-                   "mode the security gates in security.gates are the check")
-    if "pii" in cfg.policies.merge.always_human:
-        out.append("policies.merge.always_human: 'pii' has no path detector yet; it does not block a merge")
-    # Escalations reach every channel (agent-post notifies SQUADHQ_NOTIFY_ESCALATIONS on failure).
-    other = [str(c) for c in cfg.notifications.digest if c.kind != "github_issue"]
-    if other:
-        out.append(f"notifications.digest: {', '.join(other)} rendered to SQUADHQ_NOTIFY_DIGEST; Actions "
-                   "workflows post the digest as a github_issue only (send others with "
-                   "`python -m squadhq.notify send`, or run server mode)")
+    # Actions workflows pass webhook secrets (Slack, Teams, Discord, PagerDuty, webhook) to the
+    # escalation and digest senders; email and phone push need SMTP / device stores (server mode).
+    for where, chans in (("escalations", cfg.notifications.escalations), ("digest", cfg.notifications.digest)):
+        other = [str(c) for c in chans if c.kind in ACTIONS_UNSENT_CHANNELS]
+        if other:
+            out.append(f"notifications.{where}: {', '.join(other)} not sent in Actions mode (no SMTP or "
+                       "device store there); use slack, teams, discord, pagerduty or webhook, or run server mode")
     return out
 
 

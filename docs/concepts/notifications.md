@@ -46,7 +46,9 @@ notifications:
   digest: [github_issue, "email:leads@acme.example"]
 ```
 
-!!! note "Validated, not wired yet"
-    `squadhq validate` checks these channel lists (known kinds, a target where one is needed, valid email addresses), but the Actions-mode workflows do not read them yet: escalations and digests go to GitHub issues as described above. To send elsewhere today, call `python -m squadhq.notify send` from your own workflow step, or run server mode.
+In Actions mode, `squadhq render` turns these lists into the `SQUADHQ_NOTIFY_ESCALATIONS` and `SQUADHQ_NOTIFY_DIGEST` variables:
 
-    The schema also accepts `discord:<url>`, but there is no Discord notifier. `pagerduty` and `expo_push` exist as notifiers but are not accepted in this section yet.
+- **Escalations:** when an agent or hub job fails, it notifies every channel in `escalations`.
+- **Digest:** the Daily Brief and the Weekly Rollup are posted as hub issues and also sent to every other channel in `digest`, with a link to the issue.
+
+Slack, Teams, Discord, PagerDuty and webhook channels read their secrets (`SLACK_WEBHOOK_URL` and the others above) from the hub's repository secrets. `email` and `expo_push` need an SMTP server or the server's device store, so they work in server mode only; `squadhq render` warns when you list them.

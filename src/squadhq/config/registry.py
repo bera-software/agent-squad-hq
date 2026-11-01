@@ -227,16 +227,14 @@ ASSOCIATIONS: tuple[str, ...] = (
 )
 MERGE_MODES: tuple[str, ...] = ("approvers", "risk_based", "auto")
 RISK_LEVELS: tuple[str, ...] = ("low", "medium", "high")
-RELEASE_STRATEGIES: tuple[str, ...] = ("merge_is_prod", "release_tag", "promote_branch")
 DEPLOY_TARGETS: tuple[str, ...] = (
     "vercel", "railway", "fly", "netlify", "render", "heroku", "k8s", "helm",
     "github-pages", "cloudflare", "aws", "gcp", "azure", "custom", "none",
 )
 ON_EXCEED: tuple[str, ...] = ("pause", "downgrade", "notify")
-OPERATING_MODELS: tuple[str, ...] = ("solo", "team")
 DST_POLICIES: tuple[str, ...] = ("daylight", "standard")
 ALWAYS_HUMAN_AREAS: tuple[str, ...] = (
-    "auth", "payments", "migrations", "workflows", "infra", "deps-major", "secrets", "pii",
+    "auth", "payments", "migrations", "workflows", "infra", "deps-major", "secrets",
 )
 
 # The single required check every project ruleset needs (stub job id `hub`).

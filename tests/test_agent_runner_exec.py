@@ -661,8 +661,14 @@ class SaveUsageTests(Base):
 class BudgetGuardTests(Base):
     def test_under_budget_noop(self):
         ar.BUDGET = 50.0
-        ar.budget_guard({"est_cost_usd": 1.0, "month": "m"}, "cos")
+        ar.budget_guard({"est_cost_usd": 1.0, "month": "m"}, "cos", ledger_usd=2.0)
         self.assertEqual(self.gh.calls, [])
+
+    def test_agent_runs_count_toward_the_cap(self):
+        ar.BUDGET = 3.0
+        self.gh.routes = [("issue list", ok("[]")), ("issue create", ok(f"https://github.com/{HQ}/issues/8"))]
+        with self.assertRaises(SystemExit):
+            ar.budget_guard({"est_cost_usd": 1.0, "month": "m"}, "cos", ledger_usd=2.5)
 
     def test_over_budget_dedups_and_exits(self):
         ar.BUDGET = 1.0
@@ -845,3 +851,26 @@ class AssociationTests(Base):
         w = []
         self.assertEqual(ar._associations(PROJ, w), {})
         self.assertTrue(w)
+
+
+class DigestTests(unittest.TestCase):
+    REC = {"kind": "create_issue", "url": "https://github.com/o/hub/issues/5", "title": "Daily Brief", "body": "hi"}
+
+    def test_brief_goes_to_non_github_channels(self):
+        with mock.patch("squadhq.notify.fan_out", return_value={"slack:#d": None}) as fan:
+            sent = ar.send_digest("brief", [{"kind": "comment"}, self.REC],
+                                  env={"SQUADHQ_NOTIFY_DIGEST": "github_issue;slack:#d"})
+        assert sent == ["slack:#d"]
+        n = fan.call_args.args[0]
+        assert (n.kind, n.url, n.title) == ("digest", self.REC["url"], "Daily Brief")
+
+    def test_other_modes_and_no_channels_send_nothing(self):
+        with mock.patch("squadhq.notify.fan_out") as fan:
+            assert ar.send_digest("cos", [self.REC], env={"SQUADHQ_NOTIFY_DIGEST": "slack:#d"}) == []
+            assert ar.send_digest("rollup", [self.REC], env={"SQUADHQ_NOTIFY_DIGEST": "github_issue"}) == []
+            assert ar.send_digest("rollup", [], env={"SQUADHQ_NOTIFY_DIGEST": "slack:#d"}) == []
+        fan.assert_not_called()
+
+    def test_send_failure_is_not_fatal(self):
+        with mock.patch("squadhq.notify.fan_out", side_effect=RuntimeError("down")):
+            assert ar.send_digest("brief", [self.REC], env={"SQUADHQ_NOTIFY_DIGEST": "slack:#d"}) == ["slack:#d"]

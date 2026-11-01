@@ -62,7 +62,7 @@ runs:
         import json, os
         plan = json.load(open(os.path.join(os.environ["PLAN_DIR"], "plan.json")))
         keys = ("role", "tool_profile", "allowed", "disallowed", "model", "auth_mode", "label_guard_role",
-                "push_branches", "allowed_bots")
+                "push_branches", "allowed_bots", "max_budget_usd")
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             for k in keys:
                 v = str(plan.get(k, "")).replace("\n", " ")
@@ -171,6 +171,7 @@ runs:
           --setting-sources user
           --allowedTools "${{ steps.plan.outputs.allowed }}"
           --disallowedTools "${{ steps.plan.outputs.disallowed }}"
+          ${{ steps.plan.outputs.max_budget_usd != '' && format('--max-budget-usd {0}', steps.plan.outputs.max_budget_usd) || '' }}
         prompt: ${{ steps.prompt.outputs.text }}
       env:
         # An ephemeral runner dies with the job; background subagents would be killed mid-work.

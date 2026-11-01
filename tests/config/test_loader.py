@@ -72,13 +72,13 @@ def test_unknown_key_suggestion():
 def test_bad_version_and_types():
     d = doc(version=2)
     d["org"]["working_hours"] = 450  # unquoted 07:30 style
-    d["org"]["operating_model"] = "swarm"
+    d["org"]["operating_model"] = "swarm"  # removed key: a warning, not an error
     d["org"]["timezone"] = "Mars/Base"
     _c, errs, _w = errors(d)
     by = {i.path: i for i in errs}
     assert "version" in by
     assert "quote" in by["org.working_hours"].hint
-    assert "allowed" in by["org.operating_model"].hint or "did you mean" in by["org.operating_model"].hint
+    assert "org.operating_model" not in by
     assert "org.timezone" in by
 
 
@@ -239,7 +239,17 @@ def test_policies():
                                         "merge": {"mode": "yolo", "always_human": ["everything"]},
                                         "release": {"strategy": "promote_branch"}}))
     assert {"policies.wip_limit", "policies.review_fix_rounds", "policies.triggers.allowed_associations[0]",
-            "policies.merge.mode", "policies.merge.always_human[0]", "policies.release.promote_branch"} <= paths(errs)
+            "policies.merge.mode", "policies.merge.always_human[0]"} <= paths(errs)
+
+
+def test_removed_keys_warn():
+    d = doc(policies={"merge": {"risk_based": {"require_security_agent": True}, "always_human": ["auth", "pii"]},
+                      "release": {"strategy": "release_tag"}})
+    d["org"]["operating_model"] = "solo"
+    cfg, errs, warns = errors(d)
+    assert not errs and cfg.policies.merge.always_human == ["auth"]
+    assert {"org.operating_model", "policies.release", "policies.merge.risk_based.require_security_agent",
+            "policies.merge.always_human"} <= paths(warns)
 
 
 def test_security():
