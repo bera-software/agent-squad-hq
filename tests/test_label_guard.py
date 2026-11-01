@@ -185,6 +185,29 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(os.stat(shim).st_mode & 0o777, 0o700)
         self.assertIn("/usr/bin/gh", open(shim).read())
 
+    def test_install_without_role_checks_outgoing_only(self):
+        import subprocess
+        import tempfile
+        from unittest import mock
+        d = tempfile.mkdtemp()
+        fake = os.path.join(d, "real-gh")
+        with open(fake, "w") as f:
+            f.write("#!/bin/sh\necho ran\n")
+        os.chmod(fake, 0o700)
+        with mock.patch.object(lg.shutil, "which", return_value=fake), \
+                mock.patch.dict(os.environ, {"RUNNER_TEMP": d, "GITHUB_STEP_SUMMARY": os.path.join(d, "s"),
+                                             "GITHUB_PATH": os.path.join(d, "p")}):
+            self.assertEqual(lg.main_args(["install"]), 0)
+        self.assertIn("without a role", open(os.path.join(d, "s")).read())
+        shim = os.path.join(open(os.path.join(d, "p")).read().split()[0], "gh")
+        env = {k: v for k, v in os.environ.items() if k != "GITHUB_WORKSPACE"}
+        run = lambda *a: subprocess.run([sys.executable, shim, *a], capture_output=True, text=True, env=env)  # noqa: E731
+        ok = run("issue", "edit", "1", "--add-label", "P0")
+        self.assertEqual((ok.returncode, ok.stdout.strip()), (0, "ran"))
+        leak = run("issue", "comment", "1", "--body", "token ghp_" + "a" * 36)
+        self.assertEqual(leak.returncode, 1)
+        self.assertIn("contains a secret", leak.stderr)
+
 
 
 class ForbiddenWriteTests(unittest.TestCase):

@@ -87,9 +87,10 @@ runs:
           case "$t" in "$ws"/*) ;; *) rm -f -- "$l"; echo "removed symlink $l -> outside the checkout" >> "$GITHUB_STEP_SUMMARY" ;; esac
         done
 
-    - if: steps.plan.outputs.label_guard_role != ''
-      name: Label guard
+    - name: Outgoing guard (label owners, secrets in posts)
       shell: bash
+      # Every role: a gh wrapper refuses posts that contain a secret. Labels are
+      # checked only when the job names a role.
       continue-on-error: true
       env:
         ROLE: ${{ steps.plan.outputs.label_guard_role }}

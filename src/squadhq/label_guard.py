@@ -20,7 +20,9 @@ Two enforcement points, same decision:
                 message the agent can read and act on; anything else is passed
                 to the real gh untouched. Blocking BEFORE the add (rather than
                 reverting after) means no race with another job labeling the
-                same item meanwhile.
+                same item meanwhile. Every agent job installs it; a job
+                without a role (skills, hub-repo agents) gets the outgoing
+                checks (secrets, pushes, merges, approvals) and no label check.
 
 Recognised add paths: `gh issue|pr edit --add-label`, `gh issue|pr create
 --label/-l`, `gh api` POST/PUT to .../labels or .../issues with labels fields
@@ -311,7 +313,7 @@ if refuse:
     print("label-guard: " + refuse, file=sys.stderr)
     sys.exit(1)
 labels, refuse = added_labels(argv, stdin_text)
-bad = blocked_labels(ROLE, labels, OWNERS)
+bad = blocked_labels(ROLE, labels, OWNERS) if ROLE else []
 if refuse or bad:
     why = refuse or ("role '%s' may not add %s — config/flows.yml labels.*.applied_by names who owns "
                      "each label. Leave it for its owner, or say in your comment what should happen." % (ROLE, bad))
@@ -344,8 +346,11 @@ def install(role):
         with open(gp, "a") as f:
             f.write(d + "\n")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
-    allowed = sorted(l for l in owners if may_add(role, l, owners))
-    msg = f"label-guard: installed for role `{role}` at {d} — may add: {', '.join(allowed) or 'nothing'}"
+    if role:
+        allowed = sorted(l for l in owners if may_add(role, l, owners))
+        msg = f"label-guard: installed for role `{role}` at {d} — may add: {', '.join(allowed) or 'nothing'}"
+    else:
+        msg = f"label-guard: installed at {d} without a role — labels unchecked; secrets, pushes and merges still refused"
     print(msg)
     if summary:
         with open(summary, "a") as f:
@@ -357,7 +362,7 @@ def main_args(argv=None):
     ap = argparse.ArgumentParser(prog="python -m squadhq.label_guard")
     sub = ap.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("install")
-    i.add_argument("--role", required=True)
+    i.add_argument("--role", default="", help="label owner role; empty checks outgoing content only")
     args = ap.parse_args(argv)
     return install(args.role)
 
