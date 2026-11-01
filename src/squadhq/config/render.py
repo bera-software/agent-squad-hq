@@ -392,12 +392,12 @@ def reserved_notes(cfg: Config) -> list[str]:
                    "mode the security gates in security.gates are the check")
     if "pii" in cfg.policies.merge.always_human:
         out.append("policies.merge.always_human: 'pii' has no path detector yet; it does not block a merge")
-    for where, chans in (("escalations", cfg.notifications.escalations), ("digest", cfg.notifications.digest)):
-        other = [str(c) for c in chans if c.kind != "github_issue"]
-        if other:
-            out.append(f"notifications.{where}: {', '.join(other)} rendered to SQUADHQ_NOTIFY_"
-                       f"{where.upper()}; Actions workflows post github_issue only (send others with "
-                       "`python -m squadhq.notify send`, or run server mode)")
+    # Escalations reach every channel (agent-post notifies SQUADHQ_NOTIFY_ESCALATIONS on failure).
+    other = [str(c) for c in cfg.notifications.digest if c.kind != "github_issue"]
+    if other:
+        out.append(f"notifications.digest: {', '.join(other)} rendered to SQUADHQ_NOTIFY_DIGEST; Actions "
+                   "workflows post the digest as a github_issue only (send others with "
+                   "`python -m squadhq.notify send`, or run server mode)")
     return out
 
 

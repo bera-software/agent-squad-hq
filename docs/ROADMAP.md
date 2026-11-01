@@ -12,15 +12,17 @@ This roadmap shows direction, not promises. Dates are not committed. Items move 
 - Hardened Actions pipeline: SHA-pinned actions, `permissions: {}`, repo-scoped agent tokens, tool profiles, branch and label guards, trigger gates, fork isolation.
 - SSDLC gates (gitleaks, Semgrep, OSV-Scanner, licences, Trivy, SBOM), deterministic risk floor and a fail-closed merge policy with human approval by default.
 - Untrusted-input fencing, skill catalogue, 17 stack packs, eval harness with a prompt-injection set.
-- Release workflow with SBOM, provenance, signed image and trusted publishing.
+- Release workflow with SBOM, provenance, signed image and trusted publishing; developer releases `0.1.0.dev2` to `0.1.0.dev5` on PyPI.
+- `squadhq.yml` policies acted on in Actions mode: `wip_limit`, `review_fix_rounds`, `merge.always_human`, `merge.risk_based` (`max_risk`, `require_checks`), `budgets.monthly_usd`, and escalation notifications to every configured channel.
+- Hub loops routed to any configured provider (`providers.routing` and `hub_loops` tiers, with fallback).
+- Workflow isolation: bookkeeping in separate jobs, `PYTHONSAFEPATH`, hashed dependency locks for workflow tools (`requirements/*.lock`), redaction of agent output in run summaries.
 
 **Remaining before 0.1.0**
 
-- First tagged release and PyPI publication.
-- Enforce or remove the `squadhq.yml` keys that are validated but not acted on (budgets per run and project, `on_exceed`, `wip_limit`, `review_fix_rounds`, `always_human`, `risk_based` thresholds, release strategy, notifications).
-- Route hub loops to non-Anthropic providers from `squadhq.yml` in Actions mode.
-- Complete workflow isolation: bookkeeping in a separate job, `PYTHONSAFEPATH`, secret scanning of outgoing agent content, a hashed dependency lock for workflows.
-- A fresh organisation reaches its first agent PR in under 15 minutes.
+- The 0.1.0 release itself.
+- Settings still validated but not enforced in Actions mode (`squadhq doctor --check reserved` lists the ones you set): `budgets.per_run_usd`, `budgets.per_project_usd` and `projects[].budget_usd`, `budgets.on_exceed` other than `pause`, `policies.release.strategy` other than `merge_is_prod`, `org.operating_model`, `merge.risk_based.require_security_agent`, the `pii` category in `merge.always_human`, and digest notifications to channels other than `github_issue`. Each gets enforced or removed.
+- Secret scanning of what agents post (comments, issue and PR bodies), beyond the existing secret scan of pushed code.
+- A fresh organisation reaches its first agent PR in under 15 minutes, measured end to end.
 
 ## Phase 2: hosted GitHub App (Cloud beta)
 

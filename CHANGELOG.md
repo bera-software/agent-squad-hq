@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 
 ### Fixed
+- `squadhq render` and `doctor --check reserved` no longer warn that escalation notifications to Slack, Teams, Discord, PagerDuty or webhooks are unsent in Actions mode: failed jobs already notify every escalation channel. The warning now covers digest notifications only.
 - Agent tokens request `checks: read` (the Agent App already holds it), so the reviewer and the Engineer can read CI results with `gh pr checks` instead of reporting them as unverified.
 - Changed-line coverage no longer fails when a PR regenerates a large file no coverage report measures (`graphify-out/`, JSON, lockfiles, Markdown): those files are left out of the diff before the 32 MB size cap applies.
 - Node packs: agents could not build or test a package in a subfolder (a `frontend/` pack root): `cd` and `npm --prefix` were refused, so a requested dependency bump stopped without a push. `npm --prefix <dir> ci|run|test` are allowed (absolute and parent paths stay refused).
