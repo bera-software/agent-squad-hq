@@ -2305,13 +2305,16 @@ jobs:
     # tickets). Any other bot ticket (e.g. self-actuated web research) is
     # labelled needs-triage for a human. `labeled agent:shape` re-runs intake.
     # Studio's work items (marker squadhq:work-item) are shaped and ordered by Studio: never intake.
+    needs: [author-trust]
     if: >-
+      always() &&
       github.event_name == 'issues' &&
       !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), ',po-shape,') &&
       !contains(github.event.issue.body, 'squadhq:work-item') &&
       ((github.event.action == 'opened' &&
         ((github.event.issue.user.type != 'Bot' &&
-          contains(format(',{0},', vars.SQUADHQ_TRUSTED_ASSOCIATIONS || 'OWNER,MEMBER,COLLABORATOR'), format(',{0},', github.event.issue.author_association))) ||
+          (contains(format(',{0},', vars.SQUADHQ_TRUSTED_ASSOCIATIONS || 'OWNER,MEMBER,COLLABORATOR'), format(',{0},', github.event.issue.author_association)) ||
+           needs.author-trust.outputs.trusted == 'true')) ||
          (github.event.issue.user.type == 'Bot' && github.event.issue.user.login == (vars.SQUADHQ_BOT_LOGIN || 'squadhq-ops[bot]') &&
           contains(github.event.issue.body, 'Originated-by:')))) ||
        (github.event.action == 'labeled' && github.event.label.name == 'agent:shape'))
@@ -2400,13 +2403,41 @@ jobs:
       id-token: write  # token broker (squadhq-token, ADR-0011)
     steps: *post-steps
 
+  author-trust:
+    # GitHub reports an organisation member with private membership as CONTRIBUTOR on
+    # issues they open in a repository they have committed to. Ask the repository for
+    # the author's permission instead: write, maintain or admin is trusted.
+    if: >-
+      github.event_name == 'issues' && github.event.action == 'opened' &&
+      github.event.issue.user.type != 'Bot' && github.event.issue.author_association == 'CONTRIBUTOR'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      trusted: ${{ steps.perm.outputs.trusted }}
+    steps:
+      - id: perm
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          perm=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" --jq .permission 2>/dev/null || echo none)
+          case "$perm" in admin|maintain|write) t=true ;; *) t=false ;; esac
+          echo "author permission: $perm (trusted=$t)" >> "$GITHUB_STEP_SUMMARY"
+          echo "trusted=$t" >> "$GITHUB_OUTPUT"
+
   external-triage:
     # Deterministic, no LLM: an issue from an untrusted author is labeled for a
     # human to look at instead of being shaped by an agent.
+    needs: [author-trust]
     if: >-
+      always() &&
       github.event_name == 'issues' && github.event.action == 'opened' &&
       github.event.issue.user.type != 'Bot' &&
-      !contains(format(',{0},', vars.SQUADHQ_TRUSTED_ASSOCIATIONS || 'OWNER,MEMBER,COLLABORATOR'), format(',{0},', github.event.issue.author_association))
+      !contains(format(',{0},', vars.SQUADHQ_TRUSTED_ASSOCIATIONS || 'OWNER,MEMBER,COLLABORATOR'), format(',{0},', github.event.issue.author_association)) &&
+      needs.author-trust.outputs.trusted != 'true'
     runs-on: ubuntu-latest
     permissions:
       issues: write
