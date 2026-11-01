@@ -118,6 +118,9 @@ _READ_ONLY = [
     "Bash(git status)", "Bash(git status *)", "Bash(git diff *)", "Bash(git log *)", "Bash(git show *)",
     "Bash(gh issue view *)", "Bash(gh issue list *)",
     "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
+    # Output filters: agents pipe test and command output through them ("npm test 2>&1 | tail"), and
+    # each part of a pipe is checked. Absolute and parent paths stay denied, so they read only the checkout.
+    "Bash(head *)", "Bash(tail *)", "Bash(wc *)",
     f"Edit({HANDOFF_DIR}/**)",
 ]
 _COMMENT = [
