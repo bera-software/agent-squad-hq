@@ -58,6 +58,9 @@ MAX_REPORT_BYTES = 64 * 1024 * 1024
 MAX_FILES = 200_000
 MAX_LINES = 20_000_000
 MAX_DIFF_BYTES = 32 * 1024 * 1024
+# Files no coverage report measures; left out of the diff so a regenerated
+# graph or lockfile (hundreds of MB of changed lines) cannot hit the size cap.
+DIFF_EXCLUDES = ("graphify-out/**", "**/*.json", "**/*.lock", "**/*-lock.yaml", "**/*.md", "**/*.svg", "**/*.map")
 FORMATS = ("lcov", "cobertura", "jacoco")
 MODES = ("enforce", "report", "off")
 
@@ -215,7 +218,8 @@ def git_diff(repo_dir: str, base: str, head: str) -> str:
             raise CoverageError(f"invalid git ref {ref!r}")
     r = subprocess.run(
         ["git", "-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv",
-         "--unified=0", "--diff-filter=AMR", "-M", base, head, "--"],
+         "--unified=0", "--diff-filter=AMR", "-M", base, head, "--", ".",
+         *(f":(exclude,glob){g}" for g in DIFF_EXCLUDES)],
         cwd=repo_dir, capture_output=True, timeout=300, check=False)
     if r.returncode != 0:
         raise CoverageError(f"git diff {base} {head} failed: {r.stderr.decode('utf-8', 'replace').strip()[:300]}")

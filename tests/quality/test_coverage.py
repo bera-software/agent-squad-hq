@@ -240,6 +240,22 @@ def test_diff_size_cap(tmp_path, monkeypatch):
         C.git_diff(str(repo), "HEAD^1", "HEAD")
 
 
+def test_diff_skips_files_no_report_measures(tmp_path, monkeypatch):
+    repo = tmp_path / "r"
+    (repo / "graphify-out").mkdir(parents=True)
+    git(repo, "init", "-q")
+    (repo / "a.py").write_text("x = 1\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "1")
+    (repo / "a.py").write_text("x = 1\ny = 2\n")
+    (repo / "graphify-out" / "graph.json").write_text("{}\n" * 5000)
+    (repo / "package-lock.json").write_text("{}\n" * 5000)
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "2")
+    monkeypatch.setattr(C, "MAX_DIFF_BYTES", 2000)
+    assert C.parse_diff(C.git_diff(str(repo), "HEAD^1", "HEAD")) == {"a.py": {2}}
+
+
 # ---------------------------------------------------------------- overall
 
 JACOCO_EMPTY = b'<?xml version="1.0"?><report name="root"><counter type="LINE" missed="0" covered="0"/></report>'
