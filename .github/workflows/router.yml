@@ -650,6 +650,15 @@ jobs:
           repository: ${{ env.HUB_REPO_IN }}
           ref: ${{ env.HUB_REF_IN }}
           path: .squadhq
+          # Inside the project checkout: leave out the hub's own apps and tests, so the
+          # project's test runner (vitest, jest, pytest) never collects them.
+          sparse-checkout: |
+            /*
+            !/apps/
+            !/tests/
+            !/evals/
+            !/docs/
+          sparse-checkout-cone-mode: false
           token: ${{ steps.hubtok.outputs.token || steps.hubtok-broker.outputs.token || github.token }}
           persist-credentials: false
       - if: steps.hub.outcome == 'success'
@@ -1584,6 +1593,15 @@ jobs:
           repository: ${{ env.HUB_REPO_IN }}
           ref: ${{ env.HUB_REF_IN }}
           path: .squadhq
+          # Inside the project checkout: leave out the hub's own apps and tests, so the
+          # project's test runner (vitest, jest, pytest) never collects them.
+          sparse-checkout: |
+            /*
+            !/apps/
+            !/tests/
+            !/evals/
+            !/docs/
+          sparse-checkout-cone-mode: false
           token: ${{ steps.ops.outputs.token || steps.ops-broker.outputs.token }}
           persist-credentials: false
       - &setup-hub
@@ -1704,6 +1722,15 @@ jobs:
           repository: ${{ env.HUB_REPO_IN }}
           ref: ${{ env.HUB_REF_IN }}
           path: .squadhq
+          # Inside the project checkout: leave out the hub's own apps and tests, so the
+          # project's test runner (vitest, jest, pytest) never collects them.
+          sparse-checkout: |
+            /*
+            !/apps/
+            !/tests/
+            !/evals/
+            !/docs/
+          sparse-checkout-cone-mode: false
           token: ${{ steps.tok.outputs.hub }}
           persist-credentials: false
       - if: steps.tok.outputs.hub != ''
