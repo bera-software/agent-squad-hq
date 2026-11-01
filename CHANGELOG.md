@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stub sync: opt-in `SQUADHQ_STUB_FOLLOW` (a hub branch such as `main`) makes projects track that branch instead of a pinned commit, so hub changes reach them without pin pull requests. Unset keeps the default SHA pin.
 
 ### Changed
+- Action pins: `actions/setup-python` 7.1.0, `anthropics/claude-code-action` 1.0.262, `docker/login-action` 4.7.0, `ruby/setup-ruby` 1.335.0 (the versions the reference hub already runs).
 - Hub loops count API-billed agent runs (the cost ledger) toward `budgets.monthly_usd`, not only their own usage.
 - Removed settings that nothing acted on: `org.operating_model`, `policies.release`, `policies.merge.risk_based.require_security_agent` and the `pii` area in `merge.always_human`. A config that still sets them validates with a "no longer used" warning; `squadhq init --operating-model` is gone.
 - Base-branch moves bring only PRs with auto-merge armed up to date. PRs waiting for a person are no longer updated (and their whole CI, plus any per-PR deploys, re-run) after every merge to the base; they are updated once when merged (GitHub's "Update branch" under a strict ruleset), and conflicts are still handled. The `ci-gate` requirement on an up-to-date branch is unchanged.
