@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 
 ### Fixed
+- Engineer: an `After: #N` dependency closed as completed without a PR (nothing needed changing) now counts as done, as the stuck sweeper already treated it; before, the Engineer stopped with "no PR yet".
 - Agent jobs checked the hub out into the project at `.squadhq/` with its own `apps/` and `tests/`, so a project's test runner (vitest, jest, pytest) collected the hub's test files and failed. The hub checkout inside project jobs now leaves out `apps/`, `tests/`, `evals/` and `docs/`.
 - Node packs: `npm ci --ignore-scripts` (and with `--prefix <dir>`) is allowed. Agents chose the safer form, and only plain `npm ci` was allowed, so an Engineer could not install dependencies and stopped.
 - Hub CI ran no Python tests in a hub created from the template, so engine changes made in a hub went untested. Lint, types and tests now run on hub pull requests, and the committed-config test checks a hub's `config/*.json` against its own `squadhq.yml`.

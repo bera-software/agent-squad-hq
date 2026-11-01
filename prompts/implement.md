@@ -105,6 +105,10 @@ number,state,headRefName,url`.
   normal.
 - **Closed without merge** → comment `dependency #<M> was closed without
   merge — this ticket may need re-scoping`, add `needs-human`, stop.
+- **No PR, and #<M> is closed as completed** (`gh issue view <M> -R <repo> --json
+  state,stateReason`: `CLOSED`, `COMPLETED`) → dependency satisfied: the work
+  was done another way or needed no change. Branch from the integration branch
+  as normal. Closed as `NOT_PLANNED` → treat it like a PR closed without merge.
 - **No PR yet** → comment `Blocked — dependency #<M> has no PR yet`, remove
   `agent:implement`, stop. Do not add `needs-human`; the sweeper
   re-dispatches once the dependency has a PR.
