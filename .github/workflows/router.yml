@@ -891,8 +891,12 @@ jobs:
           REPORT: ${{ matrix.coverage.path }}
           ROOT: ${{ matrix.root || '.' }}
           MIN: ${{ matrix.coverage.min_overall }}
+          # A missing report fails only in coverage mode "enforce"; otherwise it is a warning.
+          ENFORCE: ${{ matrix.quality.changed_coverage == 'enforce' }}
           KIT: ${{ runner.temp }}/squadhq-quality-kit
-        run: python3 -I "$KIT/coverage.py" overall --format "$FORMAT" --report "$REPORT" --root "$ROOT" --min "${MIN:-0}" --out "$RUNNER_TEMP/coverage-report"
+        run: |
+          opt=(); [ "$ENFORCE" = true ] || opt=(--optional)
+          python3 -I "$KIT/coverage.py" overall --format "$FORMAT" --report "$REPORT" --root "$ROOT" --min "${MIN:-0}" --out "$RUNNER_TEMP/coverage-report" "${opt[@]}"
       - if: always() && matrix.coverage.path != ''
         name: Keep the coverage report for the PR comment
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

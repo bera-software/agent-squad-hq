@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - PR coverage comment: one comment per PR, updated in place, from the hub's own parser for every stack's format (lcov from Vitest/Jest/Flutter/Rust, Cobertura from pytest-cov/.NET/Go/PHP/Ruby, JaCoCo/Kover), with each stack's overall and changed-lines coverage. Replaces the JaCoCo-only comment action, which said nothing for non-Java stacks.
 
 ### Fixed
+- Node packs: the build runs `tsc` only when the project has a `tsconfig.json`, and never lets `npx` download a package (`--no-install`). A JavaScript Vite project's CI downloaded an unrelated `tsc` package and failed. React/Vite tests collect coverage only when a coverage provider is installed.
+- Coverage gate: a missing coverage report fails CI only when the project's coverage mode is `enforce`; otherwise it is a warning, so a repository without coverage tooling is not blocked.
 - Studio's work items (issues with the `squadhq:work-item` marker) no longer go through Product Owner intake, on opening or from the stuck sweeper's "unshaped" re-fire: Studio shapes them and starts them in plan order.
 - Engineer: an `After: #N` dependency closed as completed without a PR (nothing needed changing) now counts as done, as the stuck sweeper already treated it; before, the Engineer stopped with "no PR yet".
 - Agent jobs checked the hub out into the project at `.squadhq/` with its own `apps/` and `tests/`, so a project's test runner (vitest, jest, pytest) collected the hub's test files and failed. The hub checkout inside project jobs now leaves out `apps/`, `tests/`, `evals/` and `docs/`.

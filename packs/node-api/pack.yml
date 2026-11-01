@@ -15,7 +15,7 @@ ci:
     kind: node
     version: "22"
   install: "npm ci"
-  build: "npx tsc --noEmit && npm run build --if-present"
+  build: "{ [ ! -f tsconfig.json ] || npx --no-install tsc --noEmit; } && npm run build --if-present"
   # Lint/format is its own gate ("lint" in ci-gate): the project's lint script
   # (or ESLint when only a config exists), then Prettier when configured.
   lint:

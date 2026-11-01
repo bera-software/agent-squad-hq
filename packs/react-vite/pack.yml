@@ -1,5 +1,5 @@
 id: react-vite
-name: React SPA (Vite, TypeScript)
+name: React SPA (Vite, TypeScript or JavaScript)
 detect:
   files: ["vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs"]
 paths:
@@ -15,14 +15,15 @@ ci:
     kind: node
     version: "22"
   install: "npm ci"
-  build: "npx tsc --noEmit && npm run build"
+  build: "{ [ ! -f tsconfig.json ] || npx --no-install tsc --noEmit; } && npm run build"
   # Lint/format is its own gate ("lint" in ci-gate): the project's lint script
   # (or ESLint when only a config exists), then Prettier when configured.
   lint:
     command: "if [ \"$(npm pkg get scripts.lint)\" != \"{}\" ]; then npm run lint; elif ls eslint.config.* .eslintrc* >/dev/null 2>&1; then npx --no-install eslint .; fi && { ! ls .prettierrc* prettier.config.* >/dev/null 2>&1 || npx --no-install prettier --check .; }"
     local: "npm run lint && npx --no-install prettier --check ."
     configs: ["package.json:\"lint\"", "eslint.config.*", ".eslintrc*", ".prettierrc*", "prettier.config.*"]
-  test: "npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text"
+  # Coverage needs its provider installed; without one the tests still run (the gate then warns).
+  test: "if [ -d node_modules/@vitest/coverage-v8 ] || [ -d node_modules/@vitest/coverage-istanbul ]; then npx --no-install vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text; else npx --no-install vitest run; fi"
   coverage:
     format: lcov
     path: "coverage/lcov.info"

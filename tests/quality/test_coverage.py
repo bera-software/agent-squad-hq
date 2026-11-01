@@ -306,6 +306,8 @@ def test_overall_without_any_report_fails_only_with_a_minimum(tmp_path, monkeypa
     monkeypatch.chdir(tmp_path)
     assert C.overall("jacoco", REL, ".", 60, None) == 1
     assert C.overall("jacoco", REL, ".", 0, None) == 0
+    # Coverage mode other than enforce: a project without coverage tooling gets a warning.
+    assert C.overall("jacoco", REL, ".", 60, None, require_report=False) == 0
 
 
 def test_overall_lcov_modules_under_a_pack_root(tmp_path, monkeypatch):

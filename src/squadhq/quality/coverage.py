@@ -551,9 +551,12 @@ def merge_jacoco(paths: list[str]) -> bytes:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
-def overall(fmt: str, path: str, root: str, minimum: float, out_dir: str | None, summary: str = "") -> int:
+def overall(fmt: str, path: str, root: str, minimum: float, out_dir: str | None, summary: str = "",
+            require_report: bool = True) -> int:
     """Overall line coverage gate. Writes the report it used to ``out_dir`` (one file,
-    named like the configured report) for the changed-lines and comment jobs."""
+    named like the configured report) for the changed-lines and comment jobs. With no report at
+    all it fails only when ``require_report`` (the project's coverage mode is ``enforce``);
+    otherwise a project without coverage tooling gets a warning, not a red build."""
     def out(msg: str) -> None:
         print(msg)
         if summary:
@@ -567,6 +570,10 @@ def overall(fmt: str, path: str, root: str, minimum: float, out_dir: str | None,
         return 0
     if not used:
         out(f"⏭ coverage: no {fmt} report with line data at `{path}` or in any module below `{root}`")
+        if not require_report:
+            out("⚠ coverage: not measured, so the minimum is not checked. Add the project's coverage tool "
+                "(for example @vitest/coverage-v8) to measure it.")
+            return 0
         return 1 if minimum > 0 else 0
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -594,6 +601,8 @@ def main(argv: list[str] | None = None) -> int:
     o.add_argument("--report", required=True, help="the configured report path (repo-relative)")
     o.add_argument("--root", default=".", help="the entry's root; module reports are searched below it")
     o.add_argument("--min", type=float, default=0.0)
+    o.add_argument("--optional", action="store_true",
+                   help="a missing report warns instead of failing (coverage mode is not enforce)")
     o.add_argument("--out", default=None, help="write the report used here, for the downstream jobs")
     o.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY") or "")
     c = sub.add_parser("changed", help="evaluate every ci-plan entry against the diff")
@@ -609,7 +618,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="also write a PR comment body here (every stack, marker first); never fails the run")
     a = ap.parse_args(argv)
     if a.cmd == "overall":
-        return overall(a.format, a.report, a.root, a.min, a.out, a.summary)
+        return overall(a.format, a.report, a.root, a.min, a.out, a.summary, require_report=not a.optional)
     try:
         matrix = json.loads(a.matrix if a.matrix is not None else os.environ.get("MATRIX") or "[]")
         if a.diff_file:
