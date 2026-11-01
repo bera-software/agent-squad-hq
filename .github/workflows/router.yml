@@ -2300,9 +2300,11 @@ jobs:
     # "Requested-by-association:" naming a trusted association (concierge
     # tickets). Any other bot ticket (e.g. self-actuated web research) is
     # labelled needs-triage for a human. `labeled agent:shape` re-runs intake.
+    # Studio's work items (marker squadhq:work-item) are shaped and ordered by Studio: never intake.
     if: >-
       github.event_name == 'issues' &&
       !contains(format(',{0},', vars.SQUADHQ_DISABLED_AGENTS), ',po-shape,') &&
+      !contains(github.event.issue.body, 'squadhq:work-item') &&
       ((github.event.action == 'opened' &&
         ((github.event.issue.user.type != 'Bot' &&
           contains(format(',{0},', vars.SQUADHQ_TRUSTED_ASSOCIATIONS || 'OWNER,MEMBER,COLLABORATOR'), format(',{0},', github.event.issue.author_association))) ||

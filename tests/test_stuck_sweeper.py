@@ -65,6 +65,10 @@ class IssueTests(unittest.TestCase):
     def test_self_actuated_bot_issue_is_intake(self):
         self.assertEqual(self.state(issue(bot=True, body="Originated-by: legal (x)"), ictx()), "unshaped")
 
+    def test_studio_work_item_is_not_intake(self):
+        body = "Originated-by: Agent Squad HQ Studio, plan v2\n<!-- squadhq:work-item p1/M4-4 -->"
+        self.assertIsNone(self.state(issue(["studio:planned", "size:S"], bot=True, body=body), ictx()))
+
     def test_triaged_or_verdict_is_not_unshaped(self):
         for l in ("triaged:ready", "verdict:backlog", "dept:backend", "P2", "debt-proposal"):
             self.assertIsNone(self.state(issue([l]), ictx()), l)

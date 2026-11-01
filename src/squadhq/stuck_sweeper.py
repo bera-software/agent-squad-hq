@@ -107,6 +107,8 @@ SHAPED_OR_NON_INTAKE_LABELS = {
     "verdict:decline", "verdict:overridden", "agent:implement", "needs-design",
     "debt", "debt-proposal", "escalation", "status:in-progress", "P0", "P1", "P2", "P3",
 }
+# Studio's planned work items carry this marker; Studio shapes and dispatches them, not PO intake.
+STUDIO_ITEM_MARK = "squadhq:work-item"
 PR_VERDICT_LABELS = {"ready-to-merge", "review:changes-requested", "needs-human", "needs-approver-merge"}
 CLOSES_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", re.I)
 GATE_FOR_RE = re.compile(r"Gate-for:\s*#(\d+)", re.I)
@@ -407,6 +409,8 @@ def classify_issue(issue, ctx, now, th):
 
     if labels & SHAPED_OR_NON_INTAKE_LABELS or any(l.startswith("dept:") for l in labels):
         return None
+    if STUDIO_ITEM_MARK in (issue.get("body") or ""):
+        return None  # a Studio work item: Studio shaped it and starts it in plan order
     author = issue.get("author") or {}
     if author.get("is_bot") and not (untrusted.by_automation(issue) and "Originated-by:" in (issue.get("body") or "")):
         # Mirrors po-shape's opened gate: bot issues are pre-shaped, unless OUR
