@@ -1682,6 +1682,7 @@ jobs:
       turns: ${{ steps.metrics.outputs.turns }}
       is-error: ${{ steps.metrics.outputs.is-error }}
       error-text: ${{ steps.metrics.outputs.error-text }}
+      tokens: ${{ steps.metrics.outputs.tokens }}
       verdict: ${{ steps.metrics.outputs.verdict }}
       verdict-risk: ${{ steps.metrics.outputs.verdict-risk }}
     steps: &agent-steps
@@ -1800,6 +1801,10 @@ jobs:
           out["is-error"] = "true" if res.get("is_error") else "false"
           text = str(res.get("result") or "") if res.get("is_error") else ""
           out["error-text"] = re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", text)[:300]
+          # Token counts for the run's usage report (the post job rebuilds the result from outputs).
+          u = res.get("usage") if isinstance(res.get("usage"), dict) else {}
+          out["tokens"] = ",".join(str(num(u.get(k), int)) for k in ("input_tokens", "output_tokens",
+                                   "cache_read_input_tokens", "cache_creation_input_tokens")) if u else ""
           # A reviewer delivers its verdict as data: the LAST verdict line of its
           # final message. review-post validates it and applies the labels.
           final = str(res.get("result") or "")
@@ -1903,6 +1908,7 @@ jobs:
           TURNS: ${{ join(needs.*.outputs.turns, '') }}
           IS_ERROR: ${{ join(needs.*.outputs.is-error, '') }}
           ERROR_TEXT: ${{ join(needs.*.outputs.error-text, '') }}
+          TOKENS: ${{ join(needs.*.outputs.tokens, '') }}
         run: |
           python -I - <<'PY'
           import json, os, re
@@ -1916,6 +1922,10 @@ jobs:
                  "is_error": is_error, "total_cost_usd": num(os.environ.get("COST"), float),
                  "duration_ms": num(os.environ.get("DURATION"), int), "num_turns": num(os.environ.get("TURNS"), int),
                  "result": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", os.environ.get("ERROR_TEXT") or "")[:300]}
+          tokens = (os.environ.get("TOKENS") or "").split(",")
+          if len(tokens) == 4 and all(t.isdigit() for t in tokens):
+              rec["usage"] = dict(zip(("input_tokens", "output_tokens", "cache_read_input_tokens",
+                                       "cache_creation_input_tokens"), map(int, tokens)))
           path = os.path.join(os.environ["RUNNER_TEMP"], "execution.json")
           json.dump([rec], open(path, "w"))
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:

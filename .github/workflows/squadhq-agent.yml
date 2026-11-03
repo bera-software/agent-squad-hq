@@ -508,6 +508,7 @@ jobs:
       turns: ${{ steps.metrics.outputs.turns }}
       is-error: ${{ steps.metrics.outputs.is-error }}
       error-text: ${{ steps.metrics.outputs.error-text }}
+      tokens: ${{ steps.metrics.outputs.tokens }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -613,6 +614,10 @@ jobs:
           out = {"cost-usd": f"{num(res.get('total_cost_usd'), float):.6f}", "duration-ms": str(num(res.get("duration_ms"), int)),
                  "turns": str(num(res.get("num_turns"), int)), "is-error": "true" if res.get("is_error") else "false",
                  "error-text": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", text)[:300]}
+          # Token counts for the run's usage report (the post job rebuilds the result from outputs).
+          u = res.get("usage") if isinstance(res.get("usage"), dict) else {}
+          out["tokens"] = ",".join(str(num(u.get(k), int)) for k in ("input_tokens", "output_tokens",
+                                   "cache_read_input_tokens", "cache_creation_input_tokens")) if u else ""
           # Denied tool calls: visible in the run, never silent.
           denials = res.get("permission_denials") if isinstance(res.get("permission_denials"), list) else []
           out["denials"] = str(len(denials))
@@ -721,6 +726,7 @@ jobs:
           TURNS: ${{ needs.run.outputs.turns }}
           IS_ERROR: ${{ needs.run.outputs.is-error }}
           ERROR_TEXT: ${{ needs.run.outputs.error-text }}
+          TOKENS: ${{ needs.run.outputs.tokens }}
         run: |
           python -I - <<'PY'
           import json, os, re
@@ -734,6 +740,10 @@ jobs:
                  "is_error": is_error, "total_cost_usd": num(os.environ.get("COST"), float),
                  "duration_ms": num(os.environ.get("DURATION"), int), "num_turns": num(os.environ.get("TURNS"), int),
                  "result": re.sub(r"[^A-Za-z0-9 .,:;_()/'-]", " ", os.environ.get("ERROR_TEXT") or "")[:300]}
+          tokens = (os.environ.get("TOKENS") or "").split(",")
+          if len(tokens) == 4 and all(t.isdigit() for t in tokens):
+              rec["usage"] = dict(zip(("input_tokens", "output_tokens", "cache_read_input_tokens",
+                                       "cache_creation_input_tokens"), map(int, tokens)))
           path = os.path.join(os.environ["RUNNER_TEMP"], "execution.json")
           json.dump([rec], open(path, "w"))
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
