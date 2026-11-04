@@ -206,7 +206,10 @@ jobs:
             /usr/bin/git diff --cached --binary "$default" -- . ':!.squadhq' ':!.squadhq-out' > "$OUT/change.patch" 2>/dev/null || true
           fi
           # Hand-off files (data): .squadhq-out/ in the checkout, /tmp from older prompts.
-          handoff() { for d in .squadhq-out /tmp; do [ -f "$d/$1" ] && [ ! -L "$d/$1" ] && [ ! -L "$d" ] && { /usr/bin/head -c "$2" "$d/$1" > "$OUT/$1"; return; }; done; }
+          # A missing file is not an error here (a no-change run writes no PR title; a missing
+          # findings file is escalated by the post job), so the loop ends with `return 0`: under
+          # `bash -e` the failed `[ -f ]` would otherwise be the function's status and end the step.
+          handoff() { for d in .squadhq-out /tmp; do [ -f "$d/$1" ] && [ ! -L "$d/$1" ] && [ ! -L "$d" ] && { /usr/bin/head -c "$2" "$d/$1" > "$OUT/$1"; return; }; done; return 0; }
           if [ "$DELIVER" = pr ] && [ "$OUTCOME" = success ]; then handoff pr-title.txt 20000; handoff pr-body.md 20000; fi
           if [ "$DELIVER" = findings ]; then handoff agent-findings.json 2000000; fi
           /usr/bin/python3 -I -S - <<'PY'
