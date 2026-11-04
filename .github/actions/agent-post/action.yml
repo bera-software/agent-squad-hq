@@ -209,6 +209,34 @@ runs:
               --title "Squad HQ: $JOB failed ($REPO)" --body-file - --url "$RUN_URL" \
               --dedupe-key "$REPO:$JOB" --project "$REPO" || true
 
+    - if: env.SQUADHQ_TOKEN_BROKER != '' && steps.norm.outputs.path != ''
+      name: Pull request the run worked on, for the usage report (best effort)
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.ops-token }}
+        REPO: ${{ inputs.repo || github.repository }}
+        NUMBER: ${{ inputs.issue-or-pr }}
+        EVENT_PR: ${{ github.event.pull_request.html_url || github.event.issue.pull_request.html_url }}
+        RESULT: ${{ steps.norm.outputs.path }}
+      # The PR is the event's, or (implement) the one on the agent's branch for the issue.
+      run: |
+        url="$EVENT_PR"
+        if [ -z "$url" ] && [[ "$NUMBER" =~ ^[0-9]+$ ]]; then
+          url=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:agent/issue-$NUMBER&state=all&per_page=1" \
+            --jq '.[0].html_url // ""' 2>/dev/null || true)
+        fi
+        [ -n "$url" ] || exit 0
+        PR_URL="$url" python3 -I - "$RESULT" <<'PY' || true
+        import json, os, re, sys
+        url = os.environ["PR_URL"]
+        if re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+", url):
+            data = json.load(open(sys.argv[1], encoding="utf-8"))
+            if isinstance(data, dict):
+                data["pr_url"] = url
+                json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+        PY
+
     - if: env.SQUADHQ_TOKEN_BROKER != '' && (inputs.auth-mode != '' || inputs.execution-file != '')
       name: Report usage to the token broker (best effort)
       shell: bash
