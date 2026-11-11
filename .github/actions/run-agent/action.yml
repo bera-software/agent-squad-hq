@@ -159,7 +159,7 @@ runs:
     - id: claude
       if: inputs.executor == 'claude-code' && steps.plan.outputs.auth_mode != 'skip'
       name: Run agent (claude-code)
-      uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+      uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
       with:
         anthropic_api_key: ${{ steps.plan.outputs.auth_mode == 'api' && inputs.anthropic-api-key || '' }}
         claude_code_oauth_token: ${{ steps.plan.outputs.auth_mode != 'api' && inputs.claude-code-oauth-token || '' }}
