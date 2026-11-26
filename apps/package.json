@@ -15,5 +15,9 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
+  },
+  "overrides": {
+    "postcss": "8.5.31",
+    "node-forge": "1.4.3"
   }
 }
